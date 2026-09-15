@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Imóveis</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Manrope:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+*{box-sizing:border-box}
+:root{
+  --cor:#C9A227; --bg:#0C0B09; --painel:#141210; --linha:#2A2620;
+  --txt:#EDE8DC; --meta:#8C8474;
+  --disp:"Marcellus",Georgia,serif; --corpo:"IBM Plex Sans",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+body.claro{--bg:#FAF8F4;--painel:#FFFFFF;--linha:#E4DFD5;--txt:#221F1A;--meta:#7C7365}
+body.moderna{--disp:"Manrope",system-ui,sans-serif}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:var(--corpo);line-height:1.6}
+a{color:inherit}
+.faixa{border-bottom:1px solid var(--linha);position:sticky;top:0;background:var(--bg);z-index:5}
+.dentro{max-width:1180px;margin:0 auto;padding:0 20px}
+.topo{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 0;flex-wrap:wrap}
+.logo{font-family:var(--disp);font-size:22px;letter-spacing:.1em;color:var(--cor);text-decoration:none}
+.logo small{display:block;font-family:var(--corpo);font-size:9px;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--meta);margin-top:3px}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:10px 16px;border-radius:8px;
+  border:1px solid var(--linha);background:transparent;color:var(--txt);cursor:pointer;
+  font:inherit;font-size:14px;text-decoration:none;transition:.15s}
+.btn:hover{border-color:var(--cor)}
+.btn.cheio{background:var(--cor);border-color:var(--cor);color:#15120C;font-weight:600}
+.capa{padding:70px 0 54px;border-bottom:1px solid var(--linha)}
+.capa h1{font-family:var(--disp);font-weight:400;font-size:clamp(30px,5vw,50px);line-height:1.15;margin:0 0 14px;max-width:18ch}
+.capa p{font-size:17px;color:var(--meta);max-width:54ch;margin:0 0 26px}
+.busca{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+.busca input,.busca select{padding:11px 13px;border-radius:8px;border:1px solid var(--linha);
+  background:var(--painel);color:var(--txt);font:inherit;font-size:14px;min-width:150px}
+.secao{padding:48px 0}
+.secao h2{font-family:var(--disp);font-weight:400;font-size:26px;margin:0 0 6px}
+.secao .sub{color:var(--meta);margin:0 0 26px;font-size:14px}
+.grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:20px}
+.cartao{background:var(--painel);border:1px solid var(--linha);border-radius:12px;overflow:hidden;
+  text-decoration:none;display:block;transition:.18s}
+.cartao:hover{transform:translateY(-3px);border-color:var(--cor)}
+.cartao img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:var(--linha)}
+.cartao .corpo{padding:15px 16px}
+.preco{font-family:var(--mono);font-size:19px;color:var(--cor);font-variant-numeric:tabular-nums}
+.cartao h3{font-size:15px;margin:7px 0 4px;font-weight:500}
+.cartao .loc{color:var(--meta);font-size:13px;margin:0}
+.specs{display:flex;gap:13px;margin-top:11px;padding-top:11px;border-top:1px solid var(--linha);
+  color:var(--meta);font-size:12px;font-family:var(--mono)}
+.sobre{background:var(--painel);border-top:1px solid var(--linha);border-bottom:1px solid var(--linha);padding:44px 0}
+.sobre p{max-width:62ch;margin:0;color:var(--txt)}
+.pe{padding:30px 0;color:var(--meta);font-size:13px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.vazio{padding:50px;text-align:center;color:var(--meta);border:1px dashed var(--linha);border-radius:12px}
+/* página de um imóvel */
+.det{padding:36px 0}
+.det .capa-img{width:100%;max-height:460px;object-fit:cover;border-radius:12px;border:1px solid var(--linha)}
+.det h1{font-family:var(--disp);font-weight:400;font-size:30px;margin:18px 0 6px}
+.linha-specs{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:1px;
+  background:var(--linha);border:1px solid var(--linha);border-radius:10px;overflow:hidden;margin:24px 0}
+.linha-specs div{background:var(--painel);padding:14px 16px}
+.linha-specs .k{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--meta)}
+.linha-specs .v{font-family:var(--mono);font-size:18px;margin-top:4px}
+@media(max-width:600px){.capa{padding:46px 0 36px}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const partes = location.pathname.split("/").filter(Boolean);   // site / slug [/ imovel / codigo]
+const slug = partes[1];
+const codigo = partes[2] === "imovel" ? partes[3] : null;
+const app = document.getElementById("app");
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const BRL = n => (Number(n)||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0});
+let dados = null, filtro = {q:"",tipo:"",bairro:"",ate:""};
+
+function filtrar(lista, f){
+  f = f || {};
+  return lista.filter(m =>
+    (!f.cidade || String(m.cidade||"").toLowerCase() === String(f.cidade).toLowerCase()) &&
+    (!f.tipos?.length || f.tipos.includes(m.tipo)) &&
+    (!f.bairros?.length || f.bairros.includes(m.bairro)) &&
+    (!f.precoMin || m.preco >= Number(f.precoMin)) &&
+    (!f.precoMax || m.preco <= Number(f.precoMax)) &&
+    (!f.somenteComFoto || m.foto));
+}
+
+const carregar = slug === "_previa"
+  // prévia: a configuração vem da tela de Sites, ainda sem publicar
+  ? (async () => {
+      const cfg = (window.parent && window.parent.__previaSite) || {};
+      const imoveis = await (await fetch("/api/imoveis")).json();
+      return { site: cfg, imoveis: filtrar(imoveis, cfg.filtro).slice(0, 24) };
+    })()
+  : fetch("/api/site-publico/"+encodeURIComponent(slug)).then(r=>{
+      if(!r.ok) throw new Error("Site não encontrado.");
+      return r.json();
+    });
+
+carregar.then(d=>{ dados = d; aplicarTema(); desenhar(); })
+  .catch(e=>{ app.innerHTML = `<div class="dentro" style="padding:80px 20px"><div class="vazio">${esc(e.message)}</div></div>`; });
+
+function aplicarTema(){
+  const s = dados.site;
+  document.body.classList.toggle("claro", s.fundo === "claro");
+  document.body.classList.toggle("moderna", s.fonte === "moderna");
+  document.documentElement.style.setProperty("--cor", s.cor || "#C9A227");
+  document.title = codigo ? "Imóvel " + codigo + " — " + s.nome : (s.titulo || s.nome);
+}
+
+const whatsLink = (texto) => {
+  const t = String(dados.site.whats||"").replace(/\D/g,"");
+  return t ? `https://wa.me/${t}?text=${encodeURIComponent(texto)}` : "";
+};
+
+function cabecalho(){
+  const s = dados.site;
+  const w = whatsLink("Olá! Vim pelo site.");
+  return `<div class="faixa"><div class="dentro"><div class="topo">
+    <a class="logo" href="/site/${esc(slug)}">${esc(s.nome)}<small>${esc(s.creci?("CRECI "+s.creci):"Imóveis")}</small></a>
+    ${w?`<a class="btn cheio" href="${w}" target="_blank" rel="noopener">Falar no WhatsApp</a>`:""}
+  </div></div></div>`;
+}
+
+function rodape(){
+  const s = dados.site;
+  return `<div class="dentro"><div class="pe">
+    <span>${esc(s.nome)}${s.creci?" · CRECI "+esc(s.creci):""}</span>
+    <span>${esc(s.endereco||"")}${s.email?" · "+esc(s.email):""}</span>
+  </div></div>`;
+}
+
+function desenhar(){
+  if(codigo) return desenharImovel();
+  const s = dados.site;
+  const todos = dados.imoveis;
+  const bairros = [...new Set(todos.map(m=>m.bairro).filter(Boolean))].sort();
+  const tipos = [...new Set(todos.map(m=>m.tipo).filter(Boolean))].sort();
+
+  const lista = todos.filter(m=>{
+    const t = (m.codigo+" "+m.tipo+" "+m.bairro).toLowerCase();
+    return (!filtro.q || t.includes(filtro.q.toLowerCase()))
+      && (!filtro.tipo || m.tipo===filtro.tipo)
+      && (!filtro.bairro || m.bairro===filtro.bairro)
+      && (!filtro.ate || m.preco <= Number(filtro.ate));
+  });
+
+  app.innerHTML = cabecalho() + `
+  <div class="capa"><div class="dentro">
+    <h1>${esc(s.titulo || "Encontre seu próximo imóvel")}</h1>
+    <p>${esc(s.subtitulo || "")}</p>
+    <div class="busca">
+      <input id="f-q" placeholder="Código, bairro ou tipo" value="${esc(filtro.q)}">
+      <select id="f-tipo"><option value="">Todos os tipos</option>${tipos.map(t=>`<option ${t===filtro.tipo?"selected":""}>${esc(t)}</option>`).join("")}</select>
+      <select id="f-bairro"><option value="">Todos os bairros</option>${bairros.map(b=>`<option ${b===filtro.bairro?"selected":""}>${esc(b)}</option>`).join("")}</select>
+      <select id="f-ate"><option value="">Qualquer valor</option>
+        ${[200000,300000,400000,600000,1000000].map(v=>`<option value="${v}" ${String(v)===filtro.ate?"selected":""}>até ${BRL(v)}</option>`).join("")}</select>
+    </div>
+  </div></div>
+
+  <div class="secao"><div class="dentro">
+    <h2>Imóveis disponíveis</h2>
+    <p class="sub">${lista.length} ${lista.length===1?"imóvel":"imóveis"}</p>
+    ${lista.length ? `<div class="grade">${lista.slice(0,60).map(cartao).join("")}</div>`
+      : `<div class="vazio">Nada encontrado com esses filtros.</div>`}
+  </div></div>
+
+  ${s.sobre?`<div class="sobre"><div class="dentro"><h2 style="font-family:var(--disp);font-weight:400;margin:0 0 12px">Sobre nós</h2><p>${esc(s.sobre)}</p></div></div>`:""}
+  ` + rodape();
+
+  const liga = (id, campo) => { const e=document.getElementById(id); if(e) e.oninput = e.onchange = ()=>{ filtro[campo]=e.value; desenhar(); }; };
+  liga("f-q","q"); liga("f-tipo","tipo"); liga("f-bairro","bairro"); liga("f-ate","ate");
+  const q = document.getElementById("f-q"); if(filtro.q && q){ q.focus(); q.selectionStart = q.value.length; }
+}
+
+function cartao(m){
+  return `<a class="cartao" href="/site/${esc(slug)}/imovel/${esc(m.codigo)}">
+    ${m.foto?`<img src="${esc(m.foto)}" alt="${esc(m.tipo+" em "+m.bairro)}" loading="lazy">`:""}
+    <div class="corpo">
+      <div class="preco">${BRL(m.preco)}</div>
+      <h3>${esc(m.tipo)} em ${esc(m.bairro)}</h3>
+      <p class="loc">${esc(m.cidade||"")} · cód. ${esc(m.codigo)}</p>
+      <div class="specs">
+        ${m.area?`<span>${m.area} m²</span>`:""}
+        ${m.quartos?`<span>${m.quartos} qto</span>`:""}
+        ${m.suites?`<span>${m.suites} suíte</span>`:""}
+        ${m.vagas?`<span>${m.vagas} vaga</span>`:""}
+      </div>
+    </div></a>`;
+}
+
+function desenharImovel(){
+  const m = dados.imoveis.find(x=>String(x.codigo)===String(codigo));
+  if(!m){ app.innerHTML = cabecalho()+`<div class="dentro" style="padding:70px 20px"><div class="vazio">Imóvel não encontrado neste site.</div></div>`+rodape(); return; }
+  const w = whatsLink(`Olá! Tenho interesse no imóvel ${m.codigo} — ${m.tipo} em ${m.bairro}`);
+  app.innerHTML = cabecalho() + `
+  <div class="det"><div class="dentro">
+    <a class="btn" href="/site/${esc(slug)}">← Voltar</a>
+    ${m.foto?`<img class="capa-img" src="${esc(m.foto)}" alt="${esc(m.tipo)}" style="margin-top:18px">`:""}
+    <h1>${esc(m.tipo)} em ${esc(m.bairro)}</h1>
+    <div class="preco" style="font-size:26px">${BRL(m.preco)}</div>
+    <p style="color:var(--meta);margin:6px 0 0">${esc(m.cidade||"")} · código ${esc(m.codigo)}</p>
+    <div class="linha-specs">
+      ${m.area?`<div><div class="k">Área</div><div class="v">${m.area} m²</div></div>`:""}
+      ${m.quartos?`<div><div class="k">Quartos</div><div class="v">${m.quartos}</div></div>`:""}
+      ${m.suites?`<div><div class="k">Suítes</div><div class="v">${m.suites}</div></div>`:""}
+      ${m.vagas?`<div><div class="k">Vagas</div><div class="v">${m.vagas}</div></div>`:""}
+    </div>
+    ${m.descricao?`<p style="max-width:62ch;white-space:pre-wrap">${esc(m.descricao)}</p>`:""}
+    ${w?`<a class="btn cheio" href="${w}" target="_blank" rel="noopener" style="margin-top:10px">Tenho interesse neste imóvel</a>`:""}
+  </div></div>` + rodape();
+}
+</script>
+</body>
+</html>

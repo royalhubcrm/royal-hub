@@ -1,0 +1,21 @@
+# Publicação no Render (render.com) — plano gratuito
+services:
+  - type: web
+    name: royal-hub
+    runtime: docker
+    plan: free
+    region: oregon
+    healthCheckPath: /login
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false          # você cola o valor no painel do Render
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: WEBHOOK_TOKEN
+        generateValue: true
+      - key: URL_PUBLICA
+        sync: false          # ex: https://royal-hub.onrender.com
+    disk:
+      name: dados
+      mountPath: /app/data   # o banco e as fotos ficam aqui, sem sumir a cada deploy
+      sizeGB: 1

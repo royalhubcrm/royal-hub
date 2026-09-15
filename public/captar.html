@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Encontre seu imóvel — Royal</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<main class="main" style="max-width:520px;margin:0 auto;padding-block:44px">
+  <p class="eyebrow" id="empresa">Royal Negócios Imobiliários</p>
+  <h1 style="font-family:var(--f-disp);font-weight:400;font-size:28px;margin:0 0 6px">Vamos achar seu imóvel</h1>
+  <p class="muted">Preencha e falamos com você pelo WhatsApp.</p>
+  <div class="card" style="margin-top:20px">
+    <div style="display:flex;flex-direction:column;gap:13px">
+      <div class="field"><label for="p-nome">Seu nome</label><input id="p-nome" autocomplete="name"></div>
+      <div class="field"><label for="p-tel">WhatsApp</label><input id="p-tel" class="num" inputmode="tel" autocomplete="tel"></div>
+      <div class="field"><label for="p-int">O que você procura</label><textarea id="p-int" placeholder="Ex.: casa 3 quartos, Zona Leste, até 600 mil"></textarea></div>
+      <div><button class="btn primary" id="p-env">Enviar</button></div>
+      <div id="p-msg" class="muted"></div>
+    </div>
+  </div>
+</main>
+<script>
+const q = new URLSearchParams(location.search);
+fetch("/api/config").then(r=>r.json()).then(c=>{ if(c.empresa) document.getElementById("empresa").textContent = c.empresa; }).catch(()=>{});
+document.getElementById("p-env").onclick = async () => {
+  const nome = p_nome.value.trim(), telefone = p_tel.value.trim(), interesse = p_int.value.trim();
+  const msg = document.getElementById("p-msg");
+  if(!nome || !telefone){ msg.textContent = "Preencha nome e WhatsApp."; return; }
+  msg.textContent = "Enviando…";
+  try{
+    const r = await fetch("/api/captacao", {method:"POST",headers:{"content-type":"application/json"},
+      body: JSON.stringify({nome, telefone, interesse, campanha: q.get("c") || q.get("campanha") || ""})});
+    if(!r.ok) throw new Error();
+    document.querySelector(".card").innerHTML = "<p style='margin:0'>Recebido! Em breve entramos em contato pelo WhatsApp.</p>";
+  }catch(e){ msg.textContent = "Não consegui enviar agora. Tente novamente."; }
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Royal Hub</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="app">
+  <nav class="rail" id="rail">
+    <div class="brand"><b>ROYAL</b><span>Hub do corretor</span></div>
+    <button class="navbtn" data-v="dash"><i class="dot"></i>Painel</button>
+    <button class="navbtn" data-v="leads"><i class="dot"></i>Leads<em class="cnt" id="cnt-leads"></em></button>
+    <button class="navbtn" data-v="imoveis"><i class="dot"></i>Imóveis<em class="cnt" id="cnt-imv"></em></button>
+    <button class="navbtn" data-v="bot"><i class="dot"></i>Chatbot</button>
+    <button class="navbtn" data-v="conversas"><i class="dot"></i>Conversas<em class="cnt" id="cnt-conv"></em></button>
+    <button class="navbtn" data-v="captacao"><i class="dot"></i>Captação</button>
+    <button class="navbtn" data-v="gerencia" id="nav-gerencia" hidden><i class="dot"></i>Gerência</button>
+    <button class="navbtn" data-v="sites" id="nav-sites" hidden><i class="dot"></i>Sites</button>
+    <button class="navbtn" data-v="usuarios" id="nav-usuarios" hidden><i class="dot"></i>Usuários</button>
+    <button class="navbtn" data-v="config"><i class="dot"></i>Ajustes</button>
+    <div class="railfoot" id="railfoot">Carregando…</div>
+  </nav>
+  <main class="main" id="main"></main>
+</div>
+<div id="overlay"></div>
+<script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Imóvel — Royal Negócios Imobiliários</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/styles.css">
+<style>
+.pg{max-width:860px;margin:0 auto;padding-block:32px}
+.topo{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:26px}
+.marca b{font-family:var(--f-disp);font-size:20px;letter-spacing:.14em;color:var(--gold-soft);display:block;font-weight:400}
+.marca span{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted2)}
+.capa{width:100%;max-width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:var(--r);border:1px solid var(--line);display:block;background:var(--panel3)}
+.preco{font-family:var(--f-mono);font-size:32px;color:var(--gold-soft);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.titulo{font-family:var(--f-disp);font-weight:400;font-size:26px;margin:6px 0 2px}
+.specs{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:1px;background:var(--line-soft);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin:24px 0}
+.spec{background:var(--panel);padding:14px 16px}
+.spec .k{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted2)}
+.spec .v{font-family:var(--f-mono);font-size:19px;margin-top:5px}
+.desc{white-space:pre-wrap;line-height:1.65;color:#DCD6C8;max-width:65ch}
+.rodape{margin-top:32px;border-top:1px solid var(--line);padding-top:20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<main class="pg" id="pg">
+  <div class="topo">
+    <div class="marca"><b>ROYAL</b><span id="empresa">Negócios Imobiliários</span></div>
+    <span class="pill mono" id="cod"></span>
+  </div>
+  <div id="corpo"><p class="muted">Carregando…</p></div>
+</main>
+<script>
+const codigo = decodeURIComponent(location.pathname.split("/").pop());
+const BRL = n => (Number(n)||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0});
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+Promise.all([
+  fetch("/api/imoveis/"+encodeURIComponent(codigo)).then(r=>r.ok?r.json():Promise.reject(new Error("Imóvel não encontrado."))),
+  fetch("/api/config").then(r=>r.json()).catch(()=>({}))
+]).then(([m,c])=>{
+  document.title = (m.tipo||"Imóvel")+" em "+(m.bairro||"")+" — Royal";
+  document.getElementById("cod").textContent = "cód. "+m.codigo;
+  if(c.empresa) document.getElementById("empresa").textContent = c.empresa.replace(/^Royal\s*/i,"");
+  const tel = String(c.whats||"").replace(/\D/g,"");
+  const msg = encodeURIComponent("Olá! Tenho interesse no imóvel "+m.codigo+" — "+(m.tipo||"")+" em "+(m.bairro||""));
+  document.getElementById("corpo").innerHTML = `
+    ${m.foto?`<img class="capa" src="${esc(m.foto)}" alt="${esc((m.tipo||"Imóvel")+" em "+(m.bairro||""))}">`:""}
+    <div style="margin-top:22px">
+      <div class="preco">${m.preco?BRL(m.preco):"Sob consulta"}</div>
+      <h1 class="titulo">${esc(m.tipo||"Imóvel")} em ${esc(m.bairro||"")}</h1>
+      <p class="muted" style="margin:0">${esc(m.cidade||"")}${m.cidade?" - MG":""}</p>
+    </div>
+    <div class="specs">
+      ${m.area?`<div class="spec"><div class="k">Área</div><div class="v">${m.area} m²</div></div>`:""}
+      ${m.quartos?`<div class="spec"><div class="k">Quartos</div><div class="v">${m.quartos}</div></div>`:""}
+      ${m.suites?`<div class="spec"><div class="k">Suítes</div><div class="v">${m.suites}</div></div>`:""}
+      ${m.vagas?`<div class="spec"><div class="k">Vagas</div><div class="v">${m.vagas}</div></div>`:""}
+    </div>
+    ${m.descricao?`<div class="desc">${esc(m.descricao)}</div>`:""}
+    <div class="rodape">
+      <span>${esc(c.corretor||"")}${c.creci?" — CRECI "+esc(c.creci):""}</span>
+      ${tel?`<a class="btn primary" href="https://wa.me/${tel}?text=${msg}" target="_blank" rel="noopener">Falar no WhatsApp</a>`:""}
+    </div>`;
+}).catch(e=>{
+  document.getElementById("corpo").innerHTML = `<div class="empty">${esc(e.message)}</div>`;
+});
+</script>
+</body>
+</html>
