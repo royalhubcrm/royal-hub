@@ -809,6 +809,14 @@ function vGerencia(){
       <button class="btn sm ghost" onclick="abrirFicha('${esc(c.jid)}')">Ver</button>
     </div>`).join("") : `<div class="empty">Ninguém esperando resposta. Bom sinal.</div>`;
 
+  const duvidas = (g.duvidas||[]).length ? g.duvidas.slice(0,20).map(d=>`
+    <div class="lrow">
+      <span class="nm">${esc(d.pergunta)}
+        <div class="meta">${esc(d.nome||d.jid||"cliente")} · ${esc((d.criado_em||"").slice(0,10))}</div></span>
+      <button class="btn sm" onclick="responderDuvida('${esc(d.id)}')">Respondi</button>
+      ${d.jid?`<button class="btn sm ghost" onclick="abrirFicha('${esc(d.jid)}')">Ver</button>`:""}
+    </div>`).join("") : `<div class="empty">Nenhuma pergunta parada. A assistente deu conta de tudo.</div>`;
+
   const ficha = state.gerDet ? `
     <div class="card" style="margin-top:18px">
       <div class="convtopo"><h3 style="margin:0">Ficha do cliente</h3>
@@ -833,16 +841,31 @@ function vGerencia(){
     <div class="kpi"><div class="k">Compareceram</div><div class="v num" style="color:var(--quente)">${n.compareceram}</div><div class="s">confirmados por você</div></div>
     <div class="kpi"><div class="k">Faltaram</div><div class="v num">${n.faltaram}</div><div class="s">para remarcar</div></div>
     <div class="kpi"><div class="k">Esperando resposta</div><div class="v num">${g.paradas.length}</div><div class="s">clientes parados</div></div>
+    <div class="kpi"><div class="k">Perguntas para você</div><div class="v num">${(g.duvidas||[]).length}</div><div class="s">a assistente não soube</div></div>
   </div>
 
   <h3 style="margin:26px 0 12px">Próximos atendimentos</h3>
   <div class="agenda">${agenda}</div>
+
+  <div class="card" style="margin-top:22px">
+    <h3>Perguntas esperando você</h3>
+    <p class="meta" style="margin-top:0">Quando a assistente não sabe, ela não inventa: avisa o cliente que vai confirmar e larga a pergunta aqui.</p>
+    <div class="list">${duvidas}</div>
+  </div>
 
   <div class="cols" style="margin-top:22px">
     <div class="card"><h3>Imóveis que interessaram</h3><div class="list">${interesses}</div></div>
     <div class="card"><h3>Clientes esperando resposta</h3><div class="list">${paradas}</div></div>
   </div>
   ${ficha}`;
+}
+
+async function responderDuvida(id){
+  const resposta = prompt("O que é a resposta certa? (fica guardado para você lembrar)") ?? "";
+  try{
+    await api("/gerencia/duvida/"+encodeURIComponent(id), {method:"POST", body:JSON.stringify({resposta})});
+    carregarGerencia();
+  }catch(e){ alert(e.message); }
 }
 
 async function retomar(jid){
@@ -971,7 +994,8 @@ async function alternarBotConversa(jid, ativo){
 
 async function salvarRegras(){
   state.cfg = await api("/config", {method:"PUT", body:JSON.stringify({...state.cfg,
-    botModo: val("b-modo"), botHoraInicio: val("b-ini"), botHoraFim: val("b-fim")})});
+    botModo: val("b-modo"), botHoraInicio: val("b-ini"), botHoraFim: val("b-fim"),
+    botNumeros: val("b-numeros")})});
   carregarConversas();
 }
 
@@ -1035,6 +1059,12 @@ function vConversas(){
         <input id="b-fim" type="time" value="${esc(state.cfg.botHoraFim||"")}" onchange="salvarRegras()">
       </div>
       <div class="meta" style="align-self:end">Horário em branco = o dia inteiro.</div>
+      <div style="grid-column:1/-1">
+        <label for="b-numeros">Modo teste — responder só nestes números</label>
+        <input id="b-numeros" type="text" placeholder="ex: 34 98692024, 34 99999-0000"
+               value="${esc(state.cfg.botNumeros||"")}" onchange="salvarRegras()">
+        <div class="meta" style="margin-top:6px">Em branco, o bot segue a regra de cima e atende todo mundo. Com números aqui, ele só responde a eles — o resto fica esperando você.</div>
+      </div>
     </div>
   </div>
   <div class="cols conv">
