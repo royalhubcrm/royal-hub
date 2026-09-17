@@ -237,6 +237,24 @@ function vLeads(){
   :`<div class="empty">Nenhum lead com esses filtros.</div>`}`;
 }
 
+// monta a folha com os três primeiros imóveis da busca atual e abre para ver
+async function folhaPDF(){
+  const f = state.filtros;
+  const lista = state.imoveis.filter(m=>{
+    const t=(m.codigo+" "+m.tipo+" "+m.bairro+" "+(m.descricao||"")).toLowerCase();
+    return (!f.q||t.includes(f.q.toLowerCase())) && (!f.bairro||m.bairro===f.bairro) && (!f.tipo||m.tipo===f.tipo);
+  }).slice(0,3);
+  if(!lista.length) return alert("Nenhum imóvel na busca para montar a folha.");
+  try{
+    const r = await fetch("/api/imoveis/folha", {method:"POST", headers:{"content-type":"application/json"},
+      body: JSON.stringify({codigos: lista.map(m=>m.codigo)})});
+    if(!r.ok) throw new Error((await r.json().catch(()=>({}))).erro || "Não consegui montar a folha.");
+    const url = URL.createObjectURL(await r.blob());
+    window.open(url, "_blank");
+    setTimeout(()=>URL.revokeObjectURL(url), 60000);
+  }catch(e){ alert(e.message); }
+}
+
 function vImoveis(){
   const f = state.filtros;
   const bairros = [...new Set(state.imoveis.map(m=>m.bairro).filter(Boolean))].sort();
@@ -247,7 +265,7 @@ function vImoveis(){
   });
   return `
   <div class="head"><div><p class="eyebrow">Carteira</p><h1>Imóveis</h1><p>A base que o chatbot consulta para responder o cliente.</p></div>
-  <div style="display:flex;gap:9px"><button class="btn" onclick="abrirImportar()">Importar</button><button class="btn" onclick="baixarFotos(this)">Baixar fotos</button><button class="btn primary" onclick="novoImovel()">+ Imóvel</button></div></div>
+  <div style="display:flex;gap:9px"><button class="btn" onclick="folhaPDF()">Folha em PDF</button><button class="btn" onclick="abrirImportar()">Importar</button><button class="btn" onclick="baixarFotos(this)">Baixar fotos</button><button class="btn primary" onclick="novoImovel()">+ Imóvel</button></div></div>
   <div class="toolbar">
     <input id="fqi" placeholder="Buscar código, bairro, descrição" value="${esc(f.q)}" oninput="state.filtros.q=this.value;render();foco('fqi')">
     <select onchange="state.filtros.bairro=this.value;render()"><option value="">Todos os bairros</option>${bairros.map(b=>`<option ${f.bairro===b?"selected":""}>${esc(b)}</option>`).join("")}</select>
@@ -992,6 +1010,11 @@ async function alternarBotConversa(jid, ativo){
   carregarConversas();
 }
 
+async function alternarNaoPerturbe(jid, ativo){
+  await api("/wa/conversas/"+encodeURIComponent(jid)+"/nao-perturbe", {method:"POST", body:JSON.stringify({ativo})});
+  carregarConversas();
+}
+
 async function salvarRegras(){
   state.cfg = await api("/config", {method:"PUT", body:JSON.stringify({...state.cfg,
     botModo: val("b-modo"), botHoraInicio: val("b-ini"), botHoraFim: val("b-fim"),
@@ -1006,6 +1029,7 @@ async function alternarBotGeral(ligado){
 
 function estadoConversa(c){
   if(!c) return {txt:"—", cls:""};
+  if(c.nao_perturbe) return {txt:"não perturbe", cls:"frio"};
   if(!c.bot_ativo) return {txt:"bot desligado", cls:"frio"};
   if(c.pausado_ate && new Date(c.pausado_ate) > new Date()) return {txt:"você conduzindo", cls:"morno"};
   return {txt:"bot ativo", cls:"quente"};
@@ -1073,11 +1097,17 @@ function vConversas(){
       ${sel?`<div class="convtopo">
         <div><h3 style="margin:0">${esc(sel.nome||sel.telefone)}</h3>
           <span class="meta mono">${esc(sel.telefone)}</span></div>
-        <button class="btn sm ${sel.bot_ativo?'':'primary'}" onclick="alternarBotConversa('${esc(sel.jid)}', ${!sel.bot_ativo})">
-          ${sel.bot_ativo?'Desligar bot aqui':'Ligar bot aqui'}
-        </button>
+        <div style="display:flex;gap:8px">
+          <button class="btn sm ${sel.nao_perturbe?'primary':''}" onclick="alternarNaoPerturbe('${esc(sel.jid)}', ${!sel.nao_perturbe})">
+            ${sel.nao_perturbe?'Voltar a contatar':'Não perturbe'}
+          </button>
+          <button class="btn sm ${sel.bot_ativo?'':'primary'}" onclick="alternarBotConversa('${esc(sel.jid)}', ${!sel.bot_ativo})">
+            ${sel.bot_ativo?'Desligar bot aqui':'Ligar bot aqui'}
+          </button>
+        </div>
       </div>
-      <div class="meta" style="margin-bottom:10px">Estado: ${e.txt}${sel.pausado_ate && new Date(sel.pausado_ate)>new Date() ? " até "+new Date(sel.pausado_ate).toLocaleString("pt-BR") : ""}</div>`:""}
+      <div class="meta" style="margin-bottom:10px">Estado: ${e.txt}${sel.pausado_ate && new Date(sel.pausado_ate)>new Date() ? " até "+new Date(sel.pausado_ate).toLocaleString("pt-BR") : ""}${
+        sel.nao_perturbe ? " · não recebe mais mensagem automática" : (sel.retomadas ? " · já retomado "+sel.retomadas+"x" : "")}</div>`:""}
       <div class="convmsgs">${msgs}</div>
     </div>
   </div>`;
