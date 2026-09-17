@@ -152,6 +152,17 @@ CREATE TABLE IF NOT EXISTS conversas (
   criado_em TEXT
 );
 
+CREATE TABLE IF NOT EXISTS duvidas (
+  id TEXT PRIMARY KEY,
+  jid TEXT DEFAULT '',
+  lead_id TEXT DEFAULT '',
+  nome TEXT DEFAULT '',
+  pergunta TEXT DEFAULT '',
+  resposta TEXT DEFAULT '',
+  status TEXT DEFAULT 'Aberta',
+  criado_em TEXT
+);
+
 CREATE TABLE IF NOT EXISTS config (
   chave TEXT PRIMARY KEY,
   valor TEXT
@@ -169,6 +180,7 @@ const CONFIG_PADRAO = {
   estilo: "",
   botLigado: "1",
   botModo: "novos",          // todos | novos | anuncio
+  botNumeros: "",            // vazio = todos; com números, o bot só responde a eles
   botHoraInicio: "",         // ex: 08:00 (vazio = sem limite)
   botHoraFim: "",            // ex: 20:00
 };
@@ -280,9 +292,28 @@ export function waMarcarLido(jid) {
 }
 
 // O bot pode responder nesta conversa agora?
+// compara dois números de telefone pelo final, que é a parte que não muda
+// (com ou sem 55, com ou sem o 9, com ou sem DDD escrito de outro jeito)
+const soDigitos = (t) => String(t || "").replace(/\D/g, "");
+const mesmoNumero = (a, b) => {
+  a = soDigitos(a); b = soDigitos(b);
+  if (!a || !b) return false;
+  const n = Math.min(8, a.length, b.length);
+  return a.slice(-n) === b.slice(-n);
+};
+
 export function waPodeResponder(jid, primeiraMensagem = "") {
   const cfg = lerConfig();
   if (cfg.botLigado !== "1") return { pode: false, motivo: "chatbot desligado no sistema" };
+
+  // modo teste: com a lista preenchida, o bot só responde nesses números
+  const permitidos = String(cfg.botNumeros || "").split(/[,;\s]+/).filter(Boolean);
+  if (permitidos.length) {
+    const conversa = waLerConversa(jid);
+    const candidatos = [jid, conversa?.telefone, conversa?.nome];
+    const liberado = permitidos.some((p) => candidatos.some((c) => mesmoNumero(c, p)));
+    if (!liberado) return { pode: false, motivo: "fora da lista de números liberados" };
+  }
 
   // horário de atendimento
   if (cfg.botHoraInicio && cfg.botHoraFim) {
@@ -461,4 +492,28 @@ export function siteDoEndereco(host) {
     if (slug && slug !== "www") return lerSite(slug);
   }
   return null;
+}
+
+/* ---------------- dúvidas que o bot não soube responder ---------------- */
+export function salvarDuvida({ jid = "", leadId = "", nome = "", pergunta }) {
+  pergunta = String(pergunta || "").trim();
+  if (!pergunta) return null;
+  // não repete a mesma pergunta aberta da mesma conversa
+  const igual = db.prepare(
+    "SELECT id FROM duvidas WHERE jid = ? AND lower(pergunta) = lower(?) AND status = 'Aberta'"
+  ).get(jid, pergunta);
+  if (igual) return igual.id;
+  const id = novoId();
+  db.prepare(`INSERT INTO duvidas (id, jid, lead_id, nome, pergunta, resposta, status, criado_em)
+    VALUES (?,?,?,?,?,'','Aberta',?)`).run(id, jid, leadId, nome, pergunta, agora());
+  return id;
+}
+
+export const duvidasAbertas = () =>
+  db.prepare("SELECT * FROM duvidas WHERE status = 'Aberta' ORDER BY criado_em DESC").all();
+
+export function fecharDuvida(id, resposta = "") {
+  db.prepare("UPDATE duvidas SET status = 'Respondida', resposta = ? WHERE id = ?")
+    .run(String(resposta || ""), id);
+  return db.prepare("SELECT * FROM duvidas WHERE id = ?").get(id);
 }

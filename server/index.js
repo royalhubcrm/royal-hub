@@ -11,6 +11,7 @@ import {
   salvarAgendamento, listarAgendamentos, mudarStatusAgendamento, agendamentoParecido,
   registrarInteresse, interessesPorConversa, todosInteresses, conversasParadas,
   salvarSite, lerSite, lerSitePorId, listarSites, apagarSite, imoveisDoSite, siteDoEndereco,
+  salvarDuvida, duvidasAbertas, fecharDuvida,
   bancoBruto,
 } from "./db.js";
 import { sincronizarNoInicio, despedir, nuvemLigada, subirFotosLocais } from "./supabase.js";
@@ -494,10 +495,23 @@ function estiloDoCorretor() {
   catch { return ""; }
 }
 
-// Hora de Uberlândia (fuso de Brasília) — o cumprimento muda com o horário
-function horaDeUberlandia() {
-  return new Date().toLocaleTimeString("pt-BR",
-    { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+// ---- data e hora reais, fuso de Brasília ----
+const emUberlandia = (opcoes) =>
+  new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", ...opcoes });
+
+const horaDeUberlandia = () => emUberlandia({ hour: "2-digit", minute: "2-digit" });
+const dataPorExtenso = () =>
+  emUberlandia({ weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" });
+
+function amanhaPorExtenso() {
+  const d = new Date(Date.now() + 864e5);
+  return d.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "long", day: "2-digit", month: "2-digit" });
+}
+
+function diaDaSemanaAgora() {
+  const n = emUberlandia({ weekday: "short" }).toLowerCase();
+  return n.startsWith("dom") ? 0 : n.startsWith("seg") ? 1 : n.startsWith("ter") ? 2
+    : n.startsWith("qua") ? 3 : n.startsWith("qui") ? 4 : n.startsWith("sex") ? 5 : 6;
 }
 
 function saudacaoAgora() {
@@ -506,46 +520,165 @@ function saudacaoAgora() {
   return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
 }
 
-function instrucoes() {
+// Escolhe quais imóveis entram no prompt. Mandar a carteira inteira é caro e
+// atrapalha: aqui vai só o que tem a ver com o que o cliente falou.
+const semAcentoSimples = (t) =>
+  String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+function imoveisQueServem(procura = "") {
+  const todos = listarImoveis();
+  if (!todos.length) return [];
+  const texto = semAcentoSimples(procura);
+  if (!texto) return todos.slice(0, 60);
+
+  // código citado tem prioridade absoluta
+  const codigos = new Set((texto.match(/\b\d{4}\b/g) || []));
+  const citados = todos.filter((m) => codigos.has(String(m.codigo)));
+
+  let teto = 0;
+  const mMil = texto.match(/(\d{2,4})\s*(mil|k)\b/);
+  const mReal = texto.match(/r?\$?\s*([\d.]{6,})/);
+  if (mMil) teto = Number(mMil[1]) * 1000;
+  else if (mReal) teto = Number(mReal[1].replace(/\./g, ""));
+
+  const mQ = texto.match(/(\d)\s*(quarto|qto|dorm)/);
+  const quartos = mQ ? Number(mQ[1]) : 0;
+
+  const tipo = /\bcasa/.test(texto) ? "Casa"
+    : /apartamento|apto|\bap\b/.test(texto) ? "Apartamento"
+    : /lote|terreno/.test(texto) ? "Lote/Terreno"
+    : /chacara/.test(texto) ? "Chácara" : "";
+
+  const bairros = [...new Set(todos.map((m) => m.bairro).filter(Boolean))]
+    .filter((b) => texto.includes(semAcentoSimples(b)));
+
+  const combina = (m) =>
+    (!teto || (m.preco && m.preco <= teto * 1.1)) &&
+    (!quartos || (m.quartos || 0) >= quartos) &&
+    (!tipo || m.tipo === tipo) &&
+    (!bairros.length || bairros.includes(m.bairro));
+
+  const achados = todos.filter(combina);
+  const escolhidos = [...citados, ...achados.filter((m) => !codigos.has(String(m.codigo)))];
+  // sem nada específico, mostra um apanhado geral para ela não ficar cega
+  return (escolhidos.length ? escolhidos : todos).slice(0, 40);
+}
+
+/* ==========================================================================
+   O system prompt do chatbot. Montado a cada mensagem, com três partes:
+   as regras daqui, o arquivo server/estilo.md (a sua voz) e a carteira.
+   ========================================================================== */
+function instrucoes(procura = "") {
   const c = lerConfig();
-  const carteira = listarImoveis().slice(0, 80).map((m) =>
+  const assistente = c.assistente || "Camila";
+  const empresa = c.empresa || "Royal Negócios Imobiliários";
+  const corretor = c.corretor || "Ricardo";
+  const endereco = c.endereco || "R. José Nonato Ribeiro, 428 — Cazeca, Uberlândia-MG, 38400-066";
+
+  // a carteira vem filtrada pelo que o cliente falou; sem filtro, os primeiros 60
+  const ficha = (m) =>
     `${m.codigo} | ${m.tipo || "?"} | ${m.bairro || "?"}${m.cidade ? ", " + m.cidade : ""} | ` +
     `${m.preco ? "R$ " + m.preco.toLocaleString("pt-BR") : "sob consulta"} | ` +
     `${m.quartos} qto, ${m.suites} suíte, ${m.vagas} vaga, ${m.area} m²` +
-    `${m.descricao ? " | " + m.descricao.slice(0, 140) : ""}`
-  ).join("\n") || "(carteira vazia)";
+    `${m.descricao ? " | " + m.descricao.slice(0, 120) : ""}`;
 
-  return `Você atende clientes de imóveis pela ${c.empresa}, em Uberlândia/MG, como assistente do corretor ${c.corretor}${c.creci ? " (CRECI " + c.creci + ")" : ""}.
+  const lista = imoveisQueServem(procura);
+  const carteira = lista.map(ficha).join("\n") || "(carteira vazia)";
+  const fimDeSemana = [0, 6].includes(diaDaSemanaAgora());
 
-Agora em Uberlândia é ${horaDeUberlandia()} — o cumprimento certo neste momento é "${saudacaoAgora()}".
+  return `[AGORA — data real do sistema, absoluta; nunca calcule nem presuma]
+Hoje é ${dataPorExtenso()}, ${horaDeUberlandia()} em Uberlândia. Amanhã é ${amanhaPorExtenso()}.
+O cumprimento certo neste momento é "${saudacaoAgora()}".${fimDeSemana ? "\nHoje é fim de semana — o escritório está fechado; não marque atendimento para hoje." : ""}
 
-REGRA MAIS IMPORTANTE — não atropelar o cliente:
-- Um cliente que só disse algo genérico ("quero comprar uma casa", "oi", "vi seu anúncio")
-  ainda NÃO disse região, preço nem quantos quartos. NÃO ofereça imóvel nessa hora.
-- Antes de citar qualquer imóvel você precisa saber pelo menos a REGIÃO ou a FAIXA DE PREÇO.
-  Enquanto não souber, faça UMA pergunta e espere a resposta.
-- Na primeira mensagem: só o cumprimento do horário + uma pergunta. Sem imóvel, sem preço,
-  sem foto, sem link, sem duas perguntas juntas.
-- Exceção: se o cliente já citou um imóvel, um código ou o anúncio de um imóvel específico,
-  aí sim fale desse imóvel.
+Você é a ${assistente}, assistente do corretor ${corretor} na ${empresa}, em Uberlândia-MG, no WhatsApp. Fala no feminino ("obrigada"). Seu objetivo é levar a conversa até um ATENDIMENTO PRESENCIAL no escritório, com dia e hora marcados — é sentando com o ${corretor} que o negócio anda. Puxe pra lá com leveza, sem pressão: quem dá o ritmo é o cliente.
 
-Regras:
-- Português do Brasil, curto e direto, como mensagem de WhatsApp. No máximo 2 linhas por mensagem.
-- Uma ideia por mensagem. Nunca empilhe cumprimento, imóvel e perguntas no mesmo texto.
-- Faça no máximo UMA pergunta por mensagem.
-- Só ofereça imóveis da carteira abaixo, com os dados exatos da ficha. Nunca invente imóvel,
-  preço, metragem, quarto, vaga ou condição.
-- Só ofereça imóvel que bate com o que o cliente pediu. Se não bate, não ofereça:
-  diga que não tem no momento e pergunte se pode avisar quando chegar.
-- Sempre cite o código do imóvel quando indicar um.
-- Nunca prometa desconto, comissão ou aprovação de crédito — diga que o ${c.corretor} confirma.
-- Não responda o que o cliente não perguntou.
-${c.estilo ? "- Observação do corretor: " + c.estilo : ""}
+═══ 1. O CLIENTE CONDUZ ═══
+- Responda o que ele trouxe e PARE. Uma mensagem faz UMA coisa: nunca duas perguntas juntas, nunca cumprimento + imóvel + pergunta no mesmo texto.
+- Se vierem várias linhas de uma vez, responda à intenção mais recente do bloco todo, não só ao cumprimento.
+- "oi", "?", "bom dia" abrindo conversa: cumprimente e pergunte UMA coisa leve. Mas se o assunto já foi resolvido e vem agradecimento, despedida ou emoji sozinho ("obrigado", "valeu", "tá bom", 👍): responda curto e caloroso e ENCERRE ("Imagina, tô por aqui se precisar"). Nunca reabra o assunto — reagir errado a uma despedida entrega que é automático.
+- NUNCA REINICIE O ATENDIMENTO. Se ele corrigir um dado (bairro, valor, quartos, dia, horário) ou mudar de assunto e voltar, isso não zera nada: confirme só o item corrigido numa frase curta ("Anotei, até 250 então") e SIGA de onde vocês estavam. É proibido re-perguntar região, faixa de preço ou quantos quartos depois que ele já disse, e proibido reapresentar imóveis do zero.
+- Depois de mostrar o imóvel, convide para o atendimento presencial. Se ele hesitar ("vou pensar", achou caro, "depois"): reforce UMA vez, leve, e deixe a porta aberta ("quando quiser dar uma passada aqui é só me chamar"). Nunca insista repetindo nem soe vendedora.
 
-${estiloDoCorretor() ? "COMO O RICARDO ATENDE (siga fielmente, inclusive o jeito de escrever):\n" + estiloDoCorretor() : ""}
+═══ 2. COMO VOCÊ FALA ═══
+- Fale como gente ("a gente atende até as 18h", nunca "nosso horário de expediente é"), com contrações (pra, tá, tbm).
+- PROIBIDO tom de call center ("Como posso ajudá-lo?", "Estou à disposição", "Prezado").
+- Espelhe a energia dele: se é seco, seja curta. Nunca repita frase já usada nem comece duas mensagens igual.
+- Emoji na minoria das mensagens, no máximo 1, nunca em duas seguidas.
+- Na PRIMEIRA mensagem da conversa: cumprimente pelo horário e diga quem é ("${saudacaoAgora()}! Aqui é a ${assistente}, da ${empresa}"). Havendo conversa anterior, continue de onde parou: nunca recomece com "oi, tudo bem" nem repita seu nome. Se já sabe o nome dele, USE e nunca pergunte de novo.
+- Se perguntarem se é robô, admita leve ("Sou a assistente virtual da ${empresa}, mas pode falar comigo normal") e siga.
+- Se ele pedir para falar com o ${corretor} ou com uma pessoa: "Claro, já passo pro ${corretor} continuar com você" e pare por aí.
 
-CARTEIRA DE IMÓVEIS:
-${carteira}`;
+═══ 3. FORMATAÇÃO WHATSAPP ═══
+Negrito *texto* (UM asterisco, NUNCA **). Itálico _texto_. Nunca use #, ---, crase, ** nem marcador de lista ("* ", "- ", "• "). Linha em branco separa MENSAGENS: use só quando os assuntos forem distintos — a maioria das respostas é uma mensagem só.
+
+═══ 4. ${empresa.toUpperCase()} — FATOS ═══
+Escritório: ${endereco}. Atendimento presencial apenas com hora marcada, de segunda a sexta.
+${c.whats ? "WhatsApp: " + c.whats + "." : ""}
+Responda com segurança se ele perguntar, mas nunca puxe esses assuntos sozinha:
+- QUEM É: "Sou a ${assistente}, assistente do ${corretor}, proprietário da ${empresa}."
+- PRIMEIRO IMÓVEL: quem está comprando o primeiro imóvel tem 50% de desconto na documentação. Esse é o único desconto que existe e pode ser dito com segurança.
+- RENDA INFORMAL / AUTÔNOMO: não trava. "Consegue sim" — o ${corretor} é especialista em formalização de renda. Para comprovar: 6 meses de extrato bancário, ou contracheque.
+- APROVAÇÃO DE CRÉDITO: se ele não tem, não é problema — "o ${corretor} resolve isso pra você". Nunca prometa que vai ser aprovado.
+- ENTRADA, RENDA NECESSÁRIA, PARCELA, PRAZO, CUSTAS: não responda por mensagem. Desvie com leveza para o presencial ("esses números o ${corretor} prefere te passar pessoalmente, pra entender certinho o seu caso") e puxe o horário.
+
+═══ 5. CARTEIRA ═══
+Estes são os ÚNICOS imóveis que existem — vêm do sistema, em tempo real:
+${carteira}
+
+- NUNCA invente imóvel, bairro, metragem, quarto, vaga ou preço. Se for citar um dado, copie exatamente o que está na linha acima.
+- Imóvel que não aparece nessa lista não existe pra você. Não comente status, não diga "vou confirmar": redirecione com leveza para um que existe.
+- Sempre cite o código ao indicar um imóvel. No máximo DOIS imóveis por mensagem.
+
+═══ 6. DESCOBRIR ANTES DE OFERECER ═══
+A primeira coisa a descobrir é a REGIÃO (ou a faixa de preço). Pergunte isso antes de falar de imóvel nenhum — uma pergunta só, reagindo antes ao que ele disse.
+- Cliente que só disse "quero comprar uma casa", "oi" ou "vi seu anúncio" ainda NÃO disse nada. NÃO ofereça imóvel, preço, foto nem link nessa hora.
+- Com a região (ou o valor) na mão, aí sim mostre no máximo dois imóveis que BATEM com o que ele pediu. Se nada bate, diga que não tem no momento e ofereça avisar quando entrar.
+- Exceção: se ele já citou um imóvel, um código ou o anúncio de um imóvel específico, fale desse imóvel na hora.
+- Para mandar a foto, emita o marcador da seção 12. Nunca escreva "aqui está a foto" nem descreva em palavras que enviou algo.
+
+═══ 7. VALORES ═══
+Preço vem SEMPRE da carteira acima — nunca de memória, nunca do histórico, nunca arredondado. Fale o preço quando apresentar o imóvel ou quando ele perguntar; junto dele cabe o gancho do primeiro imóvel ("se for seu primeiro imóvel, a documentação sai com 50% de desconto").
+Nunca invente desconto, promoção, parcelamento, valor de entrada ou condição de pagamento. Se ele travar no preço ou achar caro, não negocie: convide com leveza para o atendimento presencial, que é onde o ${corretor} monta o cenário.
+
+═══ 8. NUNCA INVENTE ═══
+Só afirme o que está escrito aqui. Se ele perguntar algo que não está — condomínio, IPTU, documentação específica do imóvel, aceitar FGTS, permuta, financiamento de um banco específico, se aceita pet, o que mais tem no bairro — acolha, diga que confirma com o ${corretor} e emita [DUVIDA_RICARDO]{"pergunta":"<resumo curto>"} — o cliente nunca vê isso.
+Exemplo: "aceita FGTS?" → "Essa eu confirmo com o ${corretor} pra não te passar errado, já te aviso." [DUVIDA_RICARDO]{"pergunta":"Cliente quer saber se aceita FGTS"}
+
+═══ 9. A DÚVIDA DELE VEM PRIMEIRO ═══
+Se ele perguntar algo ainda não respondido, responda ANTES da sua próxima pergunta do fluxo, direto e curto ("Tem sim, 2 vagas! E qual região te atende melhor ?").
+
+═══ 10. MARCAR O ATENDIMENTO ═══
+Colete só o que FALTA, uma coisa por vez, reagindo antes.
+- NOME: se já sabe, confirme embutido, não pergunte.
+- DIA: se ele JÁ disse ("amanhã", "sexta", "dia 12"), NÃO pergunte o dia de novo — pergunte só o horário. Vale o inverso. Nunca presuma "hoje" se ele não disse.
+- Atendimento só de segunda a sexta. Antes de aceitar QUALQUER data, confira no bloco [AGORA] em que dia da semana ela cai — inclusive quando ele disser "amanhã". Se cair sábado ou domingo, não marque: diga com leveza e ofereça o próximo dia útil, com data.
+- Proponha horário concreto, inclusive quebrado ("18:30 fica bom ?"). Datas sempre em DD/MM.
+
+Confirmação (mensagem separada, varie a introdução):
+*Nome:* [nome]
+*Data:* [DD/MM]
+*Horário:* [horário]
+*Imóvel de interesse:* [tipo no bairro — cód. XXXX]
+*Local:* ${endereco}
+Feche pedindo confirmação (varie: "Pode confirmar ?", "Ficou certo ?").
+
+Só DEPOIS que ele confirmar, acrescente [AGENDAMENTO_CONFIRMADO]{"nome":"...","data":"AAAA-MM-DD","hora":"HH:MM","codigo":"XXXX"} — nunca antes da confirmação, nunca duas vezes, nunca junto de foto.
+
+═══ 11. MEMÓRIA DO CLIENTE ═══
+Sempre que descobrir um dado durável, acrescente no FINAL da resposta, em linha própria:
+[PERFIL]{"nome":"...","regiao":"...","teto":250000,"quartos":N,"tipo":"Casa|Apartamento|Lote/Terreno|Chácara","aprovacao":"sim|nao","preferencias":"..."}
+Inclua só os campos que descobriu. "teto" = quanto ele pode pagar, só o número. "preferencias" = texto livre com o resto. Assim que souber o nome, salve, pra nunca mais perguntar.
+
+═══ 12. CÓDIGOS INTERNOS ═══
+O cliente NUNCA vê: o sistema apaga antes de enviar. Formato exato, nunca dois iguais no mesmo texto.
+[ENVIAR_FOTO_IMOVEL_XXXX] manda a foto e a ficha do imóvel de código XXXX · [AGENDAMENTO_CONFIRMADO]{...} avisa o ${corretor} do atendimento · [DUVIDA_RICARDO]{...} pergunta sem resposta · [PERFIL]{...} salva os dados do cliente.
+Emitir o marcador é o ÚNICO jeito de mandar foto. Nunca descreva em palavras uma ação do sistema.
+
+═══ 13. GERAL ═══
+Sempre português, natural, sem pressão. Fora do horário comercial, não trate como impeditivo: converse normal e marque para o próximo dia útil.
+${c.estilo ? "\nObservação do " + corretor + ": " + c.estilo : ""}
+
+${estiloDoCorretor() ? "═══ 14. O JEITO DO " + corretor.toUpperCase() + " (siga fielmente, inclusive o modo de escrever) ═══\n" + estiloDoCorretor() : ""}`;
 }
 
 // Groq — alternativa gratuita (chave em console.groq.com/keys)
@@ -565,7 +698,7 @@ async function groqDescobrirModelo(chave) {
   return bons[0];
 }
 
-async function pedirGroq(mensagens, maxTokens = 600) {
+async function pedirGroq(mensagens, maxTokens = 600, procura = "") {
   const chave = process.env.GROQ_API_KEY;
   if (!chave) throw new Error("Sem GROQ_API_KEY.");
 
@@ -577,7 +710,7 @@ async function pedirGroq(mensagens, maxTokens = 600) {
         model: modelo,
         max_tokens: maxTokens,
         temperature: 0.7,
-        messages: [{ role: "system", content: instrucoes() }, ...mensagens],
+        messages: [{ role: "system", content: instrucoes(procura) }, ...mensagens],
       }),
     });
     if (!r.ok) {
@@ -605,7 +738,7 @@ async function pedirGroq(mensagens, maxTokens = 600) {
 }
 
 // Google Gemini — alternativa gratuita (chave em aistudio.google.com)
-async function pedirGemini(mensagens, maxTokens = 600) {
+async function pedirGemini(mensagens, maxTokens = 600, procura = "") {
   const chave = process.env.GEMINI_API_KEY;
   if (!chave) throw new Error("Sem GEMINI_API_KEY.");
   const modelo = process.env.GEMINI_MODEL || "gemini-2.0-flash";
@@ -615,7 +748,7 @@ async function pedirGemini(mensagens, maxTokens = 600) {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: instrucoes() }] },
+        systemInstruction: { parts: [{ text: instrucoes(procura) }] },
         contents: mensagens.map((m) => ({
           role: m.role === "assistant" ? "model" : "user",
           parts: [{ text: m.content }],
@@ -632,7 +765,7 @@ async function pedirGemini(mensagens, maxTokens = 600) {
 }
 
 // Usa a Anthropic se houver chave; senão tenta o Gemini.
-async function pedirIA(mensagens, maxTokens = 600) {
+async function pedirIA(mensagens, maxTokens = 600, procura = "") {
   const tentativas = [];
   if (process.env.ANTHROPIC_API_KEY) tentativas.push(pedirClaude);
   if (process.env.GROQ_API_KEY) tentativas.push(pedirGroq);
@@ -640,13 +773,13 @@ async function pedirIA(mensagens, maxTokens = 600) {
   if (!tentativas.length) throw new Error("Nenhuma chave de IA configurada no .env.");
   let ultimo;
   for (const tentar of tentativas) {
-    try { return await tentar(mensagens, maxTokens); }
+    try { return await tentar(mensagens, maxTokens, procura); }
     catch (e) { ultimo = e; }
   }
   throw ultimo;
 }
 
-async function pedirClaude(mensagens, maxTokens = 600) {
+async function pedirClaude(mensagens, maxTokens = 600, procura = "") {
   const chave = process.env.ANTHROPIC_API_KEY;
   if (!chave) throw new Error("Configure ANTHROPIC_API_KEY no arquivo .env para o chatbot funcionar.");
   const r = await fetch("https://api.anthropic.com/v1/messages", {
@@ -659,7 +792,7 @@ async function pedirClaude(mensagens, maxTokens = 600) {
     body: JSON.stringify({
       model: MODELO,
       max_tokens: maxTokens,
-      system: instrucoes(),
+      system: instrucoes(procura),
       messages: mensagens,
     }),
   });
@@ -737,20 +870,113 @@ function respostaLocal(mensagens) {
   return "Qual região mais te atende hoje ?";
 }
 
+/* ============ CÓDIGOS INTERNOS DA RESPOSTA ============
+   A IA escreve marcadores no meio do texto para pedir coisas ao sistema:
+   foto de um imóvel, agendamento confirmado, dado do cliente, dúvida para o
+   corretor. Aqui eles são lidos e APAGADOS — o cliente nunca vê. */
+function lerMarcadores(bruto) {
+  let texto = String(bruto || "");
+  const fotos = [];
+  const perfis = [];
+  const duvidas = [];
+  let agendamento = null;
+
+  texto = texto.replace(/\[ENVIAR_FOTO_IMOVEL[_\s-]*(\d{3,6})\]/gi, (_, codigo) => {
+    if (!fotos.includes(codigo)) fotos.push(codigo);
+    return "";
+  });
+
+  const comJson = (nome, aoAchar) => {
+    const re = new RegExp("\\[" + nome + "\\]\\s*(\\{[\\s\\S]*?\\})", "gi");
+    texto = texto.replace(re, (_, json) => {
+      try { aoAchar(JSON.parse(json)); } catch { /* json torto: ignora */ }
+      return "";
+    });
+    // marcador solto, sem json
+    texto = texto.replace(new RegExp("\\[" + nome + "\\]", "gi"), "");
+  };
+
+  comJson("AGENDAMENTO_CONFIRMADO", (o) => { agendamento = o; });
+  comJson("PERFIL", (o) => perfis.push(o));
+  comJson("DUVIDA_RICARDO", (o) => duvidas.push(o));
+  comJson("DUVIDA_EQUIPE", (o) => duvidas.push(o));          // aceita o nome antigo
+
+  texto = texto.replace(/\n{3,}/g, "\n\n").replace(/[ \t]+\n/g, "\n").trim();
+  return { texto, fotos, agendamento, perfis, duvidas };
+}
+
+// aplica no sistema o que a IA pediu
+function aplicarMarcadores(m, { jid = "", nome = "", telefone = "" }) {
+  const lead = jid
+    ? db.prepare("SELECT * FROM leads WHERE telefone = ?").get(telefone || jid.split("@")[0])
+    : null;
+
+  for (const p of m.perfis) {
+    if (!lead) continue;
+    const partes = [];
+    if (p.regiao) partes.push("região: " + p.regiao);
+    if (p.teto) partes.push("até R$ " + Number(p.teto).toLocaleString("pt-BR"));
+    if (p.quartos) partes.push(p.quartos + " quartos");
+    if (p.tipo) partes.push(p.tipo);
+    if (p.aprovacao) partes.push("aprovação: " + p.aprovacao);
+    if (p.preferencias) partes.push(p.preferencias);
+    const resumo = partes.join(" · ");
+    db.prepare("UPDATE leads SET nome = ?, interesse = ?, atualizado_em = ? WHERE id = ?")
+      .run(p.nome || lead.nome, resumo || lead.interesse, agora(), lead.id);
+    if (resumo) registrarHistorico(lead.id, "A assistente anotou: " + resumo);
+  }
+
+  if (m.agendamento) {
+    const a = m.agendamento;
+    if (!agendamentoParecido(jid, a.data || "", a.hora || "")) {
+      salvarAgendamento({
+        jid, lead_id: lead?.id || "", nome: a.nome || nome || lead?.nome || "",
+        telefone: telefone || (jid ? jid.split("@")[0] : ""),
+        data: a.data || "", hora: a.hora || "",
+        local: lerConfig().endereco || "Escritório",
+        como: "A assistente fechou na conversa" + (a.codigo ? " (imóvel " + a.codigo + ")" : ""),
+        marcado_por: "bot",
+      });
+      if (a.codigo) registrarInteresse(jid, String(a.codigo), lead?.id || "", "agendamento");
+      if (lead) registrarHistorico(lead.id, `Atendimento marcado pela assistente: ${a.data || "?"} ${a.hora || ""}`);
+    }
+  }
+
+  for (const d of m.duvidas) {
+    salvarDuvida({ jid, leadId: lead?.id || "", nome: nome || lead?.nome || "", pergunta: d.pergunta || d.duvida || "" });
+  }
+
+  for (const codigo of m.fotos) registrarInteresse(jid, String(codigo), lead?.id || "", "foto");
+  return m;
+}
+
 app.post("/api/chat", async (req, res) => {
   try {
-    const msgs = (req.body?.mensagens || [])
-      .filter((m) => m && m.texto)
-      .map((m) => ({ role: m.papel === "bot" ? "assistant" : "user", content: String(m.texto) }));
+    const cru = (req.body?.mensagens || []).filter((m) => m && m.texto);
+    const msgs = cru.map((m) => ({ role: m.papel === "bot" ? "assistant" : "user", content: String(m.texto) }));
     if (!msgs.length) return res.status(400).json({ erro: "Sem mensagem." });
+
+    // o que o cliente falou, para escolher quais imóveis entram no prompt
+    const procura = cru.filter((m) => m.papel !== "bot").map((m) => m.texto).join(" ").slice(-1200);
+    const { jid = "", nome = "", telefone = "" } = req.body || {};
+
+    let bruto, semIA = false, motivo = "";
     try {
-      const texto = await pedirIA(msgs);
-      return res.json({ texto });
+      bruto = await pedirIA(msgs, 600, procura);
     } catch (e) {
-      // sem chave, chave inválida ou API fora do ar: responde pelo modo local
       console.error("[chat] IA indisponível:", e.message);
-      return res.json({ texto: respostaLocal(msgs), semIA: true, motivo: e.message.slice(0, 300) });
+      bruto = respostaLocal(msgs); semIA = true; motivo = e.message.slice(0, 300);
     }
+
+    const m = lerMarcadores(bruto);
+    try { aplicarMarcadores(m, { jid, nome, telefone }); }
+    catch (e) { console.error("[chat] marcador:", e.message); }
+
+    const resposta = { texto: m.texto || "Me conta o que você procura que eu te ajudo.", fotos: m.fotos };
+    if (m.agendamento) resposta.agendamento = m.agendamento;
+    if (m.duvidas.length) resposta.duvidas = m.duvidas;
+    if (semIA) { resposta.semIA = true; resposta.motivo = motivo; }
+    res.json(resposta);
   } catch (e) {
     res.status(500).json({ erro: e.message });
   }
@@ -930,7 +1156,7 @@ app.get("/api/gerencia/resumo", (req, res) => {
   const paradas = conversasParadas(Number(req.query.dias) || 2)
     .filter((c) => c.ultimo_de === "cliente");
   res.json({
-    agenda, proximos, interesses: todosInteresses(), paradas,
+    agenda, proximos, interesses: todosInteresses(), paradas, duvidas: duvidasAbertas(),
     numeros: {
       marcados: agenda.filter((a) => a.status === "Marcado").length,
       compareceram: agenda.filter((a) => a.status === "Compareceu").length,
@@ -938,6 +1164,12 @@ app.get("/api/gerencia/resumo", (req, res) => {
       pelaIA: agenda.filter((a) => a.marcado_por === "bot").length,
     },
   });
+});
+
+// marca uma dúvida como respondida (e guarda o que você respondeu)
+app.post("/api/gerencia/duvida/:id", (req, res) => {
+  try { res.json(fecharDuvida(req.params.id, req.body?.resposta || "")); }
+  catch (e) { res.status(500).json({ erro: e.message }); }
 });
 
 // gera a mensagem de retomada para um cliente parado

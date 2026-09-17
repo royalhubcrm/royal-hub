@@ -17,7 +17,7 @@ const SEGREDO = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY || 
 export const nuvemLigada = () => Boolean(ENDERECO && SEGREDO);
 
 // tabelas pequenas: sobem inteiras (e o que sumiu aqui some lá)
-const INTEIRAS = ["config", "usuarios", "sessoes", "imoveis", "leads", "sites", "agendamentos", "wa_conversas"];
+const INTEIRAS = ["config", "usuarios", "sessoes", "imoveis", "leads", "sites", "agendamentos", "wa_conversas", "duvidas"];
 // tabelas que só crescem: sobem as linhas novas
 const CRESCENTES = ["historico", "conversas", "interesses", "wa_mensagens"];
 const TABELAS = [...INTEIRAS, ...CRESCENTES];

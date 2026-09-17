@@ -21,8 +21,6 @@ const SISTEMA = "http://localhost:" + (process.env.PORT || 3000);
 // endereço que o cliente abre no celular (troque quando publicar o sistema)
 const SISTEMA_PUBLICO = process.env.URL_PUBLICA || SISTEMA;
 
-// códigos de imóvel citados numa mensagem
-const codigosCitados = (texto) => [...new Set(String(texto).match(/\b\d{4}\b/g) || [])];
 const PAUSA_HORAS = Number(process.env.WA_PAUSA_HORAS || 6);
 const ESPERA_MIN = Number(process.env.WA_ESPERA_MIN || 6);
 const ESPERA_MAX = Number(process.env.WA_ESPERA_MAX || 14);
@@ -49,16 +47,16 @@ const registrar = (jid, de, texto, nome) =>
     body: JSON.stringify({ jid, de, texto, nome, pausarHoras: PAUSA_HORAS }),
   }).catch(() => null);
 
-async function responder(jid, texto) {
+async function responder(jid, texto, nome = "") {
   const h = historico.get(jid) || [];
   h.push({ papel: "cliente", texto });
   const j = await api("/api/chat", {
     method: "POST",
-    body: JSON.stringify({ mensagens: h.slice(-12) }),
+    body: JSON.stringify({ mensagens: h.slice(-12), jid, nome, telefone: numero(jid) }),
   });
   h.push({ papel: "bot", texto: j.texto });
   historico.set(jid, h.slice(-12));
-  return j.texto;
+  return j;                       // { texto, fotos, agendamento, duvidas }
 }
 
 async function virarLead(jid, nome, texto) {
@@ -141,7 +139,8 @@ async function conectar() {
       if (!estado.pode) { console.log("  · sem resposta: " + estado.motivo); continue; }
 
       try {
-        const resposta = await responder(jid, texto);
+        const j = await responder(jid, texto, nome);
+        const resposta = j.texto;
         await dormir((ESPERA_MIN + Math.random() * (ESPERA_MAX - ESPERA_MIN)) * 1000);
 
         // conferir de novo: você pode ter assumido a conversa nesse meio tempo
@@ -154,8 +153,8 @@ async function conectar() {
           await sock.sendMessage(jid, { text: parte.trim() });
           await dormir(1200 + Math.random() * 1800);
         }
-        // imóveis citados: manda a foto e o link da página própria
-        for (const codigo of codigosCitados(resposta).slice(0, 2)) {
+        // fotos: só as que a assistente pediu pelo marcador [ENVIAR_FOTO_IMOVEL_XXXX]
+        for (const codigo of (j.fotos || []).slice(0, 2)) {
           const m = await api("/api/imoveis/" + codigo).catch(() => null);
           if (!m) continue;
           // link só quando existe endereço público de verdade: ninguém abre localhost
@@ -178,6 +177,9 @@ async function conectar() {
             (r.agendamento.data || "sem data") + " " + (r.agendamento.hora || "")); })
           .catch(() => null);
         console.log("  bot: " + resposta.replace(/\n/g, " / ").slice(0, 140));
+        if (j.agendamento) console.log("  ✓ atendimento marcado pela assistente: " +
+          (j.agendamento.data || "") + " " + (j.agendamento.hora || ""));
+        for (const d of j.duvidas || []) console.log("  ? dúvida para você: " + (d.pergunta || ""));
       } catch (e) {
         console.log("  x " + e.message);
       }
