@@ -11,7 +11,9 @@ import {
   salvarAgendamento, listarAgendamentos, mudarStatusAgendamento, agendamentoParecido,
   registrarInteresse, interessesPorConversa, todosInteresses, conversasParadas,
   salvarSite, lerSite, lerSitePorId, listarSites, apagarSite, imoveisDoSite, siteDoEndereco,
+  bancoBruto,
 } from "./db.js";
+import { sincronizarNoInicio, despedir, nuvemLigada, subirFotosLocais } from "./supabase.js";
 import {
   PAPEIS, podeAcessar, criarUsuario, atualizarUsuario, apagarUsuario, listarUsuarios,
   contarUsuarios, lerUsuarioPorEmail, conferirSenha, abrirSessao, usuarioDaSessao,
@@ -456,6 +458,34 @@ function biscoito(req, token) {
 app.get("/api/config", (req, res) =>
   res.json({ ...lerConfig(), iaLigada: Boolean(process.env.ANTHROPIC_API_KEY || process.env.GROQ_API_KEY || process.env.GEMINI_API_KEY) }));
 app.put("/api/config", (req, res) => res.json(gravarConfig(req.body || {})));
+
+/* ============ ASSINATURA DOS DADOS ============
+   O painel pergunta aqui antes de baixar as listas grandes. Se a assinatura
+   for a mesma de antes, ele usa o que já está guardado no navegador e não
+   faz requisição à toa. */
+const resumo = (tabela, coluna = "atualizado_em") => {
+  const r = db.prepare(`SELECT COUNT(*) AS n, COALESCE(MAX(${coluna}),'') AS u FROM ${tabela}`).get();
+  return r.n + "|" + r.u;
+};
+
+const impressao = (texto) => {
+  let h = 5381;
+  for (let i = 0; i < texto.length; i++) h = ((h * 33) ^ texto.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+};
+
+app.get("/api/versao", (req, res) => {
+  const cfg = lerConfig();
+  delete cfg.tokenInterno;
+  res.json({
+    imoveis: resumo("imoveis"),
+    leads: resumo("leads"),
+    sites: resumo("sites"),
+    usuarios: resumo("usuarios", "ultimo_acesso"),
+    config: impressao(JSON.stringify(cfg)),
+    nuvem: nuvemLigada(),
+  });
+});
 
 /* ==================== CHATBOT ==================== */
 function estiloDoCorretor() {
@@ -973,6 +1003,15 @@ app.post("/api/imoveis/baixar-fotos", async (req, res) => {
   res.json({ baixadas: ok, falharam: falhou, total: lista.length });
 });
 
+// manda as fotos que ainda são arquivo local para o Storage do Supabase
+app.post("/api/imoveis/fotos-nuvem", async (req, res) => {
+  if (!nuvemLigada()) return res.status(400).json({ erro: "Supabase não configurado." });
+  try {
+    res.json(await subirFotosLocais(bancoBruto, fs, path,
+      [PASTA_FOTOS, path.join(raiz, "public", "fotos")]));
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
 /* ==================== SITES DOS CLIENTES ==================== */
 const CORES = { dourado: "#C9A227", azul: "#2F6FB5", verde: "#2E8B63", vinho: "#8E2F3F",
   preto: "#E8E4DA", laranja: "#D4762A", roxo: "#6B4E9B", terra: "#A6703F" };
@@ -1088,10 +1127,26 @@ app.get("/captar", (req, res) => res.sendFile(path.join(raiz, "public", "captar.
 app.get("/imovel/:codigo", (req, res) => res.sendFile(path.join(raiz, "public", "imovel.html")));
 app.use((req, res) => res.sendFile(path.join(raiz, "public", "index.html")));
 
+// Antes de abrir a porta: alinhar com o Supabase.
+// Se a nuvem tem dado, ela manda. Se está vazia, o que existe aqui sobe pra lá.
+await sincronizarNoInicio(bancoBruto);
+
+// As fotos que ainda estão em arquivo sobem para o Storage, em segundo plano.
+const PASTAS_DE_FOTO = [PASTA_FOTOS, path.join(raiz, "public", "fotos")];
+if (nuvemLigada())
+  subirFotosLocais(bancoBruto, fs, path, PASTAS_DE_FOTO,
+    (feitas, total) => console.log(`  Supabase: fotos ${feitas}/${total}`))
+    .then((r) => { if (r.subidas) console.log(`  Supabase: ${r.subidas} fotos agora estão na nuvem`); })
+    .catch(() => {});
+
+for (const sinal of ["SIGINT", "SIGTERM"])
+  process.on(sinal, async () => { await despedir(); process.exit(0); });
+
 app.listen(PORTA, () => {
   console.log("\n  ROYAL HUB rodando");
   console.log("  Painel:      http://localhost:" + PORTA);
   console.log("  Captação:    http://localhost:" + PORTA + "/captar");
   console.log("  Webhook:     POST http://localhost:" + PORTA + "/api/webhook/meta?token=" + WEBHOOK_TOKEN);
+  console.log("  Banco:       " + (nuvemLigada() ? "Supabase (nuvem) + cópia local" : "só local (data/royal.db)"));
   console.log("  Chatbot IA:  " + (process.env.ANTHROPIC_API_KEY ? "ligado (" + MODELO + ")" : process.env.GROQ_API_KEY ? "ligado (Groq)" : process.env.GEMINI_API_KEY ? "ligado (Gemini)" : "sem chave — respondendo pelo modo local") + "\n");
 });

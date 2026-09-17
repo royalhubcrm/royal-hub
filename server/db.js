@@ -4,12 +4,35 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { marcarMudanca } from "./supabase.js";
 
 const raiz = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const pastaDados = path.join(raiz, "data");
 if (!fs.existsSync(pastaDados)) fs.mkdirSync(pastaDados, { recursive: true });
 
-export const db = new DatabaseSync(path.join(pastaDados, "royal.db"));
+const bruto = new DatabaseSync(path.join(pastaDados, "royal.db"));
+export const bancoBruto = bruto;   // usado pela sincronização com a nuvem
+
+// Toda gravação avisa a nuvem. Quem chama continua escrevendo igual —
+// o aviso é automático, ninguém precisa lembrar de sincronizar.
+const tabelaDoComando = (sql) => {
+  const m = /^\s*(?:insert\s+or\s+\w+\s+into|insert\s+into|replace\s+into|update|delete\s+from)\s+["'`]?([a-z_]+)/i.exec(sql);
+  return m ? m[1].toLowerCase() : "";
+};
+
+export const db = {
+  exec: (sql) => bruto.exec(sql),
+  prepare(sql) {
+    const stmt = bruto.prepare(sql);
+    const tabela = tabelaDoComando(sql);
+    if (!tabela) return stmt;
+    return {
+      get: (...a) => stmt.get(...a),
+      all: (...a) => stmt.all(...a),
+      run: (...a) => { const r = stmt.run(...a); marcarMudanca(tabela); return r; },
+    };
+  },
+};
 
 db.exec(`
 PRAGMA journal_mode = WAL;
