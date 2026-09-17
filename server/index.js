@@ -24,6 +24,7 @@ import {
 } from "./auth.js";
 import { enviarEmail, emailConfigurado } from "./email.js";
 import { folhaDeImoveis } from "./pdf.js";
+import { buscarNaChave7, chave7Ligada } from "./chave7.js";
 
 const raiz = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const app = express();
@@ -1053,7 +1054,7 @@ app.post("/api/chat", async (req, res) => {
     // a assistente pediu a folha em PDF: o sistema escolhe as opções e monta
     if (m.folha) {
       try {
-        const escolha = melhoresOpcoes({ codigos: m.folha.codigos || [], procura });
+        const escolha = await melhoresOpcoes({ codigos: m.folha.codigos || [], procura });
         m.folha = { codigos: escolha.map((x) => String(x.codigo)), cliente: m.folha.cliente || nome || "" };
         for (const cod of m.folha.codigos) registrarInteresse(jid, cod, "", "folha");
       } catch { m.folha = null; }
@@ -1415,19 +1416,55 @@ function logoDaCasa() {
   return null;
 }
 
-// escolhe as melhores opções para o que o cliente falou
-function melhoresOpcoes({ codigos = [], procura = "", quantas = 3 }) {
+// Lê do texto do cliente os critérios que servem para as duas buscas
+function criteriosDoTexto(procura = "") {
+  const texto = semAcentoSimples(procura);
+  let teto = 0;
+  const mMil = texto.match(/(\d{2,4})\s*(mil|k)\b/);
+  const mReal = texto.match(/r?\$?\s*([\d.]{6,})/);
+  if (mMil) teto = Number(mMil[1]) * 1000;
+  else if (mReal) teto = Number(mReal[1].replace(/\./g, ""));
+  const mQ = texto.match(/(\d)\s*(quarto|qto|dorm)/);
+  const tipo = /\bcasa/.test(texto) ? "Casa"
+    : /apartamento|apto|\bap\b/.test(texto) ? "Apartamento"
+    : /lote|terreno/.test(texto) ? "Lote/Terreno"
+    : /chacara/.test(texto) ? "Chácara" : "";
+  const bairro = [...new Set(listarImoveis().map((m) => m.bairro).filter(Boolean))]
+    .find((b) => texto.includes(semAcentoSimples(b))) || "";
+  return { teto, quartos: mQ ? Number(mQ[1]) : 0, tipo, bairro };
+}
+
+// Escolhe as melhores opções para o que o cliente falou.
+// Procura na carteira daqui e, quando a Chave7 estiver configurada, lá também —
+// o que vier de lá só entra para completar as vagas que sobraram.
+async function melhoresOpcoes({ codigos = [], procura = "", quantas = 3 }) {
   const todos = listarImoveis();
   const pedidos = codigos.map((c) => todos.find((m) => String(m.codigo) === String(c))).filter(Boolean);
   if (pedidos.length >= quantas) return pedidos.slice(0, quantas);
-  const resto = imoveisQueServem(procura)
+
+  const daqui = imoveisQueServem(procura)
     .filter((m) => !pedidos.some((p) => p.codigo === m.codigo))
     .sort((a, b) => (b.preco || 0) - (a.preco || 0));
-  return [...pedidos, ...resto].slice(0, quantas);
+
+  let escolhidos = [...pedidos, ...daqui].slice(0, quantas);
+  if (escolhidos.length >= quantas || !chave7Ligada()) return escolhidos;
+
+  // faltou opção: completa com a Chave7
+  try {
+    const deLa = await buscarNaChave7({ ...criteriosDoTexto(procura), quantas: quantas * 2 });
+    const jaTem = new Set(escolhidos.map((m) => String(m.codigo)));
+    for (const m of deLa) {
+      if (escolhidos.length >= quantas) break;
+      if (jaTem.has(String(m.codigo))) continue;
+      escolhidos.push(m);
+      jaTem.add(String(m.codigo));
+    }
+  } catch { /* a Chave7 fora do ar não pode travar a folha */ }
+  return escolhidos;
 }
 
 async function montarFolha({ codigos = [], procura = "", cliente = "" }) {
-  const escolhidos = melhoresOpcoes({ codigos, procura });
+  const escolhidos = await melhoresOpcoes({ codigos, procura });
   if (!escolhidos.length) throw new Error("Nenhum imóvel para montar a folha.");
   const c = lerConfig();
   const comFoto = [];
@@ -1590,6 +1627,7 @@ app.listen(PORTA, () => {
   console.log("  Painel:      http://localhost:" + PORTA);
   console.log("  Captação:    http://localhost:" + PORTA + "/captar");
   console.log("  Webhook:     POST http://localhost:" + PORTA + "/api/webhook/meta?token=" + WEBHOOK_TOKEN);
+  console.log("  Chave7:      " + (chave7Ligada() ? "ligada — a busca olha os dois lugares" : "desligada (sem CHAVE7_API_KEY) — busca só na sua carteira"));
   console.log("  Banco:       " + (nuvemLigada() ? "Supabase (nuvem) + cópia local" : "só local (data/royal.db)"));
   console.log("  Chatbot IA:  " + (process.env.ANTHROPIC_API_KEY ? "ligado (" + MODELO + ")" : process.env.GROQ_API_KEY ? "ligado (Groq)" : process.env.GEMINI_API_KEY ? "ligado (Gemini)" : "sem chave — respondendo pelo modo local") + "\n");
 });
