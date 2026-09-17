@@ -1,4 +1,4 @@
-# Publicação no Render (render.com) — plano gratuito
+# Publicação no Render (render.com)
 services:
   - type: web
     name: royal-hub
@@ -8,14 +8,21 @@ services:
     healthCheckPath: /login
     envVars:
       - key: GROQ_API_KEY
-        sync: false          # você cola o valor no painel do Render
+        sync: false
       - key: GROQ_MODEL
         value: llama-3.3-70b-versatile
       - key: WEBHOOK_TOKEN
         generateValue: true
       - key: URL_PUBLICA
-        sync: false          # ex: https://royal-hub.onrender.com
-    disk:
-      name: dados
-      mountPath: /app/data   # o banco e as fotos ficam aqui, sem sumir a cada deploy
-      sizeGB: 1
+        sync: false
+
+# Sobre o armazenamento:
+# O plano gratuito não permite disco fixo, então o banco fica na memória do
+# servidor e some quando ele reinicia. Serve para testar e demonstrar.
+# Para uso real, mude "plan: free" para "plan: starter" e descomente o bloco
+# abaixo — aí o banco e as fotos passam a sobreviver aos reinícios.
+#
+#    disk:
+#      name: dados
+#      mountPath: /app/data
+#      sizeGB: 1
