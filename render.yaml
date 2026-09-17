@@ -15,12 +15,19 @@ services:
         generateValue: true
       - key: URL_PUBLICA
         sync: false
+      - key: SUPABASE_URL
+        sync: false          # ex: https://xxxxxxxx.supabase.co
+      - key: SUPABASE_SERVICE_KEY
+        sync: false          # chave service_role do projeto (secreta)
 
 # Sobre o armazenamento:
-# O plano gratuito não permite disco fixo, então o banco fica na memória do
-# servidor e some quando ele reinicia. Serve para testar e demonstrar.
-# Para uso real, mude "plan: free" para "plan: starter" e descomente o bloco
-# abaixo — aí o banco e as fotos passam a sobreviver aos reinícios.
+# Com SUPABASE_URL e SUPABASE_SERVICE_KEY preenchidas, os dados moram no
+# Supabase e o plano gratuito serve: reiniciar não apaga mais nada, porque
+# o sistema baixa tudo de novo da nuvem ao ligar.
+#
+# Sem o Supabase, o plano gratuito guarda o banco na memória e ele some a
+# cada reinício. Nesse caso, para uso real, mude "plan: free" para
+# "plan: starter" e descomente o bloco abaixo.
 #
 #    disk:
 #      name: dados

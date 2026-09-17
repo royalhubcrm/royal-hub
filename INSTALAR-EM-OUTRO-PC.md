@@ -41,7 +41,14 @@ GROQ_API_KEY=cole-aqui-sua-chave
 GROQ_MODEL=llama-3.3-70b-versatile
 PORT=3000
 WEBHOOK_TOKEN=royal-webhook
+
+SUPABASE_URL=https://xxxxxxxx.supabase.co
+SUPABASE_SERVICE_KEY=cole-aqui-a-chave-service-role
 ```
+
+As duas últimas linhas ligam o banco na nuvem. Com elas, este computador e o
+endereço publicado trabalham sobre os mesmos dados, e nada se perde quando o
+servidor reinicia. Sem elas, o sistema usa só o banco local, como antes.
 
 A chave é gratuita e sai em `console.groq.com/keys`.
 
@@ -68,7 +75,18 @@ a conta de administrador.
 
 ---
 
-## Levar os dados junto (opcional)
+## Onde ficam os dados
+
+Com o Supabase ligado, os imóveis, leads, conversas, agendamentos, usuários e
+sites ficam no Postgres do Supabase. O arquivo `data/royal.db` continua
+existindo, mas só como cópia rápida: ao ligar, o sistema baixa tudo da nuvem;
+a cada alteração, sobe o que mudou. As fotos dos imóveis sobem para o Storage
+do Supabase na primeira vez que o sistema liga com as chaves preenchidas.
+
+As tabelas estão com RLS ligado e sem política nenhuma: só o servidor, com a
+chave secreta, lê e escreve. Quem pegar a chave pública não vê nada.
+
+## Levar os dados junto (sem Supabase)
 
 O pacote traz o sistema, não o conteúdo. Para o computador novo já nascer com a
 carteira, os leads e as conversas:
