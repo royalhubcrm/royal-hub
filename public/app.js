@@ -22,6 +22,26 @@ async function api(rota, opcoes){
   if(!r.ok) throw new Error(j.erro || ("Erro "+r.status));
   return j;
 }
+/* ---- instalação como aplicativo ---- */
+let convitePWA = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault(); convitePWA = e;
+  const b = document.getElementById("btn-instalar");
+  if (b) b.hidden = false;
+});
+window.addEventListener("appinstalled", () => { convitePWA = null; const b=document.getElementById("btn-instalar"); if(b) b.hidden = true; });
+
+async function instalarApp(){
+  if(!convitePWA){
+    alert("No celular: abra o menu do navegador e escolha \"Adicionar à tela inicial\".\n\nNo computador: clique no ícone de instalar na barra de endereço.");
+    return;
+  }
+  convitePWA.prompt();
+  await convitePWA.userChoice;
+  convitePWA = null;
+  const b = document.getElementById("btn-instalar"); if(b) b.hidden = true;
+}
+
 async function carregar(){
   try{
     const a = await (await fetch("/api/auth/estado")).json();
@@ -72,6 +92,8 @@ function render(){
   if(navU) navU.hidden = !(eu && eu.papel === "admin");
   const navS = document.getElementById("nav-sites");
   if(navS) navS.hidden = !(eu && eu.papel === "admin");
+  const bi = document.getElementById("btn-instalar");
+  if(bi && !convitePWA && !window.matchMedia("(display-mode: standalone)").matches) bi.hidden = false;
   const navG = document.getElementById("nav-gerencia");
   if(navG) navG.hidden = !(eu && (eu.papel === "admin" || eu.papel === "gerente"));
   document.getElementById("main").innerHTML =
@@ -97,7 +119,7 @@ function vDash(){
   <div class="head"><div><p class="eyebrow">Painel</p><h1>Bom trabalho, ${esc((state.cfg.corretor||"corretor").split(" ")[0])}</h1>
   <p>Leads dos anúncios, carteira de imóveis e atendimento automático, em um lugar só.</p></div>
   <button class="btn primary" onclick="novoLead()">+ Novo lead</button></div>
-  ${state.iaLigada?"":`<div class="banner">Chatbot desligado: coloque sua chave da Anthropic em <span class="mono">ANTHROPIC_API_KEY</span> no arquivo <span class="mono">.env</span> e reinicie o servidor.</div>`}
+  ${state.iaLigada?"":`<div class="banner">Chatbot sem chave de IA: ele responde pelo modo local, com a sua carteira. Para a IA completa, coloque <span class="mono">GROQ_API_KEY</span> no arquivo <span class="mono">.env</span> e reinicie o servidor.</div>`}
   <div class="kpis">
     <div class="kpi accent"><div class="k">Leads no mês</div><div class="v num">${k.noMes}</div><div class="s">${k.total} no total</div></div>
     <div class="kpi"><div class="k">Quentes agora</div><div class="v num" style="color:var(--quente)">${k.quentes}</div><div class="s">prioridade de contato</div></div>
@@ -145,7 +167,7 @@ function vLeads(){
   });
   return `
   <div class="head"><div><p class="eyebrow">CRM</p><h1>Leads</h1><p>Cada lead que cai dos anúncios entra aqui. Clique para abrir, anotar e gerar a mensagem.</p></div>
-  <button class="btn primary" onclick="novoLead()">+ Novo lead</button></div>
+  <div style="display:flex;gap:9px"><button class="btn" onclick="abrirImportarLeads()">Importar planilha</button><button class="btn primary" onclick="novoLead()">+ Novo lead</button></div></div>
   <div class="toolbar">
     <input id="fq" placeholder="Buscar nome, telefone, campanha" value="${esc(f.q)}" oninput="state.filtros.q=this.value;render();foco('fq')">
     <select onchange="state.filtros.estagio=this.value;render()"><option value="">Todos os estágios</option>${ESTAGIOS.map(e=>`<option ${f.estagio===e?"selected":""}>${e}</option>`).join("")}</select>
@@ -275,7 +297,7 @@ function renderDrawer(){
   const s = state.sel;
   o.innerHTML = `<div class="scrim" onclick="fechar()"></div><aside class="drawer" role="dialog" aria-modal="true">
     <button class="btn ghost sm xclose" onclick="fechar()">Fechar</button>${
-      s.tipo==="lead"?drawerLead(s.data): s.tipo==="imovel"?drawerImovel(s.data): drawerImportar()}</aside>`;
+      s.tipo==="lead"?drawerLead(s.data): s.tipo==="imovel"?drawerImovel(s.data): s.tipo==="importarLeads"?drawerImportarLeads(): drawerImportar()}</aside>`;
 }
 function drawerLead(l){
   const codes = state.imoveis.map(m=>m.codigo);
@@ -501,6 +523,7 @@ async function publicarSite(){
     titulo: val("r-titulo"), subtitulo: val("r-subtitulo"), sobre: val("r-sobre"),
     cor: val("r-cor"), fundo: val("r-fundo"), fonte: val("r-fonte"),
     whats: val("r-whats"), creci: val("r-creci"), endereco: val("r-endereco"), email: val("r-email"),
+    dominio: val("r-dominio"),
   };
   try{
     const salvo = await api("/sites", {method:"POST", body:JSON.stringify(corpo)});
@@ -545,7 +568,7 @@ function vSites(){
     <div class="lrow">
       <span class="corzinha" style="background:${esc(s.cor)}"></span>
       <span class="nm">${esc(s.nome)}
-        <div class="meta"><span class="mono">/site/${esc(s.slug)}</span> · ${esc(s.titulo||"")}</div></span>
+        <div class="meta">${(s.enderecos||["/site/"+s.slug]).map(e=>`<span class="mono">${esc(e.replace(/^https?:\/\//,""))}</span>`).join(" · ")}</div></span>
       <a class="btn sm" href="/site/${esc(s.slug)}" target="_blank" rel="noopener">Abrir</a>
       <button class="btn sm" onclick="copiarTexto(location.origin+'/site/${esc(s.slug)}')">Copiar link</button>
       <button class="btn sm" onclick="editarSite('${s.id}')">Editar</button>
@@ -571,6 +594,7 @@ function vSites(){
         <div><label for="r-whats">WhatsApp</label><input id="r-whats" value="${esc(r.whats||"")}" placeholder="5534999999999"></div>
         <div><label for="r-creci">CRECI</label><input id="r-creci" value="${esc(r.creci||"")}"></div>
         <div><label for="r-email">E-mail</label><input id="r-email" value="${esc(r.email||"")}"></div>
+        <div><label for="r-dominio">Domínio próprio (opcional)</label><input id="r-dominio" value="${esc(r.dominio||"")}" placeholder="primeimoveis.com.br"></div>
       </div>
       <div style="margin-top:12px">
         <label for="r-titulo">Chamada principal</label><input id="r-titulo" value="${esc(r.titulo||"")}" style="width:100%">
@@ -626,6 +650,43 @@ function vSites(){
     <h3>Sites no ar</h3>
     <div class="list">${lista}</div>
   </div>`;
+}
+
+
+/* ---- importar leads de planilha ---- */
+function abrirImportarLeads(){ state.sel={tipo:"importarLeads",data:{}}; renderDrawer(); }
+
+function drawerImportarLeads(){
+  return `<h2>Importar leads</h2>
+  <div class="stack">
+    <p class="muted">Abra sua planilha, selecione tudo — com o cabeçalho — copie e cole aqui.
+    O sistema reconhece colunas como nome, telefone, e-mail, interesse e origem, e ignora quem já está cadastrado.</p>
+    <div class="field">
+      <label for="imp-leads">Dados da planilha</label>
+      <textarea id="imp-leads" rows="12" placeholder="Nome&#9;Telefone&#9;Interesse
+Maria Silva&#9;34 99999-0000&#9;Casa 3 quartos no Canaã
+João Souza&#9;34 98888-1111&#9;Apartamento até 250 mil"></textarea>
+    </div>
+    <div class="ax">
+      <button class="btn primary" onclick="importarLeads(this)">Importar</button>
+      <span class="meta" id="imp-aviso"></span>
+    </div>
+  </div>`;
+}
+
+async function importarLeads(botao){
+  const texto = (document.getElementById("imp-leads")||{}).value || "";
+  const aviso = document.getElementById("imp-aviso");
+  if(!texto.trim()){ aviso.textContent = "Cole os dados da planilha."; return; }
+  botao.disabled = true; botao.textContent = "Importando…";
+  try{
+    const r = await api("/leads/importar", {method:"POST", body:JSON.stringify({texto})});
+    aviso.textContent = `${r.novos} novo(s)` + (r.repetidos?` · ${r.repetidos} já existiam`:"") + (r.ignorados?` · ${r.ignorados} sem dados`:"");
+    await carregar();
+    state.sel={tipo:"importarLeads",data:{}}; renderDrawer();
+    document.getElementById("imp-aviso").textContent = aviso.textContent;
+  }catch(e){ aviso.textContent = e.message; }
+  botao.disabled = false; botao.textContent = "Importar";
 }
 
 /* ===================== gerência ===================== */
@@ -847,6 +908,12 @@ async function alternarBotConversa(jid, ativo){
   carregarConversas();
 }
 
+async function salvarRegras(){
+  state.cfg = await api("/config", {method:"PUT", body:JSON.stringify({...state.cfg,
+    botModo: val("b-modo"), botHoraInicio: val("b-ini"), botHoraFim: val("b-fim")})});
+  carregarConversas();
+}
+
 async function alternarBotGeral(ligado){
   state.cfg = await api("/config", {method:"PUT", body:JSON.stringify({...state.cfg, botLigado: ligado?"1":"0"})});
   carregarConversas();
@@ -861,6 +928,7 @@ function estadoConversa(c){
 
 function vConversas(){
   const geral = (state.cfg.botLigado ?? "1") === "1";
+  const modo = state.cfg.botModo || "novos";
   const lista = state.conversas;
   const sel = lista.find(c=>c.jid===state.convSel);
   const e = estadoConversa(sel);
@@ -885,6 +953,28 @@ function vConversas(){
     <button class="btn ${geral?'primary':''}" onclick="alternarBotGeral(${!geral})">
       ${geral?'Chatbot ligado — desligar tudo':'Chatbot desligado — ligar'}
     </button>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="regras">
+      <div>
+        <label for="b-modo">Quem o bot atende</label>
+        <select id="b-modo" onchange="salvarRegras()">
+          <option value="anuncio" ${modo==="anuncio"?"selected":""}>Só quem chega pelo anúncio</option>
+          <option value="novos" ${modo==="novos"?"selected":""}>Contatos novos (sem conversa anterior)</option>
+          <option value="todos" ${modo==="todos"?"selected":""}>Todo mundo que mandar mensagem</option>
+        </select>
+      </div>
+      <div>
+        <label for="b-ini">Atende a partir de</label>
+        <input id="b-ini" type="time" value="${esc(state.cfg.botHoraInicio||"")}" onchange="salvarRegras()">
+      </div>
+      <div>
+        <label for="b-fim">Até</label>
+        <input id="b-fim" type="time" value="${esc(state.cfg.botHoraFim||"")}" onchange="salvarRegras()">
+      </div>
+      <div class="meta" style="align-self:end">Horário em branco = o dia inteiro.</div>
+    </div>
   </div>
   <div class="cols conv">
     <div class="card" style="padding:0"><div class="list">${linhas}</div></div>

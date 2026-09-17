@@ -6,6 +6,14 @@
 <title>Royal Hub</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0C0B09">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Royal Hub">
+<link rel="apple-touch-icon" href="/icones/apple-180.png">
+<link rel="icon" href="/icones/icone-192.png">
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -22,11 +30,16 @@
     <button class="navbtn" data-v="sites" id="nav-sites" hidden><i class="dot"></i>Sites</button>
     <button class="navbtn" data-v="usuarios" id="nav-usuarios" hidden><i class="dot"></i>Usuários</button>
     <button class="navbtn" data-v="config"><i class="dot"></i>Ajustes</button>
+    <button class="btn sm" id="btn-instalar" hidden onclick="instalarApp()">Instalar aplicativo</button>
     <div class="railfoot" id="railfoot">Carregando…</div>
   </nav>
   <main class="main" id="main"></main>
 </div>
 <div id="overlay"></div>
 <script src="/app.js"></script>
+<script>
+  // liga o modo aplicativo (funciona só em endereço https ou no localhost)
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});
+</script>
 </body>
 </html>

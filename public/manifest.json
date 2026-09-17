@@ -1,0 +1,17 @@
+{
+  "name": "Royal Hub — Hub do corretor",
+  "short_name": "Royal Hub",
+  "description": "Leads, carteira de imóveis, chatbot e conversas do WhatsApp em um lugar só.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0C0B09",
+  "theme_color": "#0C0B09",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "/icones/icone-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icones/icone-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icones/icone-mascara.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
