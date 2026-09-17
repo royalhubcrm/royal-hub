@@ -10,7 +10,7 @@ import {
   waDefinirBot, waMarcarLido, waPodeResponder, tokenInterno,
   salvarAgendamento, listarAgendamentos, mudarStatusAgendamento, agendamentoParecido,
   registrarInteresse, interessesPorConversa, todosInteresses, conversasParadas,
-  salvarSite, lerSite, lerSitePorId, listarSites, apagarSite, imoveisDoSite,
+  salvarSite, lerSite, lerSitePorId, listarSites, apagarSite, imoveisDoSite, siteDoEndereco,
 } from "./db.js";
 import {
   PAPEIS, podeAcessar, criarUsuario, atualizarUsuario, apagarUsuario, listarUsuarios,
@@ -34,7 +34,8 @@ app.use(express.urlencoded({ extended: true }));
 // Endereços que qualquer pessoa alcança, sem conta
 const LIVRE = [
   /^\/login/, /^\/api\/auth\//, /^\/captar/, /^\/api\/captacao/,
-  /^\/imovel\//, /^\/api\/webhook/, /^\/fotos\//, /^\/site\//, /^\/api\/site-publico\//,
+  /^\/imovel\//, /^\/api\/webhook/, /^\/fotos\//, /^\/site\//, /^\/api\/site-publico\//, /^\/api\/site-daqui/,
+  /^\/manifest/, /^\/sw\.js$/, /^\/icones\//,
   /\.css$/, /\.js$/, /\.png$/, /\.jpg$/, /\.jpeg$/, /\.svg$/, /\.ico$/,
 ];
 // a ponte do WhatsApp se identifica por um token próprio
@@ -46,6 +47,17 @@ function ehLivre(req) {
   if (req.method === "GET" && /^\/api\/imoveis\/[^/]+$/.test(req.path)) return true;
   return false;
 }
+
+// Endereço próprio do cliente: o site dele responde já na raiz
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api/") || req.path.startsWith("/site/")) return next();
+  const site = siteDoEndereco(req.headers.host);
+  if (!site || !site.publicado) return next();
+  req.siteDoHost = site;
+  if (req.path === "/" || /^\/imovel\/[^/]+$/.test(req.path))
+    return res.sendFile(path.join(raiz, "public", "site.html"));
+  next();
+});
 
 app.use((req, res, next) => {
   req.usuario = usuarioDaSessao(lerCookie(req, COOKIE));
@@ -291,6 +303,97 @@ app.post("/api/leads/:id/nota", (req, res) => {
   if (!texto) return res.status(400).json({ erro: "Escreva a anotação." });
   registrarHistorico(req.params.id, texto);
   res.json(lerLead(req.params.id));
+});
+
+
+// Importa uma lista de leads (colada da planilha ou em JSON)
+function separarLinha(linha) {
+  if (linha.includes("\t")) return linha.split("\t");
+  if (linha.includes(";")) return linha.split(";");
+  // vírgula respeitando aspas
+  const partes = []; let atual = "", aspas = false;
+  for (const c of linha) {
+    if (c === '"') aspas = !aspas;
+    else if (c === "," && !aspas) { partes.push(atual); atual = ""; }
+    else atual += c;
+  }
+  partes.push(atual);
+  return partes;
+}
+
+const semAcento = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+app.post("/api/leads/importar", (req, res) => {
+  let itens = Array.isArray(req.body?.itens) ? req.body.itens : null;
+
+  if (!itens) {
+    const texto = String(req.body?.texto || "").trim();
+    if (!texto) return res.status(400).json({ erro: "Cole a planilha ou envie a lista." });
+    const linhas = texto.split(/\r?\n/).filter((l) => l.trim());
+    if (linhas.length < 1) return res.status(400).json({ erro: "Nada para importar." });
+
+    // descobre as colunas pelo cabeçalho
+    const cab = separarLinha(linhas[0]).map(semAcento);
+    const acha = (...nomes) => cab.findIndex((c) => nomes.some((n) => c.includes(n)));
+    const col = {
+      nome: acha("nome", "cliente", "contato"),
+      telefone: acha("telefone", "whats", "celular", "fone", "tel"),
+      email: acha("email", "e-mail"),
+      interesse: acha("interesse", "imovel", "procura", "busca", "observ", "obs"),
+      origem: acha("origem", "fonte", "canal"),
+      temperatura: acha("temperatura", "status", "classific"),
+      estagio: acha("estagio", "etapa", "funil"),
+    };
+    const temCabecalho = col.nome >= 0 || col.telefone >= 0;
+    const corpo = temCabecalho ? linhas.slice(1) : linhas;
+
+    itens = corpo.map((l) => {
+      const p = separarLinha(l).map((x) => x.replace(/^"|"$/g, "").trim());
+      if (!temCabecalho) {
+        // sem cabeçalho: adivinha pelo formato (o que tem muitos dígitos é telefone)
+        const tel = p.find((x) => (x.match(/\d/g) || []).length >= 8) || "";
+        const mail = p.find((x) => x.includes("@")) || "";
+        const nome = p.find((x) => x && x !== tel && x !== mail) || "";
+        return { nome, telefone: tel, email: mail, interesse: p.filter(x => x && x!==nome && x!==tel && x!==mail).join(" ") };
+      }
+      const v = (i) => (i >= 0 ? p[i] || "" : "");
+      return {
+        nome: v(col.nome), telefone: v(col.telefone), email: v(col.email),
+        interesse: v(col.interesse), origem: v(col.origem),
+        temperatura: v(col.temperatura), estagio: v(col.estagio),
+      };
+    });
+  }
+
+  const TEMPS = ["Quente", "Morno", "Frio"];
+  const ETAPAS = ["Novo", "Em contato", "Visita", "Proposta", "Fechado", "Perdido"];
+  const existentes = listarLeads();
+  let novos = 0, repetidos = 0, ignorados = 0;
+
+  for (const o of itens) {
+    const nome = String(o.nome || "").trim();
+    const telefone = String(o.telefone || "").trim();
+    if (!nome && !telefone) { ignorados++; continue; }
+
+    const soDigitos = telefone.replace(/\D/g, "");
+    const repetido = existentes.find((l) =>
+      (soDigitos && String(l.telefone).replace(/\D/g, "") === soDigitos) ||
+      (!soDigitos && nome && semAcento(l.nome) === semAcento(nome)));
+    if (repetido) { repetidos++; continue; }
+
+    const temp = TEMPS.find((t) => semAcento(t) === semAcento(o.temperatura)) || "Morno";
+    const etapa = ETAPAS.find((e) => semAcento(e) === semAcento(o.estagio)) || "Novo";
+    const id = novoId();
+    db.prepare(`INSERT INTO leads (id,nome,telefone,email,origem,campanha,interesse,temperatura,estagio,obs,imoveis,criado_em,atualizado_em)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .run(id, nome || telefone, telefone, String(o.email || ""),
+           String(o.origem || "Planilha"), "", String(o.interesse || ""),
+           temp, etapa, "", "[]", hoje(), agora());
+    registrarHistorico(id, "Importado de planilha");
+    existentes.push({ id, nome, telefone });
+    novos++;
+  }
+  res.json({ novos, repetidos, ignorados, total: listarLeads().length });
 });
 
 /* ==================== CAPTAÇÃO (formulário público) ==================== */
@@ -608,7 +711,7 @@ app.post("/api/wa/conversas/:jid/bot", (req, res) => {
 });
 
 // a ponte pergunta se pode responder
-app.get("/api/wa/pode/:jid", (req, res) => res.json(waPodeResponder(req.params.jid)));
+app.get("/api/wa/pode/:jid", (req, res) => res.json(waPodeResponder(req.params.jid, String(req.query.primeira || ""))));
 
 // a ponte registra toda mensagem que passa pelo WhatsApp
 app.post("/api/wa/mensagem", (req, res) => {
@@ -859,7 +962,17 @@ async function desenharSite(descricao, base = {}) {
   }
 }
 
-app.get("/api/sites", (req, res) => res.json(listarSites()));
+app.get("/api/sites", (req, res) => {
+  const base = process.env.DOMINIO_BASE || "";
+  res.json(listarSites().map((s) => ({
+    ...s,
+    enderecos: [
+      (process.env.URL_PUBLICA || "") + "/site/" + s.slug,
+      base ? "https://" + s.slug + "." + base : "",
+      s.dominio ? "https://" + s.dominio : "",
+    ].filter(Boolean),
+  })));
+});
 
 app.post("/api/sites/desenhar", async (req, res) => {
   try { res.json(await desenharSite(String(req.body?.descricao || ""), req.body?.base || {})); }
@@ -876,6 +989,42 @@ app.delete("/api/sites/:id", (req, res) => { apagarSite(req.params.id); res.json
 // ---- lado público ----
 app.get("/site/:slug", (req, res) => res.sendFile(path.join(raiz, "public", "site.html")));
 app.get("/site/:slug/imovel/:codigo", (req, res) => res.sendFile(path.join(raiz, "public", "site.html")));
+
+// usado quando o site é aberto pelo endereço próprio
+// o site do cliente também pode ser instalado como aplicativo
+function manifestoDoSite(site, raiz) {
+  return {
+    name: site.nome, short_name: (site.nome || "Imóveis").slice(0, 12),
+    description: site.subtitulo || site.titulo || "Imóveis disponíveis",
+    start_url: raiz || "/", scope: raiz || "/",
+    display: "standalone", orientation: "portrait",
+    background_color: site.fundo === "claro" ? "#FAF8F4" : "#0C0B09",
+    theme_color: site.cor || "#C9A227", lang: "pt-BR",
+    icons: [
+      { src: "/icones/icone-192.png", sizes: "192x192", type: "image/png" },
+      { src: "/icones/icone-512.png", sizes: "512x512", type: "image/png" },
+      { src: "/icones/icone-mascara.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+    ],
+  };
+}
+
+app.get("/site/:slug/manifest.json", (req, res) => {
+  const s = lerSite(req.params.slug);
+  if (!s || !s.publicado) return res.status(404).json({ erro: "Site não encontrado." });
+  res.json(manifestoDoSite(s, "/site/" + s.slug));
+});
+
+app.get("/manifest-site.json", (req, res) => {
+  const s = siteDoEndereco(req.headers.host);
+  if (!s || !s.publicado) return res.status(404).json({ erro: "Site não encontrado." });
+  res.json(manifestoDoSite(s, "/"));
+});
+
+app.get("/api/site-daqui", (req, res) => {
+  const site = siteDoEndereco(req.headers.host);
+  if (!site || !site.publicado) return res.status(404).json({ erro: "Site não encontrado." });
+  res.json({ site, imoveis: imoveisDoSite(site.slug) });
+});
 
 app.get("/api/site-publico/:slug", (req, res) => {
   const s = lerSite(req.params.slug);

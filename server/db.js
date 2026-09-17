@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS sites (
   filtro TEXT DEFAULT '{}',
   secoes TEXT DEFAULT '[]',
   descricao_pedida TEXT DEFAULT '',
+  dominio TEXT DEFAULT '',
   publicado INTEGER DEFAULT 1,
   criado_em TEXT,
   atualizado_em TEXT
@@ -144,6 +145,9 @@ const CONFIG_PADRAO = {
   whats: "",
   estilo: "",
   botLigado: "1",
+  botModo: "novos",          // todos | novos | anuncio
+  botHoraInicio: "",         // ex: 08:00 (vazio = sem limite)
+  botHoraFim: "",            // ex: 20:00
 };
 
 export function lerConfig() {
@@ -253,14 +257,43 @@ export function waMarcarLido(jid) {
 }
 
 // O bot pode responder nesta conversa agora?
-export function waPodeResponder(jid) {
+export function waPodeResponder(jid, primeiraMensagem = "") {
   const cfg = lerConfig();
   if (cfg.botLigado !== "1") return { pode: false, motivo: "chatbot desligado no sistema" };
+
+  // horário de atendimento
+  if (cfg.botHoraInicio && cfg.botHoraFim) {
+    const agoraHM = new Date().toTimeString().slice(0, 5);
+    const dentro = cfg.botHoraInicio <= cfg.botHoraFim
+      ? agoraHM >= cfg.botHoraInicio && agoraHM <= cfg.botHoraFim
+      : agoraHM >= cfg.botHoraInicio || agoraHM <= cfg.botHoraFim;   // vira a noite
+    if (!dentro) return { pode: false, motivo: "fora do horário de atendimento" };
+  }
+
   const c = waLerConversa(jid);
-  if (!c) return { pode: true };
-  if (!c.bot_ativo) return { pode: false, motivo: "bot desligado nesta conversa" };
-  if (c.pausado_ate && new Date(c.pausado_ate) > new Date())
+  if (c && !c.bot_ativo) return { pode: false, motivo: "bot desligado nesta conversa" };
+  if (c && c.pausado_ate && new Date(c.pausado_ate) > new Date())
     return { pode: false, motivo: "você está conduzindo esta conversa" };
+
+  const modo = cfg.botModo || "novos";
+  if (modo === "todos") return { pode: true };
+
+  // quantas mensagens essa conversa já tinha antes de hoje
+  const total = db.prepare("SELECT COUNT(*) AS t FROM wa_mensagens WHERE jid = ?").get(jid).t;
+  const suas = db.prepare("SELECT COUNT(*) AS t FROM wa_mensagens WHERE jid = ? AND de = 'voce'").get(jid).t;
+
+  if (modo === "anuncio") {
+    // só atende quem chegou com a mensagem automática do anúncio
+    const inicio = db.prepare("SELECT texto FROM wa_mensagens WHERE jid = ? ORDER BY id LIMIT 1").get(jid);
+    const texto = String(inicio?.texto || primeiraMensagem || "").toLowerCase();
+    const doAnuncio = /gostaria de receber mais informa|vi o an[úu]ncio|tenho interesse no im[óo]vel|vim pelo site/.test(texto);
+    if (!doAnuncio) return { pode: false, motivo: "não veio de anúncio" };
+    return { pode: true };
+  }
+
+  // modo "novos": só conversas sem histórico anterior com você
+  if (suas > 0 && total > suas + 2)
+    return { pode: false, motivo: "contato antigo — você já conversava com essa pessoa" };
   return { pode: true };
 }
 
@@ -327,6 +360,9 @@ export function conversasParadas(dias = 2) {
 
 
 /* ==================== SITES DOS CLIENTES ==================== */
+// bancos antigos não têm a coluna de domínio
+try { db.exec("ALTER TABLE sites ADD COLUMN dominio TEXT DEFAULT ''"); } catch {}
+
 export function salvarSite(s) {
   const id = s.id || novoId();
   const slug = String(s.slug || s.nome || "site").toLowerCase()
@@ -335,20 +371,21 @@ export function salvarSite(s) {
   const existente = db.prepare("SELECT id FROM sites WHERE slug = ? AND id <> ?").get(slug, id);
   if (existente) throw new Error("Já existe um site com esse endereço (" + slug + ").");
   db.prepare(`INSERT INTO sites
-    (id,slug,nome,titulo,subtitulo,sobre,cor,fundo,fonte,whats,email,endereco,creci,filtro,secoes,descricao_pedida,publicado,criado_em,atualizado_em)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    (id,slug,nome,titulo,subtitulo,sobre,cor,fundo,fonte,whats,email,endereco,creci,filtro,secoes,descricao_pedida,dominio,publicado,criado_em,atualizado_em)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(id) DO UPDATE SET
       slug=excluded.slug, nome=excluded.nome, titulo=excluded.titulo, subtitulo=excluded.subtitulo,
       sobre=excluded.sobre, cor=excluded.cor, fundo=excluded.fundo, fonte=excluded.fonte,
       whats=excluded.whats, email=excluded.email, endereco=excluded.endereco, creci=excluded.creci,
       filtro=excluded.filtro, secoes=excluded.secoes, descricao_pedida=excluded.descricao_pedida,
-      publicado=excluded.publicado, atualizado_em=excluded.atualizado_em`)
+      dominio=excluded.dominio, publicado=excluded.publicado, atualizado_em=excluded.atualizado_em`)
     .run(id, slug, s.nome || "", s.titulo || "", s.subtitulo || "", s.sobre || "",
          s.cor || "#C9A227", s.fundo || "escuro", s.fonte || "classica",
          s.whats || "", s.email || "", s.endereco || "", s.creci || "",
          typeof s.filtro === "string" ? s.filtro : JSON.stringify(s.filtro || {}),
          typeof s.secoes === "string" ? s.secoes : JSON.stringify(s.secoes || []),
-         s.descricao_pedida || "", s.publicado === false ? 0 : 1,
+         s.descricao_pedida || "", String(s.dominio || "").trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, ""),
+         s.publicado === false ? 0 : 1,
          s.criado_em || agora(), agora());
   return lerSite(slug);
 }
@@ -384,4 +421,21 @@ export function imoveisDoSite(slug) {
   if (f.precoMax) lista = lista.filter((m) => m.preco <= Number(f.precoMax));
   if (f.somenteComFoto) lista = lista.filter((m) => m.foto);
   return lista;
+}
+
+
+// Descobre qual site responde por um endereço (domínio próprio ou subdomínio)
+export function siteDoEndereco(host) {
+  host = String(host || "").toLowerCase().split(":")[0];
+  if (!host) return null;
+  const proprio = db.prepare("SELECT * FROM sites WHERE dominio <> '' AND (dominio = ? OR dominio = ?)")
+    .get(host, host.replace(/^www\./, ""));
+  if (proprio) return abrirSite(proprio);
+
+  const base = String(process.env.DOMINIO_BASE || "").toLowerCase();
+  if (base && host.endsWith("." + base)) {
+    const slug = host.slice(0, -(base.length + 1));
+    if (slug && slug !== "www") return lerSite(slug);
+  }
+  return null;
 }

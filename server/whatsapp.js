@@ -137,7 +137,7 @@ async function conectar() {
         continue;
       }
 
-      const estado = await api("/api/wa/pode/" + encodeURIComponent(jid)).catch(() => ({ pode: false, motivo: "sistema fora do ar" }));
+      const estado = await api("/api/wa/pode/" + encodeURIComponent(jid) + "?primeira=" + encodeURIComponent(texto.slice(0,120))).catch(() => ({ pode: false, motivo: "sistema fora do ar" }));
       if (!estado.pode) { console.log("  · sem resposta: " + estado.motivo); continue; }
 
       try {
