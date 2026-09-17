@@ -63,13 +63,20 @@ function mostrarAviso(){
   return `<div class="aviso ${aviso.tipo}">${esc(aviso.texto)}</div>`;
 }
 
+// guarda só o e-mail usado por último neste aparelho (senha nunca é guardada aqui)
+const lembrado = () => { try { return localStorage.getItem("royal_email") || ""; } catch { return ""; } };
+const lembrar = (e) => { try { localStorage.setItem("royal_email", e); } catch {} };
+
 function telaEntrar(){
+  const em = lembrado();
+  // é um <form> de verdade para o navegador oferecer salvar a senha
   el.innerHTML = `${mostrarAviso()}
-    ${campo("email","E-mail","email",'autocomplete="username" autofocus')}
-    ${campo("senha","Senha","password",'autocomplete="current-password"')}
-    <button class="btn primary w" onclick="entrar()">Entrar</button>
+    <form id="formEntrar" onsubmit="event.preventDefault(); entrar();">
+      ${campo("email","E-mail","email",`autocomplete="username" name="username" value="${esc(em)}"${em?"":" autofocus"}`)}
+      ${campo("senha","Senha","password",`autocomplete="current-password" name="password"${em?" autofocus":""}`)}
+      <button class="btn primary w" type="submit">Entrar</button>
+    </form>
     <div class="links"><a onclick="telaEsqueci()">Esqueci minha senha</a></div>`;
-  ligarEnter(entrar);
 }
 
 function telaPrimeiro(){
@@ -112,12 +119,16 @@ function ligarEnter(fn){
 const v = id => (document.getElementById(id)||{}).value || "";
 
 async function entrar(){
-  try{ await api("entrar",{email:v("email"), senha:v("senha")}); location.href = "/"; }
+  try{
+    await api("entrar",{email:v("email"), senha:v("senha")});
+    lembrar(v("email"));
+    location.href = "/";
+  }
   catch(e){ aviso={tipo:"erro",texto:e.message}; telaEntrar(); }
 }
 
 async function criarAdmin(){
-  try{ await api("primeiro-acesso",{nome:v("nome"), email:v("email"), senha:v("senha")}); location.href = "/"; }
+  try{ await api("primeiro-acesso",{nome:v("nome"), email:v("email"), senha:v("senha")}); lembrar(v("email")); location.href = "/"; }
   catch(e){ aviso={tipo:"erro",texto:e.message}; telaPrimeiro(); }
 }
 
