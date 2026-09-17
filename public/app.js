@@ -42,16 +42,66 @@ async function instalarApp(){
   const b = document.getElementById("btn-instalar"); if(b) b.hidden = true;
 }
 
+/* ===== memória do navegador =====
+   As listas grandes ficam guardadas aqui. Ao abrir, a tela aparece na hora com
+   o que já estava salvo; depois o sistema pergunta "mudou alguma coisa?" e só
+   baixa de novo o que mudou de verdade. */
+const CACHE_V = "rh1";
+const chaveCache = (nome) => "royal:" + CACHE_V + ":" + nome;
+
+function lerGuardado(nome){
+  try{
+    const bruto = localStorage.getItem(chaveCache(nome));
+    if(!bruto) return null;
+    const o = JSON.parse(bruto);
+    return (o && "dados" in o) ? o : null;
+  }catch{ return null; }
+}
+
+function guardar(nome, dados, assinatura){
+  try{ localStorage.setItem(chaveCache(nome), JSON.stringify({ dados, assinatura, em: Date.now() })); }
+  catch{ /* navegador sem espaço ou em aba anônima: segue sem cache */ }
+}
+
+function esquecerTudo(){
+  try{
+    for(const k of Object.keys(localStorage)) if(k.startsWith("royal:")) localStorage.removeItem(k);
+  }catch{}
+}
+
 async function carregar(){
   try{
     const a = await (await fetch("/api/auth/estado")).json();
     state.usuario = a.usuario; state.papeis = a.papeis || {};
-    if(!a.usuario) return location.href = "/login";
+    if(!a.usuario){ esquecerTudo(); return location.href = "/login"; }
   }catch{}
-  const [leads, imoveis, cfg] = await Promise.all([api("/leads"), api("/imoveis"), api("/config")]);
-  state.leads = leads; state.imoveis = imoveis;
-  state.cfg = cfg; state.iaLigada = !!cfg.iaLigada;
-  render();
+
+  // 1) pinta com o que já está guardado, sem esperar a rede
+  const gLeads = lerGuardado("leads"), gImoveis = lerGuardado("imoveis"), gCfg = lerGuardado("config");
+  if(gLeads) state.leads = gLeads.dados;
+  if(gImoveis) state.imoveis = gImoveis.dados;
+  if(gCfg){ state.cfg = gCfg.dados; state.iaLigada = !!gCfg.dados.iaLigada; }
+  if(gLeads || gImoveis || gCfg) render();
+
+  // 2) pergunta o que mudou — é uma requisição pequena
+  let v = {};
+  try{ v = await api("/versao"); }
+  catch{ if(!(gLeads && gImoveis && gCfg)) v = { leads:"?", imoveis:"?", config:"?" }; }
+
+  const precisa = (nome, guardado) => !guardado || guardado.assinatura !== v[nome];
+  const tarefas = [];
+
+  if(precisa("leads", gLeads))
+    tarefas.push(api("/leads").then(d => { state.leads = d; guardar("leads", d, v.leads); }));
+  if(precisa("imoveis", gImoveis))
+    tarefas.push(api("/imoveis").then(d => { state.imoveis = d; guardar("imoveis", d, v.imoveis); }));
+  if(precisa("config", gCfg))
+    tarefas.push(api("/config").then(d => { state.cfg = d; state.iaLigada = !!d.iaLigada; guardar("config", d, v.config); }));
+
+  if(tarefas.length){ await Promise.all(tarefas); render(); }
+  else if(!(gLeads || gImoveis || gCfg)) render();
+
+  state.nuvem = !!v.nuvem;
   carregarConversas();
 }
 
@@ -492,7 +542,12 @@ async function baixarFotos(botao){
 
 /* ===================== sites dos clientes ===================== */
 async function carregarSites(){
-  try{ state.sites = await api("/sites"); }catch{ state.sites = []; }
+  const gs = lerGuardado("sites");
+  if(gs) state.sites = gs.dados;
+  try{
+    const v = await api("/versao").catch(()=>({}));
+    if(!gs || gs.assinatura !== v.sites){ state.sites = await api("/sites"); guardar("sites", state.sites, v.sites); }
+  }catch{ if(!gs) state.sites = []; }
   render();
 }
 
@@ -800,11 +855,17 @@ async function retomar(jid){
 
 /* ===================== usuários ===================== */
 async function carregarUsuarios(){
-  try{ state.usuarios = await api("/usuarios"); }catch{ state.usuarios = []; }
+  const gu = lerGuardado("usuarios");
+  if(gu) state.usuarios = gu.dados;
+  try{
+    const v = await api("/versao").catch(()=>({}));
+    if(!gu || gu.assinatura !== v.usuarios){ state.usuarios = await api("/usuarios"); guardar("usuarios", state.usuarios, v.usuarios); }
+  }catch{ if(!gu) state.usuarios = []; }
   render();
 }
 
 async function sair(){
+  esquecerTudo();
   await fetch("/api/auth/sair", {method:"POST"});
   location.href = "/login";
 }
