@@ -12,6 +12,7 @@ import {
   registrarInteresse, interessesPorConversa, todosInteresses, conversasParadas,
   salvarSite, lerSite, lerSitePorId, listarSites, apagarSite, imoveisDoSite, siteDoEndereco,
   salvarDuvida, duvidasAbertas, fecharDuvida,
+  conversasParaRetomar, registrarRetomada, marcarNaoPerturbe, pediuParaNaoInsistir,
   bancoBruto,
 } from "./db.js";
 import { sincronizarNoInicio, despedir, nuvemLigada, subirFotosLocais } from "./supabase.js";
@@ -22,6 +23,7 @@ import {
   COOKIE, lerCookie,
 } from "./auth.js";
 import { enviarEmail, emailConfigurado } from "./email.js";
+import { folhaDeImoveis } from "./pdf.js";
 
 const raiz = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const app = express();
@@ -529,7 +531,7 @@ function imoveisQueServem(procura = "") {
   const todos = listarImoveis();
   if (!todos.length) return [];
   const texto = semAcentoSimples(procura);
-  if (!texto) return todos.slice(0, 60);
+  if (!texto) return todos.slice(0, 20);
 
   // código citado tem prioridade absoluta
   const codigos = new Set((texto.match(/\b\d{4}\b/g) || []));
@@ -561,14 +563,14 @@ function imoveisQueServem(procura = "") {
   const achados = todos.filter(combina);
   const escolhidos = [...citados, ...achados.filter((m) => !codigos.has(String(m.codigo)))];
   // sem nada específico, mostra um apanhado geral para ela não ficar cega
-  return (escolhidos.length ? escolhidos : todos).slice(0, 40);
+  return (escolhidos.length ? escolhidos : todos).slice(0, 12);
 }
 
 /* ==========================================================================
    O system prompt do chatbot. Montado a cada mensagem, com três partes:
    as regras daqui, o arquivo server/estilo.md (a sua voz) e a carteira.
    ========================================================================== */
-function instrucoes(procura = "") {
+function instrucoes(procura = "", compacto = false) {
   const c = lerConfig();
   const assistente = c.assistente || "Camila";
   const empresa = c.empresa || "Royal Negócios Imobiliários";
@@ -582,7 +584,7 @@ function instrucoes(procura = "") {
     `${m.quartos} qto, ${m.suites} suíte, ${m.vagas} vaga, ${m.area} m²` +
     `${m.descricao ? " | " + m.descricao.slice(0, 120) : ""}`;
 
-  const lista = imoveisQueServem(procura);
+  const lista = imoveisQueServem(procura).slice(0, compacto ? 6 : 12);
   const carteira = lista.map(ficha).join("\n") || "(carteira vazia)";
   const fimDeSemana = [0, 6].includes(diaDaSemanaAgora());
 
@@ -596,6 +598,7 @@ Você é a ${assistente}, assistente do corretor ${corretor} na ${empresa}, em U
 - Responda o que ele trouxe e PARE. Uma mensagem faz UMA coisa: nunca duas perguntas juntas, nunca cumprimento + imóvel + pergunta no mesmo texto.
 - Se vierem várias linhas de uma vez, responda à intenção mais recente do bloco todo, não só ao cumprimento.
 - "oi", "?", "bom dia" abrindo conversa: cumprimente e pergunte UMA coisa leve. Mas se o assunto já foi resolvido e vem agradecimento, despedida ou emoji sozinho ("obrigado", "valeu", "tá bom", 👍): responda curto e caloroso e ENCERRE ("Imagina, tô por aqui se precisar"). Nunca reabra o assunto — reagir errado a uma despedida entrega que é automático.
+- PROIBIDO repetir uma pergunta que você já fez ou que ele já respondeu. Antes de perguntar qualquer coisa, olhe as suas mensagens anteriores: se a região já foi perguntada, pergunte outra coisa (valor, quartos, horário). Repetir pergunta é o erro que mais entrega que é automático.
 - NUNCA REINICIE O ATENDIMENTO. Se ele corrigir um dado (bairro, valor, quartos, dia, horário) ou mudar de assunto e voltar, isso não zera nada: confirme só o item corrigido numa frase curta ("Anotei, até 250 então") e SIGA de onde vocês estavam. É proibido re-perguntar região, faixa de preço ou quantos quartos depois que ele já disse, e proibido reapresentar imóveis do zero.
 - Depois de mostrar o imóvel, convide para o atendimento presencial. Se ele hesitar ("vou pensar", achou caro, "depois"): reforce UMA vez, leve, e deixe a porta aberta ("quando quiser dar uma passada aqui é só me chamar"). Nunca insista repetindo nem soe vendedora.
 
@@ -631,10 +634,16 @@ ${carteira}
 
 ═══ 6. DESCOBRIR ANTES DE OFERECER ═══
 A primeira coisa a descobrir é a REGIÃO (ou a faixa de preço). Pergunte isso antes de falar de imóvel nenhum — uma pergunta só, reagindo antes ao que ele disse.
+- A ${empresa} atende TODAS as regiões de Uberlândia. NUNCA diga que não trabalha num bairro, que não atende aquela região ou que não tem nada por lá.
+- Quando ele disser a região, receba bem e confirme a cobertura antes de seguir: "Ótimo, temos ótimas oportunidades por lá". Só então pergunte o que falta ou mostre o que encaixa.
+- Se naquele momento a carteira não tiver nada daquele bairro, não é falta de cobertura: continue positiva, diga que tem ótimas oportunidades na região, pergunte a faixa de preço e ofereça o que mais se aproxima ou avisar quando entrar. Jamais "não temos imóveis nesse bairro".
 - Cliente que só disse "quero comprar uma casa", "oi" ou "vi seu anúncio" ainda NÃO disse nada. NÃO ofereça imóvel, preço, foto nem link nessa hora.
 - Com a região (ou o valor) na mão, aí sim mostre no máximo dois imóveis que BATEM com o que ele pediu. Se nada bate, diga que não tem no momento e ofereça avisar quando entrar.
 - Exceção: se ele já citou um imóvel, um código ou o anúncio de um imóvel específico, fale desse imóvel na hora.
-- Para mandar a foto, emita o marcador da seção 12. Nunca escreva "aqui está a foto" nem descreva em palavras que enviou algo.
+- Assim que ele der a região, o gosto dele ou um teto de valor, monte a seleção: emita [ENVIAR_PDF] e o sistema manda uma folha em PDF com a marca da ${empresa} e até TRÊS opções que encaixam. Diga em uma linha curta o que está indo ("Separei três que encaixam, dá uma olhada") — nunca escreva "segue o PDF em anexo" nem descreva o que o sistema faz.
+- Uma folha por conversa, a não ser que ele mude o que procura (outra região, outro valor, outro tipo). Aí sim monte outra.
+- [ENVIAR_FOTO_IMOVEL_XXXX] fica para quando ele pedir a foto de UM imóvel específico.
+- Nunca escreva "aqui está a foto" nem descreva em palavras que enviou algo.
 
 ═══ 7. VALORES ═══
 Preço vem SEMPRE da carteira acima — nunca de memória, nunca do histórico, nunca arredondado. Fale o preço quando apresentar o imóvel ou quando ele perguntar; junto dele cabe o gancho do primeiro imóvel ("se for seu primeiro imóvel, a documentação sai com 50% de desconto").
@@ -671,14 +680,14 @@ Inclua só os campos que descobriu. "teto" = quanto ele pode pagar, só o númer
 
 ═══ 12. CÓDIGOS INTERNOS ═══
 O cliente NUNCA vê: o sistema apaga antes de enviar. Formato exato, nunca dois iguais no mesmo texto.
-[ENVIAR_FOTO_IMOVEL_XXXX] manda a foto e a ficha do imóvel de código XXXX · [AGENDAMENTO_CONFIRMADO]{...} avisa o ${corretor} do atendimento · [DUVIDA_RICARDO]{...} pergunta sem resposta · [PERFIL]{...} salva os dados do cliente.
-Emitir o marcador é o ÚNICO jeito de mandar foto. Nunca descreva em palavras uma ação do sistema.
+[ENVIAR_PDF] monta e manda a folha com até 3 opções (o sistema escolhe pelo que ele falou; para fixar imóveis use [ENVIAR_PDF]{"codigos":["8801","8817"]}) · [ENVIAR_FOTO_IMOVEL_XXXX] manda a foto e a ficha de UM imóvel · [AGENDAMENTO_CONFIRMADO]{...} avisa o ${corretor} do atendimento · [DUVIDA_RICARDO]{...} pergunta sem resposta · [PERFIL]{...} salva os dados do cliente.
+Emitir o marcador é o ÚNICO jeito de mandar foto ou PDF. Nunca descreva em palavras uma ação do sistema.
 
 ═══ 13. GERAL ═══
 Sempre português, natural, sem pressão. Fora do horário comercial, não trate como impeditivo: converse normal e marque para o próximo dia útil.
 ${c.estilo ? "\nObservação do " + corretor + ": " + c.estilo : ""}
 
-${estiloDoCorretor() ? "═══ 14. O JEITO DO " + corretor.toUpperCase() + " (siga fielmente, inclusive o modo de escrever) ═══\n" + estiloDoCorretor() : ""}`;
+${!compacto && estiloDoCorretor() ? "═══ 14. O JEITO DO " + corretor.toUpperCase() + " (siga fielmente, inclusive o modo de escrever) ═══\n" + estiloDoCorretor() : ""}`;
 }
 
 // Groq — alternativa gratuita (chave em console.groq.com/keys)
@@ -691,14 +700,20 @@ async function groqDescobrirModelo(chave) {
   if (!r.ok) throw new Error("Groq /models " + r.status + ": " + (await r.text()).slice(0, 200));
   const ids = ((await r.json()).data || []).map((m) => m.id);
   const serve = (id) => !/whisper|tts|guard|embed|vision|safety|prompt/i.test(id);
-  const nota = (id) => (/70b|120b|maverick/i.test(id) ? 3 : /17b|32b|scout/i.test(id) ? 2 : 1);
+  // no plano gratuito o limite é de tokens por minuto, então modelo gigante
+  // trava a conversa. Preferimos o 70b, que tem folga, e caímos para os menores.
+  const nota = (id) =>
+    /llama-3\.3-70b/i.test(id) ? 5 :
+    /70b/i.test(id) ? 4 :
+    /8b-instant|scout|17b/i.test(id) ? 3 :
+    /120b|maverick/i.test(id) ? 1 : 2;
   const bons = ids.filter(serve).sort((a, b) => nota(b) - nota(a));
   if (!bons.length) throw new Error("Nenhum modelo de conversa disponível nesta conta Groq.");
   console.log("  Groq: usando o modelo " + bons[0]);
   return bons[0];
 }
 
-async function pedirGroq(mensagens, maxTokens = 600, procura = "") {
+async function pedirGroq(mensagens, maxTokens = 600, procura = "", compacto = false) {
   const chave = process.env.GROQ_API_KEY;
   if (!chave) throw new Error("Sem GROQ_API_KEY.");
 
@@ -710,7 +725,7 @@ async function pedirGroq(mensagens, maxTokens = 600, procura = "") {
         model: modelo,
         max_tokens: maxTokens,
         temperature: 0.7,
-        messages: [{ role: "system", content: instrucoes(procura) }, ...mensagens],
+        messages: [{ role: "system", content: instrucoes(procura, compacto) }, ...mensagens],
       }),
     });
     if (!r.ok) {
@@ -738,7 +753,7 @@ async function pedirGroq(mensagens, maxTokens = 600, procura = "") {
 }
 
 // Google Gemini — alternativa gratuita (chave em aistudio.google.com)
-async function pedirGemini(mensagens, maxTokens = 600, procura = "") {
+async function pedirGemini(mensagens, maxTokens = 600, procura = "", compacto = false) {
   const chave = process.env.GEMINI_API_KEY;
   if (!chave) throw new Error("Sem GEMINI_API_KEY.");
   const modelo = process.env.GEMINI_MODEL || "gemini-2.0-flash";
@@ -748,7 +763,7 @@ async function pedirGemini(mensagens, maxTokens = 600, procura = "") {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: instrucoes(procura) }] },
+        systemInstruction: { parts: [{ text: instrucoes(procura, compacto) }] },
         contents: mensagens.map((m) => ({
           role: m.role === "assistant" ? "model" : "user",
           parts: [{ text: m.content }],
@@ -772,14 +787,21 @@ async function pedirIA(mensagens, maxTokens = 600, procura = "") {
   if (process.env.GEMINI_API_KEY) tentativas.push(pedirGemini);
   if (!tentativas.length) throw new Error("Nenhuma chave de IA configurada no .env.");
   let ultimo;
+  // erro de tamanho ou de limite por minuto: tenta de novo com o prompt enxuto
+  const cabeMenos = (m) => /context_length|too long|reduce the length|rate.?limit|429|413/i.test(m);
   for (const tentar of tentativas) {
     try { return await tentar(mensagens, maxTokens, procura); }
-    catch (e) { ultimo = e; }
+    catch (e) {
+      ultimo = e;
+      if (!cabeMenos(e.message)) continue;
+      try { return await tentar(mensagens, maxTokens, procura, true); }
+      catch (e2) { ultimo = e2; }
+    }
   }
   throw ultimo;
 }
 
-async function pedirClaude(mensagens, maxTokens = 600, procura = "") {
+async function pedirClaude(mensagens, maxTokens = 600, procura = "", compacto = false) {
   const chave = process.env.ANTHROPIC_API_KEY;
   if (!chave) throw new Error("Configure ANTHROPIC_API_KEY no arquivo .env para o chatbot funcionar.");
   const r = await fetch("https://api.anthropic.com/v1/messages", {
@@ -792,7 +814,7 @@ async function pedirClaude(mensagens, maxTokens = 600, procura = "") {
     body: JSON.stringify({
       model: MODELO,
       max_tokens: maxTokens,
-      system: instrucoes(procura),
+      system: instrucoes(procura, compacto),
       messages: mensagens,
     }),
   });
@@ -805,69 +827,120 @@ async function pedirClaude(mensagens, maxTokens = 600, procura = "") {
 /* ============ RESPOSTA SEM IA (funciona sem chave da Anthropic) ============ */
 function respostaLocal(mensagens) {
   const c = lerConfig();
-  const ultima = String(mensagens.filter(m => m.role === "user").pop()?.content || "").toLowerCase();
-  const jaFalou = mensagens.filter(m => m.role === "assistant").length > 0;
-  const tem = (...ps) => ps.some(x => ultima.includes(x));
+  const assistente = c.assistente || "Camila";
+  const empresa = c.empresa || "Royal Negócios Imobiliários";
+  const corretor = c.corretor || "Ricardo";
 
-  // critérios ditos pelo cliente
+  const doCliente = mensagens.filter((m) => m.role === "user").map((m) => String(m.content));
+  const daCasa = mensagens.filter((m) => m.role === "assistant").map((m) => String(m.content));
+  const tudo = semAcentoSimples(doCliente.join(" "));           // a conversa inteira, não só a última
+  const ultima = semAcentoSimples(doCliente[doCliente.length - 1] || "");
+  const jaFalou = daCasa.length > 0;
+  const jaDisse = (...ps) => ps.some((x) => semAcentoSimples(daCasa.join(" ")).includes(semAcentoSimples(x)));
+  const tem = (...ps) => ps.some((x) => ultima.includes(semAcentoSimples(x)));
+  const temNaConversa = (...ps) => ps.some((x) => tudo.includes(semAcentoSimples(x)));
+
+  /* ---- o que o cliente já disse, somando a conversa toda ---- */
   let teto = 0;
-  const mMil = ultima.match(/(\d{2,3})\s*(mil|k)\b/);
-  const mReal = ultima.match(/r?\$?\s*([\d.]{6,})/);
+  const mMil = tudo.match(/(\d{2,4})\s*(mil|k)\b/);
+  const mReal = tudo.match(/r?\$?\s*([\d.]{6,})/);
   if (mMil) teto = Number(mMil[1]) * 1000;
   else if (mReal) teto = Number(mReal[1].replace(/\./g, ""));
-  const mQ = ultima.match(/(\d)\s*(quarto|qto|dorm)/);
+
+  const mQ = tudo.match(/(\d)\s*(quarto|qto|dorm)/);
   const quartos = mQ ? Number(mQ[1]) : 0;
-  const tipo = tem("casa") ? "Casa" : tem("apartamento", "apto", "ap ") ? "Apartamento"
-    : tem("lote", "terreno") ? "Lote/Terreno" : tem("chácara", "chacara") ? "Chácara" : "";
+
+  const tipo = temNaConversa("casa") ? "Casa"
+    : temNaConversa("apartamento", "apto") ? "Apartamento"
+    : temNaConversa("lote", "terreno") ? "Lote/Terreno"
+    : temNaConversa("chacara") ? "Chácara" : "";
 
   const todos = listarImoveis();
-  const bairro = (todos.map(m => m.bairro).filter(Boolean)
-    .find(b => b && ultima.includes(b.toLowerCase())) || "");
+  const bairro = todos.map((m) => m.bairro).filter(Boolean)
+    .find((b) => tudo.includes(semAcentoSimples(b))) || "";
 
-  // Só oferece imóvel quando o cliente deu um critério de verdade:
-  // região, faixa de preço ou número de quartos. Só dizer "quero uma casa" não basta.
-  const criterioForte = Boolean(teto || quartos || bairro);
+  // região dita mesmo que não exista na carteira (ex.: "quero no Morumbi")
+  const disseRegiao = Boolean(bairro) ||
+    /\b(bairro|regiao|zona|setor)\b/.test(tudo) ||
+    /\b(norte|sul|leste|oeste|centro)\b/.test(tudo);
 
-  if (!jaFalou && !criterioForte)
-    return `${saudacaoAgora()}, tudo joia ?`;
+  /* ---- perguntas que já foram feitas: nunca repetir ---- */
+  const perguntouRegiao = jaDisse("qual regiao", "regiao de uberlandia", "regiao mais te atende", "a regiao te atende");
+  const perguntouValor = jaDisse("faixa de preco", "quanto voce", "valor voce", "quanto pretende", "valor em mente");
+  const perguntouAprovacao = jaDisse("aprovacao");
+  const perguntouHorario = jaDisse("fica bom", "quando fica melhor", "poderiamos marcar", "que horas");
 
-  if (tipo && !criterioForte)
-    return `Qual região de Uberlândia mais te atende ?`;
+  const mostrar = (lista) => {
+    const linhas = lista.map((m) =>
+      `${m.codigo} — ${m.tipo} no ${m.bairro}, ${m.quartos || 0} quartos, ${m.area || "?"}m², ` +
+      `${(m.preco || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })}`);
+    const abre = lista.length > 1 ? "Tenho essas duas pra você:" : "Tenho essa pra você:";
+    const fecha = perguntouAprovacao ? "" : "\n\nJá chegou a fazer sua aprovação ?";
+    return `${abre}\n\n${linhas.join("\n")}${fecha}`;
+  };
 
-  if (criterioForte) {
-    let achados = todos.filter(m =>
-      (!teto || (m.preco && m.preco <= teto)) &&
-      (!quartos || m.quartos >= quartos) &&
+  /* ---- perguntas diretas do cliente vêm antes de tudo ---- */
+  if (tem("aprova", "financia", "renda", "entrada", "parcela", "custas", "prazo", "documenta"))
+    return `Esses detalhes o ${corretor} prefere te passar no atendimento presencial, ele precisa entender certinho os valores que você espera, prazos, custas e etc.` +
+      (perguntouHorario ? "" : "\nQuando fica melhor pra você ?");
+
+  if (tem("endereco", "escritorio", "onde fica", "onde voces"))
+    return "Ficamos na R. José Nonato Ribeiro, 428 - Cazeca, Uberlândia - MG.\nNosso atendimento é apenas com horário marcado, quando fica melhor pra você ?";
+
+  if (tem("marcar", "agendar", "visita", "horario", "amanha", "pode ser", "consigo sim", "fechado")) {
+    const endereco = c.endereco || "R. José Nonato Ribeiro, 428 - Cazeca, Uberlândia - MG";
+    // se o horário já foi proposto e ele topou, confirma em vez de perguntar de novo
+    if (perguntouHorario) return `Combinado !\nTe espero na ${endereco}. Qualquer coisa é só me chamar por aqui`;
+    return "Amanhã as 18:30 fica bom pra você ?";
+  }
+
+  if (tem("obrigado", "obrigada", "valeu", "tá bom", "ta bom", "tchau"))
+    return "Imagina ! Tô por aqui se precisar";
+
+  /* ---- primeira mensagem ---- */
+  if (!jaFalou && !teto && !quartos && !disseRegiao)
+    return `${saudacaoAgora()} ! Aqui é a ${assistente}, da ${empresa}`;
+
+  /* ---- com região e valor: mostra o que encaixa ---- */
+  const criterio = Boolean(teto || quartos || bairro);
+  if (criterio) {
+    const combina = (m, comBairro = true, folga = 1) =>
+      (!teto || (m.preco && m.preco <= teto * folga)) &&
+      (!quartos || (m.quartos || 0) >= quartos) &&
       (!tipo || m.tipo === tipo) &&
-      (!bairro || m.bairro === bairro));
+      (!comBairro || !bairro || m.bairro === bairro);
+
+    let achados = todos.filter((m) => combina(m));
+    if (!achados.length && bairro) achados = todos.filter((m) => combina(m, true, 1.15));  // um pouco acima
     achados.sort((a, b) => (b.preco || 0) - (a.preco || 0));
-    const dois = achados.slice(0, 2);
-    if (dois.length) {
-      const linhas = dois.map(m =>
-        `${m.codigo} — ${m.tipo} no ${m.bairro}, ${m.quartos || 0} quartos, ${m.area || "?"}m², ` +
-        `${(m.preco || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })}`);
-      const abre = dois.length > 1 ? "Tenho essas duas pra você:" : "Tenho essa pra você:";
-      return `${abre}\n\n${linhas.join("\n")}\n\nJá chegou a fazer sua aprovação?`;
-    }
+
+    // não repete imóvel que ela já mostrou nesta conversa
+    const jaMostrados = new Set((daCasa.join(" ").match(/\b\d{4}\b/g) || []));
+    const novos = achados.filter((m) => !jaMostrados.has(String(m.codigo)));
+    if (novos.length) return mostrar(novos.slice(0, 2));
+    if (achados.length && jaMostrados.size)
+      return perguntouHorario
+        ? "Esses são os que encaixam agora. Quer que eu te avise quando entrar outro parecido ?"
+        : `O ${corretor} consegue te mostrar tudo com calma no escritório. Amanhã as 18:30 fica bom ?`;
+
+    // nada no bairro pedido: a cobertura continua existindo, o que falta é opção agora
+    if (bairro || disseRegiao)
+      return `Temos ótimas oportunidades por lá sim.\nNessa faixa não tenho nada pronto nesse momento — quer que eu te avise assim que entrar ?`;
     return "Nessa faixa não tenho nada pronto agora, mas chega imóvel novo toda semana.\nQuer que eu te avise quando entrar algo assim ?";
   }
 
-  if (tem("aprova", "financia", "renda", "entrada", "parcela", "custas", "prazo", "documenta"))
-    return "Esses detalhes eu prefiro te passar no atendimento presencial, eu preciso entender certinho os valores que você espera, como podemos fazer isso, prazos, custas e etc.\nQuando fica melhor pra você ?";
-
-  if (tem("endereço", "endereco", "escritório", "escritorio", "onde fica", "onde voces", "onde vocês"))
-    return `Ficamos na R. José Nonato Ribeiro, 428 - Cazeca, Uberlândia - MG.\nNosso atendimento presencial é apenas com horário marcado, quando fica melhor pra você ?`;
-
-  if (tem("marcar", "agendar", "visita", "horário", "horario", "amanhã", "amanha"))
-    return "Combinado. Amanhã no mesmo horário ou você prefere mais tarde ?";
-
-  if (tem("valor", "preço", "preco", "quanto"))
-    return "Te passo agora.\nQual região mais te atende hoje ?";
-
-  if (!jaFalou)
-    return `${saudacaoAgora()}, tudo joia ?`;
-
-  return "Qual região mais te atende hoje ?";
+  /* ---- ainda falta informação: pergunta o que ainda NÃO foi perguntado ---- */
+  if (disseRegiao && !bairro && !perguntouValor)
+    return "Temos ótimas oportunidades por lá sim.\nQual valor você tem em mente ?";
+  if (!disseRegiao && !perguntouRegiao)
+    return "Qual região de Uberlândia mais te atende ?";
+  if (!teto && !perguntouValor)
+    return "Qual valor você tem em mente ?";
+  if (!quartos)
+    return "Quantos quartos você precisa ?";
+  if (!perguntouHorario)
+    return `O ${corretor} consegue te atender no escritório e montar as opções com você. Amanhã as 18:30 fica bom ?`;
+  return "Me conta um pouco mais do que você procura que eu separo as opções.";
 }
 
 /* ============ CÓDIGOS INTERNOS DA RESPOSTA ============
@@ -892,9 +965,15 @@ function lerMarcadores(bruto) {
       try { aoAchar(JSON.parse(json)); } catch { /* json torto: ignora */ }
       return "";
     });
-    // marcador solto, sem json
     texto = texto.replace(new RegExp("\\[" + nome + "\\]", "gi"), "");
   };
+
+  let folha = null;
+  texto = texto.replace(/\[ENVIAR_PDF\]\s*(\{[\s\S]*?\})/gi, (_, json) => {
+    try { folha = JSON.parse(json); } catch { folha = {}; }
+    return "";
+  });
+  texto = texto.replace(/\[ENVIAR_PDF\]/gi, () => { folha = folha || {}; return ""; });
 
   comJson("AGENDAMENTO_CONFIRMADO", (o) => { agendamento = o; });
   comJson("PERFIL", (o) => perfis.push(o));
@@ -902,7 +981,7 @@ function lerMarcadores(bruto) {
   comJson("DUVIDA_EQUIPE", (o) => duvidas.push(o));          // aceita o nome antigo
 
   texto = texto.replace(/\n{3,}/g, "\n\n").replace(/[ \t]+\n/g, "\n").trim();
-  return { texto, fotos, agendamento, perfis, duvidas };
+  return { texto, fotos, agendamento, perfis, duvidas, folha };
 }
 
 // aplica no sistema o que a IA pediu
@@ -942,9 +1021,8 @@ function aplicarMarcadores(m, { jid = "", nome = "", telefone = "" }) {
     }
   }
 
-  for (const d of m.duvidas) {
+  for (const d of m.duvidas)
     salvarDuvida({ jid, leadId: lead?.id || "", nome: nome || lead?.nome || "", pergunta: d.pergunta || d.duvida || "" });
-  }
 
   for (const codigo of m.fotos) registrarInteresse(jid, String(codigo), lead?.id || "", "foto");
   return m;
@@ -972,7 +1050,17 @@ app.post("/api/chat", async (req, res) => {
     try { aplicarMarcadores(m, { jid, nome, telefone }); }
     catch (e) { console.error("[chat] marcador:", e.message); }
 
+    // a assistente pediu a folha em PDF: o sistema escolhe as opções e monta
+    if (m.folha) {
+      try {
+        const escolha = melhoresOpcoes({ codigos: m.folha.codigos || [], procura });
+        m.folha = { codigos: escolha.map((x) => String(x.codigo)), cliente: m.folha.cliente || nome || "" };
+        for (const cod of m.folha.codigos) registrarInteresse(jid, cod, "", "folha");
+      } catch { m.folha = null; }
+    }
+
     const resposta = { texto: m.texto || "Me conta o que você procura que eu te ajudo.", fotos: m.fotos };
+    if (m.folha) resposta.folha = m.folha;
     if (m.agendamento) resposta.agendamento = m.agendamento;
     if (m.duvidas.length) resposta.duvidas = m.duvidas;
     if (semIA) { resposta.semIA = true; resposta.motivo = motivo; }
@@ -1172,6 +1260,63 @@ app.post("/api/gerencia/duvida/:id", (req, res) => {
   catch (e) { res.status(500).json({ erro: e.message }); }
 });
 
+/* ============ RETOMADA AUTOMÁTICA ============
+   Cliente que ficou sem responder leva UMA cutucada dois dias depois — e só
+   se ele não tiver dito que não tem mais interesse. A ponte do WhatsApp
+   pergunta aqui o que há para enviar. */
+const DIAS_RETOMADA = Number(process.env.WA_RETOMADA_DIAS || 2);
+
+function dentroDoHorarioDeCutucar() {
+  const agoraBR = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  const dia = agoraBR.getDay(), hora = agoraBR.getHours();
+  return dia >= 1 && dia <= 5 && hora >= 9 && hora < 19;      // dia útil, 9h às 19h
+}
+
+async function textoDaRetomada(c) {
+  const msgs = waMensagens(c.jid, 12);
+  const conversa = msgs.map((m) => (m.de === "cliente" ? "CLIENTE: " : "VOCÊ: ") + m.texto).join("\n");
+  const dias = Math.max(1, Math.round((Date.now() - new Date(c.atualizado_em || Date.now())) / 864e5));
+  const pedido =
+    `Esta conversa parou há ${dias} dia(s) e o cliente ficou sem responder. ` +
+    `Escreva APENAS a mensagem curta de retomada, no seu estilo, retomando de onde parou ` +
+    `e propondo um horário concreto de atendimento. Uma ou duas linhas, sem saudação longa, ` +
+    `sem cobrar o cliente e sem marcador nenhum.\n\n` + conversa;
+  try {
+    const bruto = await pedirIA([{ role: "user", content: pedido }], 200, conversa);
+    const limpo = lerMarcadores(bruto).texto;
+    if (limpo) return limpo;
+  } catch { /* cai no texto padrão */ }
+  const nome = (c.nome || "").split(" ")[0];
+  return `Oi ${nome}, tudo bem ?\nSeparei umas opções novas que podem te interessar. Quer dar uma olhada ?`;
+}
+
+// a ponte pergunta: tem alguém para retomar agora?
+app.get("/api/wa/retomadas", async (req, res) => {
+  try {
+    if (lerConfig().botLigado !== "1") return res.json([]);
+    if (!dentroDoHorarioDeCutucar()) return res.json([]);
+    const lista = conversasParaRetomar(DIAS_RETOMADA, 5);
+    const saida = [];
+    for (const c of lista) {
+      saida.push({ jid: c.jid, nome: c.nome, telefone: c.telefone, texto: await textoDaRetomada(c) });
+    }
+    res.json(saida);
+  } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+// a ponte avisa que mandou
+app.post("/api/wa/retomadas/:jid", (req, res) => {
+  const jid = req.params.jid;
+  registrarRetomada(jid);
+  if (req.body?.texto) waSalvarMensagem(jid, "bot", String(req.body.texto), "");
+  res.json({ ok: true });
+});
+
+// liga e desliga o "não perturbe" de uma conversa
+app.post("/api/wa/conversas/:jid/nao-perturbe", (req, res) => {
+  res.json(marcarNaoPerturbe(req.params.jid, req.body?.ativo !== false));
+});
+
 // gera a mensagem de retomada para um cliente parado
 app.post("/api/gerencia/retomar/:jid", async (req, res) => {
   const jid = req.params.jid;
@@ -1242,6 +1387,72 @@ app.post("/api/imoveis/fotos-nuvem", async (req, res) => {
     res.json(await subirFotosLocais(bancoBruto, fs, path,
       [PASTA_FOTOS, path.join(raiz, "public", "fotos")]));
   } catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+/* ==================== FOLHA DE IMÓVEIS (PDF) ====================
+   Até três opções numa página só, com a marca da Royal, para mandar ao cliente.
+   Se existir public/logo.jpg (ou data/logo.jpg), a logo de verdade é usada;
+   senão, entra a marca escrita. */
+async function fotoDoImovel(m) {
+  try {
+    if (!m?.foto) return null;
+    if (/^https?:/i.test(m.foto)) {
+      const r = await fetch(m.foto);
+      return r.ok ? Buffer.from(await r.arrayBuffer()) : null;
+    }
+    const arquivo = m.foto.replace(/^\/fotos\//, "");
+    for (const pasta of [PASTA_FOTOS, path.join(raiz, "public", "fotos")]) {
+      const caminho = path.join(pasta, arquivo);
+      if (fs.existsSync(caminho)) return fs.readFileSync(caminho);
+    }
+  } catch { /* segue sem foto */ }
+  return null;
+}
+
+function logoDaCasa() {
+  for (const caminho of [path.join(raiz, "public", "logo.jpg"), path.join(raiz, "data", "logo.jpg")])
+    if (fs.existsSync(caminho)) { try { return fs.readFileSync(caminho); } catch { /* ignora */ } }
+  return null;
+}
+
+// escolhe as melhores opções para o que o cliente falou
+function melhoresOpcoes({ codigos = [], procura = "", quantas = 3 }) {
+  const todos = listarImoveis();
+  const pedidos = codigos.map((c) => todos.find((m) => String(m.codigo) === String(c))).filter(Boolean);
+  if (pedidos.length >= quantas) return pedidos.slice(0, quantas);
+  const resto = imoveisQueServem(procura)
+    .filter((m) => !pedidos.some((p) => p.codigo === m.codigo))
+    .sort((a, b) => (b.preco || 0) - (a.preco || 0));
+  return [...pedidos, ...resto].slice(0, quantas);
+}
+
+async function montarFolha({ codigos = [], procura = "", cliente = "" }) {
+  const escolhidos = melhoresOpcoes({ codigos, procura });
+  if (!escolhidos.length) throw new Error("Nenhum imóvel para montar a folha.");
+  const c = lerConfig();
+  const comFoto = [];
+  for (const m of escolhidos) comFoto.push({ ...m, fotoBuffer: await fotoDoImovel(m) });
+  return {
+    codigos: escolhidos.map((m) => String(m.codigo)),
+    pdf: folhaDeImoveis({
+      imoveis: comFoto, cliente,
+      empresa: c.empresa, corretor: c.corretor, creci: c.creci, whats: c.whats,
+      endereco: c.endereco || "R. José Nonato Ribeiro, 428 - Cazeca, Uberlândia-MG",
+      logoBuffer: logoDaCasa(),
+    }),
+  };
+}
+
+// o painel e a ponte do WhatsApp pedem a folha por aqui
+app.post("/api/imoveis/folha", async (req, res) => {
+  try {
+    const { codigos = [], procura = "", cliente = "" } = req.body || {};
+    const { pdf, codigos: usados } = await montarFolha({ codigos, procura, cliente });
+    res.set("content-type", "application/pdf");
+    res.set("x-royal-codigos", usados.join(","));
+    res.set("content-disposition", 'inline; filename="royal-imoveis.pdf"');
+    res.send(pdf);
+  } catch (e) { res.status(400).json({ erro: e.message }); }
 });
 
 /* ==================== SITES DOS CLIENTES ==================== */

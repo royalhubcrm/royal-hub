@@ -133,6 +133,9 @@ CREATE TABLE IF NOT EXISTS wa_conversas (
   pausado_ate TEXT DEFAULT '',
   ultima TEXT DEFAULT '',
   nao_lidas INTEGER DEFAULT 0,
+  nao_perturbe INTEGER DEFAULT 0,
+  ultima_retomada TEXT DEFAULT '',
+  retomadas INTEGER DEFAULT 0,
   atualizado_em TEXT
 );
 
@@ -171,6 +174,16 @@ CREATE TABLE IF NOT EXISTS config (
 CREATE INDEX IF NOT EXISTS idx_hist_lead ON historico(lead_id);
 CREATE INDEX IF NOT EXISTS idx_imv_bairro ON imoveis(bairro);
 `);
+
+// colunas que entraram depois — em banco antigo elas precisam ser acrescentadas
+for (const [tabela, coluna, tipo] of [
+  ["wa_conversas", "nao_perturbe", "INTEGER DEFAULT 0"],
+  ["wa_conversas", "ultima_retomada", "TEXT DEFAULT ''"],
+  ["wa_conversas", "retomadas", "INTEGER DEFAULT 0"],
+]) {
+  try { db.exec(`ALTER TABLE ${tabela} ADD COLUMN ${coluna} ${tipo}`); }
+  catch { /* já existe */ }
+}
 
 const CONFIG_PADRAO = {
   corretor: "Ricardo",
@@ -261,9 +274,57 @@ export function waSalvarMensagem(jid, de, texto, nome = "") {
     .run(jid, nome, jid.split("@")[0], t, String(texto).slice(0, 200));
   db.prepare("INSERT INTO wa_mensagens (jid, de, texto, criado_em) VALUES (?,?,?,?)")
     .run(jid, de, String(texto), t);
-  if (de === "cliente")
+  if (de === "cliente") {
     db.prepare("UPDATE wa_conversas SET nao_lidas = nao_lidas + 1 WHERE jid = ?").run(jid);
+    if (pediuParaNaoInsistir(texto)) marcarNaoPerturbe(jid, true);
+  }
   return t;
+}
+
+/* ---------------- não insistir ----------------
+   Quando o cliente diz que não tem mais interesse, que já comprou ou que
+   deixa para outra hora, a conversa fica marcada e nunca mais recebe
+   mensagem automática. Só volta se você religar na mão. */
+const SEM_INTERESSE = new RegExp([
+  "n[ãa]o (tenho|tem|estou com|to com) (mais )?interesse",
+  "perdi o interesse", "desisti", "n[ãa]o quero mais", "n[ãa]o preciso mais",
+  "j[áa] (comprei|consegui|achei|aluguei|fechei)", "comprei (outro|outra)",
+  "outra hora", "mais (pra|para) frente", "mais adiante", "deixa (pra|para) (depois|outra)",
+  "vou deixar (pra|para) (depois|frente)", "agora n[ãa]o", "no momento n[ãa]o",
+  "para de (mandar|me mandar)", "pare de (mandar|me mandar)", "n[ãa]o me mande",
+  "me tira da lista", "descadastr", "sair da lista",
+].join("|"), "i");
+
+export const pediuParaNaoInsistir = (texto) => SEM_INTERESSE.test(String(texto || ""));
+
+export function marcarNaoPerturbe(jid, ativo = true) {
+  db.prepare("UPDATE wa_conversas SET nao_perturbe = ? WHERE jid = ?").run(ativo ? 1 : 0, jid);
+  return waLerConversa(jid);
+}
+
+/* ---------------- quem merece uma retomada ----------------
+   Conversa parada há N dias, que não pediu para parar, onde a última palavra
+   foi sua ou do bot (o cliente não respondeu), e que ainda não foi cutucada
+   duas vezes. */
+export function conversasParaRetomar(dias = 2, limite = 10) {
+  const corte = new Date(Date.now() - dias * 864e5).toISOString();
+  return db.prepare(`
+    SELECT c.*,
+      (SELECT de FROM wa_mensagens WHERE jid = c.jid ORDER BY id DESC LIMIT 1) AS ultimo_de
+    FROM wa_conversas c
+    WHERE c.atualizado_em < ?
+      AND COALESCE(c.nao_perturbe, 0) = 0
+      AND c.bot_ativo = 1
+      AND COALESCE(c.retomadas, 0) < 2
+      AND (c.ultima_retomada IS NULL OR c.ultima_retomada = '' OR c.ultima_retomada < ?)
+    ORDER BY c.atualizado_em ASC
+    LIMIT ?`).all(corte, corte, limite)
+    .filter((c) => c.ultimo_de !== "cliente");
+}
+
+export function registrarRetomada(jid) {
+  db.prepare("UPDATE wa_conversas SET ultima_retomada = ?, retomadas = COALESCE(retomadas,0) + 1 WHERE jid = ?")
+    .run(agora(), jid);
 }
 
 export function waConversas() {

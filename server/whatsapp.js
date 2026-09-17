@@ -153,6 +153,27 @@ async function conectar() {
           await sock.sendMessage(jid, { text: parte.trim() });
           await dormir(1200 + Math.random() * 1800);
         }
+        // folha em PDF com as melhores opções
+        if (j.folha?.codigos?.length) {
+          try {
+            const r = await fetch(SISTEMA + "/api/imoveis/folha", {
+              method: "POST",
+              headers: { "content-type": "application/json", "x-royal-token": TOKEN },
+              body: JSON.stringify({ codigos: j.folha.codigos, cliente: j.folha.cliente || nome || "" }),
+            });
+            if (r.ok) {
+              const pdf = Buffer.from(await r.arrayBuffer());
+              await sock.sendMessage(jid, {
+                document: pdf,
+                mimetype: "application/pdf",
+                fileName: "Royal - opções de imóveis.pdf",
+              });
+              console.log("  ✓ folha em PDF enviada (" + j.folha.codigos.join(", ") + ")");
+              await dormir(1500);
+            } else console.log("  x folha não gerada: " + r.status);
+          } catch (e) { console.log("  x folha: " + e.message); }
+        }
+
         // fotos: só as que a assistente pediu pelo marcador [ENVIAR_FOTO_IMOVEL_XXXX]
         for (const codigo of (j.fotos || []).slice(0, 2)) {
           const m = await api("/api/imoveis/" + codigo).catch(() => null);
@@ -185,6 +206,40 @@ async function conectar() {
       }
     }
   });
+
+  // a cada 20 minutos pergunta ao sistema se tem alguém para retomar
+  clearInterval(relogioRetomada);
+  relogioRetomada = setInterval(() => cutucarQuemSumiu(sock), 20 * 60000);
+  setTimeout(() => cutucarQuemSumiu(sock), 90000);
+}
+
+/* Clientes que não responderam: uma mensagem dois dias depois, no horário
+   comercial, e nunca em quem disse que não tem mais interesse. Quem decide
+   é o sistema; aqui a gente só entrega. */
+let relogioRetomada = null;
+
+async function cutucarQuemSumiu(sock) {
+  let lista = [];
+  try { lista = await api("/api/wa/retomadas"); } catch { return; }
+  if (!Array.isArray(lista) || !lista.length) return;
+
+  for (const c of lista) {
+    try {
+      const ok = await api("/api/wa/pode/" + encodeURIComponent(c.jid)).catch(() => ({ pode: false }));
+      if (!ok.pode) continue;
+      await sock.sendPresenceUpdate("composing", c.jid);
+      await dormir(2000 + Math.random() * 3000);
+      for (const parte of String(c.texto).split(/\n{2,}/).filter(Boolean)) {
+        await sock.sendMessage(c.jid, { text: parte.trim() });
+        await dormir(1200 + Math.random() * 1500);
+      }
+      await sock.sendPresenceUpdate("paused", c.jid);
+      await api("/api/wa/retomadas/" + encodeURIComponent(c.jid), {
+        method: "POST", body: JSON.stringify({ texto: c.texto }) });
+      console.log("  ↻ retomada enviada para " + (c.nome || c.telefone));
+      await dormir(8000 + Math.random() * 12000);          // espaça os envios
+    } catch (e) { console.log("  x retomada: " + e.message); }
+  }
 }
 
 console.log("\n  Royal Hub — ponte do WhatsApp");
