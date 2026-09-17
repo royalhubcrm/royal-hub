@@ -131,7 +131,7 @@ export function trocarSenhaPorEmail(email, novaSenha) {
 }
 
 /* ---------------- sessões ---------------- */
-const DIAS = 14;
+const DIAS = 90;   // fica conectado por 3 meses neste aparelho
 
 export function abrirSessao(usuarioId) {
   const token = crypto.randomBytes(32).toString("hex");

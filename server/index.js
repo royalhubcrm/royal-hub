@@ -107,7 +107,7 @@ app.post("/api/auth/primeiro-acesso", (req, res) => {
     const u = criarUsuario({ ...req.body, papel: "admin" });
     const { token } = abrirSessao(u.id);
     res.cookie?.(COOKIE, token);
-    res.set("Set-Cookie", COOKIE + "=" + token + "; HttpOnly; Path=/; Max-Age=" + 14 * 86400 + "; SameSite=Lax");
+    res.set("Set-Cookie", biscoito(req, token));
     res.json({ usuario: u });
   } catch (e) { res.status(400).json({ erro: e.message }); }
 });
@@ -119,13 +119,13 @@ app.post("/api/auth/entrar", (req, res) => {
     return res.status(401).json({ erro: "E-mail ou senha incorretos." });
   if (!u.ativo) return res.status(403).json({ erro: "Esta conta está desativada." });
   const { token } = abrirSessao(u.id);
-  res.set("Set-Cookie", COOKIE + "=" + token + "; HttpOnly; Path=/; Max-Age=" + 14 * 86400 + "; SameSite=Lax");
+  res.set("Set-Cookie", biscoito(req, token));
   res.json({ usuario: { ...u, senha: undefined } });
 });
 
 app.post("/api/auth/sair", (req, res) => {
   encerrarSessao(lerCookie(req, COOKIE));
-  res.set("Set-Cookie", COOKIE + "=; HttpOnly; Path=/; Max-Age=0");
+  res.set("Set-Cookie", COOKIE + "=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax");
   res.json({ ok: true });
 });
 
@@ -444,6 +444,14 @@ app.post("/api/webhook/meta", (req, res) => {
   res.json({ ok: true, id });
 });
 
+// Cookie de sessão: dura 90 dias, então o login fica salvo no aparelho.
+// Em endereço https (Render, domínio próprio) vai com Secure.
+function biscoito(req, token) {
+  const https = req.secure || req.headers["x-forwarded-proto"] === "https";
+  return COOKIE + "=" + token + "; HttpOnly; Path=/; Max-Age=" + 90 * 86400 +
+    "; SameSite=Lax" + (https ? "; Secure" : "");
+}
+
 /* ==================== CONFIG ==================== */
 app.get("/api/config", (req, res) =>
   res.json({ ...lerConfig(), iaLigada: Boolean(process.env.ANTHROPIC_API_KEY || process.env.GROQ_API_KEY || process.env.GEMINI_API_KEY) }));
@@ -454,6 +462,18 @@ function estiloDoCorretor() {
   const arq = path.join(raiz, "server", "estilo.md");
   try { return fs.existsSync(arq) ? fs.readFileSync(arq, "utf8").trim() : ""; }
   catch { return ""; }
+}
+
+// Hora de Uberlândia (fuso de Brasília) — o cumprimento muda com o horário
+function horaDeUberlandia() {
+  return new Date().toLocaleTimeString("pt-BR",
+    { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+}
+
+function saudacaoAgora() {
+  const h = Number(new Date().toLocaleString("en-US",
+    { timeZone: "America/Sao_Paulo", hour: "2-digit", hour12: false }));
+  return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
 }
 
 function instrucoes() {
@@ -467,11 +487,27 @@ function instrucoes() {
 
   return `Você atende clientes de imóveis pela ${c.empresa}, em Uberlândia/MG, como assistente do corretor ${c.corretor}${c.creci ? " (CRECI " + c.creci + ")" : ""}.
 
+Agora em Uberlândia é ${horaDeUberlandia()} — o cumprimento certo neste momento é "${saudacaoAgora()}".
+
+REGRA MAIS IMPORTANTE — não atropelar o cliente:
+- Um cliente que só disse algo genérico ("quero comprar uma casa", "oi", "vi seu anúncio")
+  ainda NÃO disse região, preço nem quantos quartos. NÃO ofereça imóvel nessa hora.
+- Antes de citar qualquer imóvel você precisa saber pelo menos a REGIÃO ou a FAIXA DE PREÇO.
+  Enquanto não souber, faça UMA pergunta e espere a resposta.
+- Na primeira mensagem: só o cumprimento do horário + uma pergunta. Sem imóvel, sem preço,
+  sem foto, sem link, sem duas perguntas juntas.
+- Exceção: se o cliente já citou um imóvel, um código ou o anúncio de um imóvel específico,
+  aí sim fale desse imóvel.
+
 Regras:
-- Português do Brasil, curto e direto, como mensagem de WhatsApp. No máximo 4 linhas.
-- Só ofereça imóveis da carteira abaixo. Nunca invente imóvel, preço ou condição.
+- Português do Brasil, curto e direto, como mensagem de WhatsApp. No máximo 2 linhas por mensagem.
+- Uma ideia por mensagem. Nunca empilhe cumprimento, imóvel e perguntas no mesmo texto.
+- Faça no máximo UMA pergunta por mensagem.
+- Só ofereça imóveis da carteira abaixo, com os dados exatos da ficha. Nunca invente imóvel,
+  preço, metragem, quarto, vaga ou condição.
+- Só ofereça imóvel que bate com o que o cliente pediu. Se não bate, não ofereça:
+  diga que não tem no momento e pergunte se pode avisar quando chegar.
 - Sempre cite o código do imóvel quando indicar um.
-- Se nada servir, diga isso e pergunte faixa de preço, bairro e número de quartos.
 - Nunca prometa desconto, comissão ou aprovação de crédito — diga que o ${c.corretor} confirma.
 - Não responda o que o cliente não perguntou.
 ${c.estilo ? "- Observação do corretor: " + c.estilo : ""}
@@ -625,7 +661,17 @@ function respostaLocal(mensagens) {
   const bairro = (todos.map(m => m.bairro).filter(Boolean)
     .find(b => b && ultima.includes(b.toLowerCase())) || "");
 
-  if (teto || quartos || tipo || bairro) {
+  // Só oferece imóvel quando o cliente deu um critério de verdade:
+  // região, faixa de preço ou número de quartos. Só dizer "quero uma casa" não basta.
+  const criterioForte = Boolean(teto || quartos || bairro);
+
+  if (!jaFalou && !criterioForte)
+    return `${saudacaoAgora()}, tudo joia ?`;
+
+  if (tipo && !criterioForte)
+    return `Qual região de Uberlândia mais te atende ?`;
+
+  if (criterioForte) {
     let achados = todos.filter(m =>
       (!teto || (m.preco && m.preco <= teto)) &&
       (!quartos || m.quartos >= quartos) &&
@@ -640,7 +686,7 @@ function respostaLocal(mensagens) {
       const abre = dois.length > 1 ? "Tenho essas duas pra você:" : "Tenho essa pra você:";
       return `${abre}\n\n${linhas.join("\n")}\n\nJá chegou a fazer sua aprovação?`;
     }
-    return `Nessa faixa não tenho nada pronto agora, mas chega imóvel novo todo dia.\nQual região mais te atende hoje ?`;
+    return "Nessa faixa não tenho nada pronto agora, mas chega imóvel novo toda semana.\nQuer que eu te avise quando entrar algo assim ?";
   }
 
   if (tem("aprova", "financia", "renda", "entrada", "parcela", "custas", "prazo", "documenta"))
@@ -656,9 +702,9 @@ function respostaLocal(mensagens) {
     return "Te passo agora.\nQual região mais te atende hoje ?";
 
   if (!jaFalou)
-    return "Linda ela ne ? Só um momento vou te mandar mais algumas fotos e informações.\nJá chegou a fazer sua aprovação?";
+    return `${saudacaoAgora()}, tudo joia ?`;
 
-  return `Me conta o que você procura — região, quantos quartos e até quanto quer investir — que eu te mando as opções. ${c.corretor || "Ricardo"}`;
+  return "Qual região mais te atende hoje ?";
 }
 
 app.post("/api/chat", async (req, res) => {

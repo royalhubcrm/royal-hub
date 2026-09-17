@@ -158,8 +158,10 @@ async function conectar() {
         for (const codigo of codigosCitados(resposta).slice(0, 2)) {
           const m = await api("/api/imoveis/" + codigo).catch(() => null);
           if (!m) continue;
-          const legenda = `${m.tipo} no ${m.bairro} — cód. ${m.codigo}\n` +
-            `${SISTEMA_PUBLICO}/imovel/${m.codigo}`;
+          // link só quando existe endereço público de verdade: ninguém abre localhost
+          const ehLocal = /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(SISTEMA_PUBLICO);
+          const legenda = `${m.tipo} no ${m.bairro} — cód. ${m.codigo}` +
+            (ehLocal ? "" : `\n${SISTEMA_PUBLICO}/imovel/${m.codigo}`);
           try {
             if (m.foto && /^https?:/.test(m.foto)) await sock.sendMessage(jid, { image: { url: m.foto }, caption: legenda });
             else if (m.foto) await sock.sendMessage(jid, { image: { url: SISTEMA + m.foto }, caption: legenda });
