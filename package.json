@@ -8,7 +8,8 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "zap": "node server/whatsapp.js"
+    "zap": "node server/whatsapp.js",
+    "test": "node testes/rodar.js"
   },
   "engines": {
     "node": ">=22.5.0"
