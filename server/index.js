@@ -13,7 +13,10 @@ import {
   salvarSite, lerSite, lerSitePorId, listarSites, apagarSite, imoveisDoSite, siteDoEndereco,
   salvarDuvida, duvidasAbertas, fecharDuvida,
   conversasParaRetomar, registrarRetomada, marcarNaoPerturbe, pediuParaNaoInsistir,
-  bancoBruto,
+  listarEquipes, lerEquipe, salvarEquipe, apagarEquipe, definirEquipeDoUsuario, membrosDaEquipe,
+  escopoDe, listarLeadsDe, waConversasDe, podeVerConversa,
+  definirResponsavelDoLead, definirResponsavelDaConversa,
+  bancoBruto, usarEmpresa, empresaAtual, bancoDaEmpresa,
 } from "./db.js";
 import { sincronizarNoInicio, despedir, nuvemLigada, subirFotosLocais } from "./supabase.js";
 import {
@@ -24,7 +27,17 @@ import {
 } from "./auth.js";
 import { enviarEmail, emailConfigurado } from "./email.js";
 import { folhaDeImoveis } from "./pdf.js";
+import {
+  listarEmpresas, lerEmpresa, empresaPorCodigo, criarEmpresa, atualizarEmpresa,
+  trocarCodigo, apagarEmpresa, pastaDeFotos,
+  contarDonos, criarDono, lerDonoPorEmail, conferirSenhaDono,
+  abrirSessaoDono, donoDaSessao, encerrarSessaoDono,
+  situacaoDeCobranca, registrarPagamento, definirCobranca, PASTA_DADOS,
+} from "./empresas.js";
+import { fazerBackup, listarBackups, restaurar, ligarBackupDiario } from "./backup.js";
 import { buscarNaChave7, chave7Ligada } from "./chave7.js";
+import { feedVRSync, faltaParaOPortal, prontoParaOPortal, fotosDoImovel, EXIGENCIAS } from "./portais.js";
+import * as zapOficial from "./whatsapp-oficial.js";
 
 const raiz = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const app = express();
@@ -39,9 +52,9 @@ app.use(express.urlencoded({ extended: true }));
 /* ==================== LOGIN E PERMISSÕES ==================== */
 // Endereços que qualquer pessoa alcança, sem conta
 const LIVRE = [
-  /^\/login/, /^\/api\/auth\//, /^\/captar/, /^\/api\/captacao/,
+  /^\/login/, /^\/api\/auth\//, /^\/dono/, /^\/api\/dono\//, /^\/captar/, /^\/api\/captacao/,
   /^\/imovel\//, /^\/api\/webhook/, /^\/fotos\//, /^\/site\//, /^\/api\/site-publico\//, /^\/api\/site-daqui/,
-  /^\/manifest/, /^\/sw\.js$/, /^\/icones\//,
+  /^\/manifest/, /^\/sw\.js$/, /^\/icones\//, /^\/feed\//, /^\/api\/whatsapp\//,
   /\.css$/, /\.js$/, /\.png$/, /\.jpg$/, /\.jpeg$/, /\.svg$/, /\.ico$/,
 ];
 // a ponte do WhatsApp se identifica por um token próprio
@@ -65,8 +78,177 @@ app.use((req, res, next) => {
   next();
 });
 
+/* ==========================================================================
+   EMPRESAS
+
+   O sistema atende várias imobiliárias. Cada uma tem um código sorteado no
+   cadastro e um banco só dela. Quem cria empresa é você, o dono do sistema,
+   numa área separada (/dono) que nenhuma empresa enxerga.
+   ========================================================================== */
+
+// a primeira empresa cadastrada é a que responde quando não há código —
+// é o caso da Royal, que existia antes de o sistema virar multiempresa
+let padraoEmCache = null;
+function empresaPadrao() {
+  if (padraoEmCache && lerEmpresa(padraoEmCache.id)) return padraoEmCache;
+  const lista = listarEmpresas();
+  padraoEmCache = lista[lista.length - 1] || null;     // a mais antiga
+  return padraoEmCache;
+}
+
+// Na primeira vez que o sistema roda depois desta mudança, o que já existia
+// vira a primeira empresa, sem perder nada: o banco antigo continua o mesmo.
+function garantirPrimeiraEmpresa() {
+  if (listarEmpresas().length) return;
+  const antigo = path.join(PASTA_DADOS, "royal.db");
+  const e = criarEmpresa({
+    nome: fs.existsSync(antigo) ? "Royal Negócios Imobiliários" : "Minha imobiliária",
+    arquivo: fs.existsSync(antigo) ? "royal.db" : "",
+  });
+  console.log(`\n  Empresa criada: ${e.nome} — código ${e.codigo}`);
+  padraoEmCache = null;
+}
+garantirPrimeiraEmpresa();
+
+/* ---------------- área do dono do sistema ---------------- */
+const COOKIE_DONO = "royal_dono";
+
+function biscoitoDono(req, token) {
+  const https = req.secure || req.headers["x-forwarded-proto"] === "https";
+  return COOKIE_DONO + "=" + token + "; HttpOnly; Path=/; Max-Age=" + 30 * 86400 +
+    "; SameSite=Lax" + (https ? "; Secure" : "");
+}
+
+const donoDaRequisicao = (req) => donoDaSessao(lerCookie(req, COOKIE_DONO));
+
+function sóDono(req, res, next) {
+  const d = donoDaRequisicao(req);
+  if (!d) return res.status(401).json({ erro: "Entre como dono do sistema." });
+  req.dono = d;
+  next();
+}
+
+app.get("/api/dono/estado", (req, res) =>
+  res.json({ dono: donoDaRequisicao(req), primeiroAcesso: contarDonos() === 0 }));
+
+app.post("/api/dono/primeiro-acesso", (req, res) => {
+  try {
+    if (contarDonos() > 0) return res.status(400).json({ erro: "A conta de dono já existe." });
+    const d = criarDono(req.body || {});
+    res.set("Set-Cookie", biscoitoDono(req, abrirSessaoDono(d.id)));
+    res.json({ dono: d });
+  } catch (e) { res.status(400).json({ erro: e.message }); }
+});
+
+app.post("/api/dono/entrar", (req, res) => {
+  const { email, senha } = req.body || {};
+  const d = lerDonoPorEmail(email);
+  if (!d || !conferirSenhaDono(senha || "", d.senha))
+    return res.status(401).json({ erro: "E-mail ou senha incorretos." });
+  res.set("Set-Cookie", biscoitoDono(req, abrirSessaoDono(d.id)));
+  res.json({ dono: { id: d.id, nome: d.nome, email: d.email } });
+});
+
+app.post("/api/dono/sair", (req, res) => {
+  encerrarSessaoDono(lerCookie(req, COOKIE_DONO));
+  res.set("Set-Cookie", COOKIE_DONO + "=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax");
+  res.json({ ok: true });
+});
+
+// lista as empresas, com um resumo de cada uma
+app.get("/api/dono/empresas", sóDono, (req, res) => {
+  res.json(listarEmpresas().map((e) => {
+    const banco = bancoDaEmpresa(e);
+    const conta = (t) => { try { return banco.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get().n; } catch { return 0; } };
+    return { ...e, cobranca: situacaoDeCobranca(e),
+             resumo: { usuarios: conta("usuarios"), imoveis: conta("imoveis"), leads: conta("leads") } };
+  }));
+});
+
+app.post("/api/dono/empresas", sóDono, (req, res) => {
+  try {
+    const e = criarEmpresa(req.body || {});
+    bancoDaEmpresa(e);                       // já deixa o banco dela pronto
+    res.json(e);
+  } catch (err) { res.status(400).json({ erro: err.message }); }
+});
+
+app.put("/api/dono/empresas/:id", sóDono, (req, res) => {
+  try { res.json(atualizarEmpresa(req.params.id, req.body || {})); }
+  catch (e) { res.status(400).json({ erro: e.message }); }
+});
+
+app.post("/api/dono/empresas/:id/codigo", sóDono, (req, res) => {
+  try { res.json(trocarCodigo(req.params.id)); }
+  catch (e) { res.status(400).json({ erro: e.message }); }
+});
+
+app.post("/api/dono/empresas/:id/pagamento", sóDono, (req, res) => {
+  try { res.json(registrarPagamento(req.params.id, req.body || {})); }
+  catch (e) { res.status(400).json({ erro: e.message }); }
+});
+
+app.put("/api/dono/empresas/:id/cobranca", sóDono, (req, res) => {
+  try { res.json(definirCobranca(req.params.id, req.body || {})); }
+  catch (e) { res.status(400).json({ erro: e.message }); }
+});
+
+app.delete("/api/dono/empresas/:id", sóDono, (req, res) => {
+  apagarEmpresa(req.params.id);
+  padraoEmCache = null;
+  res.json({ ok: true });
+});
+
+/* ---------------- backup ----------------
+   Uma foto do banco de cada empresa, por dia, guardada de lado. O Supabase
+   espelha; o backup lembra. Restaurar repõe o arquivo do dia escolhido — e
+   antes disso guarda como está agora, para o arrependimento também ter volta. */
+app.get("/api/dono/backups", sóDono, (req, res) => res.json(listarBackups()));
+
+app.post("/api/dono/backups/agora", sóDono, (req, res) => {
+  try { res.json(fazerBackup()); }
+  catch (e) { res.status(500).json({ erro: e.message }); }
+});
+
+app.post("/api/dono/backups/:dia/restaurar", sóDono, (req, res) => {
+  try {
+    const r = restaurar(req.params.dia, String(req.body?.alvo || "tudo"));
+    padraoEmCache = null;
+    res.json(r);
+  } catch (e) { res.status(400).json({ erro: e.message }); }
+});
+
+app.get("/dono", (req, res) => res.sendFile(path.join(raiz, "public", "dono.html")));
+
+/* ============ DE QUAL EMPRESA É ESTA REQUISIÇÃO ============
+   O cookie guarda "<empresa>.<sessão>". A partir daqui, tudo que a requisição
+   fizer acontece dentro do banco daquela empresa — inclusive as consultas que
+   nem sabem que existem outras empresas. */
 app.use((req, res, next) => {
-  req.usuario = usuarioDaSessao(lerCookie(req, COOKIE));
+  const cru = lerCookie(req, COOKIE);
+  const ponto = cru.indexOf(".");
+  const idEmpresa = ponto > 0 ? cru.slice(0, ponto) : "";
+  const token = ponto > 0 ? cru.slice(ponto + 1) : cru;
+  req.empresa = (idEmpresa && lerEmpresa(idEmpresa)) || empresaPadrao();
+  req.tokenSessao = token;
+  usarEmpresa(req.empresa, () => next());
+});
+
+app.use((req, res, next) => {
+  if (req.empresa && !req.empresa.ativo && req.path.startsWith("/api/") && !ehLivre(req))
+    return res.status(403).json({ erro: "Esta conta está desativada. Fale com o suporte." });
+
+  // mensalidade vencida além da tolerância: o sistema tranca, mas nada se perde
+  req.cobranca = situacaoDeCobranca(req.empresa);
+  if (req.cobranca.bloqueada && req.path.startsWith("/api/") && !ehLivre(req) && !daPonte(req))
+    return res.status(402).json({
+      erro: `Mensalidade em aberto há ${req.cobranca.diasDeAtraso} dias. O acesso volta assim que o pagamento for confirmado.`,
+      bloqueado: true,
+    });
+
+  req.usuario = usuarioDaSessao(req.tokenSessao);
+  // até onde essa pessoa enxerga: null = tudo; lista = só a equipe dela
+  req.escopo = req.usuario ? escopoDe(req.usuario) : [];
   if (ehLivre(req)) return next();
 
   // a ponte do WhatsApp pode usar só as rotas de que precisa
@@ -80,7 +262,7 @@ app.use((req, res, next) => {
   // quem pode o quê
   const area =
     req.path.startsWith("/api/usuarios") || req.path.startsWith("/api/config") ||
-    req.path.startsWith("/api/sites") ? "admin" :
+    req.path.startsWith("/api/equipes") || req.path.startsWith("/api/sites") ? "admin" :
     req.path.startsWith("/api/leads") ? "leads" :
     req.path.startsWith("/api/imoveis") ? "imoveis" :
     req.path.startsWith("/api/wa") ? "conversas" :
@@ -88,6 +270,11 @@ app.use((req, res, next) => {
     req.path.startsWith("/api/gerencia") || req.path.startsWith("/api/agendamentos") ? "gerencia" : "";
 
   if (area === "gerencia" && req.usuario.papel === "admin") return next();
+  // o gerente precisa ver a lista de pessoas e as equipes para distribuir leads —
+  // só leitura, e o /api/usuarios já devolve apenas a equipe dele
+  const soLeitura = req.method === "GET";
+  if (area === "admin" && soLeitura && req.usuario.papel === "gerente" &&
+      (req.path.startsWith("/api/usuarios") || req.path.startsWith("/api/equipes"))) return next();
   if (area === "admin" && req.usuario.papel !== "admin")
     return res.status(403).json({ erro: "Só o administrador pode fazer isso." });
   if (area && area !== "admin" && !podeAcessar(req.usuario, area))
@@ -101,32 +288,62 @@ app.get("/login", (req, res) => res.sendFile(path.join(raiz, "public", "login.ht
 app.get("/api/auth/estado", (req, res) =>
   res.json({
     usuario: req.usuario || null,
+    empresa: req.empresa ? { id: req.empresa.id, nome: req.empresa.nome, codigo: req.empresa.codigo } : null,
+    cobranca: req.cobranca || null,
     primeiroAcesso: contarUsuarios() === 0,
     emailConfigurado: emailConfigurado(),
     papeis: Object.fromEntries(Object.entries(PAPEIS).map(([k, v]) => [k, v.nome])),
   }));
 
 // primeiro administrador — só funciona enquanto não existir ninguém
+// primeiro administrador de uma empresa — só funciona enquanto ela não tiver ninguém
 app.post("/api/auth/primeiro-acesso", (req, res) => {
-  try {
-    if (contarUsuarios() > 0) return res.status(400).json({ erro: "O sistema já tem contas." });
-    const u = criarUsuario({ ...req.body, papel: "admin" });
-    const { token } = abrirSessao(u.id);
-    res.cookie?.(COOKIE, token);
-    res.set("Set-Cookie", biscoito(req, token));
-    res.json({ usuario: u });
-  } catch (e) { res.status(400).json({ erro: e.message }); }
+  const { codigo } = req.body || {};
+  const empresa = empresaPorCodigo(codigo) || (codigo ? null : empresaPadrao());
+  if (!empresa) return res.status(401).json({ erro: "Código da empresa não encontrado." });
+
+  usarEmpresa(empresa, () => {
+    try {
+      if (contarUsuarios() > 0) return res.status(400).json({ erro: "Esta empresa já tem contas. Entre com e-mail e senha." });
+      const u = criarUsuario({ ...req.body, papel: "admin" });
+      const { token } = abrirSessao(u.id);
+      res.set("Set-Cookie", biscoito(req, token, empresa));
+      res.json({ usuario: u, empresa: { id: empresa.id, nome: empresa.nome, codigo: empresa.codigo } });
+    } catch (e) { res.status(400).json({ erro: e.message }); }
+  });
 });
 
+// a tela de entrada pergunta aqui se aquele código já tem conta criada
+app.get("/api/auth/empresa/:codigo", (req, res) => {
+  const empresa = empresaPorCodigo(req.params.codigo);
+  if (!empresa) return res.status(404).json({ erro: "Código não encontrado." });
+  if (!empresa.ativo) return res.status(403).json({ erro: "Esta conta está desativada." });
+  usarEmpresa(empresa, () =>
+    res.json({ nome: empresa.nome, primeiroAcesso: contarUsuarios() === 0 }));
+});
+
+/* Entrar: código da empresa + e-mail + senha.
+   O código diz de qual empresa é a conta; o perfil guardado na pessoa
+   (corretor, gerente, administrador) diz sozinho o que ela pode ver — não tem
+   nada para escolher na tela. */
 app.post("/api/auth/entrar", (req, res) => {
-  const { email, senha } = req.body || {};
-  const u = lerUsuarioPorEmail(email);
-  if (!u || !conferirSenha(senha || "", u.senha))
-    return res.status(401).json({ erro: "E-mail ou senha incorretos." });
-  if (!u.ativo) return res.status(403).json({ erro: "Esta conta está desativada." });
-  const { token } = abrirSessao(u.id);
-  res.set("Set-Cookie", biscoito(req, token));
-  res.json({ usuario: { ...u, senha: undefined } });
+  const { codigo, email, senha } = req.body || {};
+  const empresa = empresaPorCodigo(codigo) || (codigo ? null : empresaPadrao());
+  if (!empresa) return res.status(401).json({ erro: "Código da empresa não encontrado." });
+  if (!empresa.ativo) return res.status(403).json({ erro: "Esta conta está desativada. Fale com o suporte." });
+
+  usarEmpresa(empresa, () => {
+    const u = lerUsuarioPorEmail(email);
+    if (!u || !conferirSenha(senha || "", u.senha))
+      return res.status(401).json({ erro: "E-mail ou senha incorretos." });
+    if (!u.ativo) return res.status(403).json({ erro: "Esta conta está desativada." });
+    const { token } = abrirSessao(u.id);
+    res.set("Set-Cookie", biscoito(req, token, empresa));
+    res.json({
+      usuario: { ...u, senha: undefined },
+      empresa: { id: empresa.id, nome: empresa.nome, codigo: empresa.codigo },
+    });
+  });
 });
 
 app.post("/api/auth/sair", (req, res) => {
@@ -166,7 +383,12 @@ app.post("/api/auth/redefinir", (req, res) => {
 });
 
 /* ==================== USUÁRIOS (só administrador) ==================== */
-app.get("/api/usuarios", (req, res) => res.json(listarUsuarios()));
+app.get("/api/usuarios", (req, res) => {
+  const todos = listarUsuarios();
+  if (!req.escopo) return res.json(todos);                       // administrador
+  const meus = new Set(req.escopo);
+  res.json(todos.filter((u) => meus.has(u.id)));                 // gerente: a equipe dele
+});
 
 app.post("/api/usuarios", (req, res) => {
   try { res.json(criarUsuario(req.body || {})); }
@@ -183,6 +405,45 @@ app.delete("/api/usuarios/:id", (req, res) => {
     return res.status(400).json({ erro: "Você não pode apagar a própria conta." });
   apagarUsuario(req.params.id);
   res.json({ ok: true });
+});
+
+/* ==================== EQUIPES ====================
+   O administrador monta as equipes e escolhe o gerente de cada uma.
+   Dali em diante, o gerente só enxerga a própria equipe. */
+app.get("/api/equipes", (req, res) => {
+  const lista = listarEquipes().map((e) => ({ ...e, membros: membrosDaEquipe(e.id) }));
+  if (!req.escopo) return res.json(lista);
+  res.json(lista.filter((e) => e.gerente_id === req.usuario?.id || e.id === req.usuario?.equipe_id));
+});
+
+app.post("/api/equipes", (req, res) => {
+  if (req.usuario?.papel !== "admin") return res.status(403).json({ erro: "Só o administrador mexe nas equipes." });
+  try { res.json(salvarEquipe(req.body || {})); }
+  catch (e) { res.status(400).json({ erro: e.message }); }
+});
+
+app.delete("/api/equipes/:id", (req, res) => {
+  if (req.usuario?.papel !== "admin") return res.status(403).json({ erro: "Só o administrador mexe nas equipes." });
+  apagarEquipe(req.params.id);
+  res.json({ ok: true });
+});
+
+// põe ou tira uma pessoa de uma equipe
+app.post("/api/equipes/membro", (req, res) => {
+  if (req.usuario?.papel !== "admin") return res.status(403).json({ erro: "Só o administrador mexe nas equipes." });
+  definirEquipeDoUsuario(String(req.body?.usuarioId || ""), String(req.body?.equipeId || ""));
+  res.json({ ok: true });
+});
+
+// a quem pertence este lead / esta conversa
+app.post("/api/leads/:id/responsavel", (req, res) => {
+  try { res.json(definirResponsavelDoLead(req.params.id, req.body?.usuarioId || "")); }
+  catch (e) { res.status(400).json({ erro: e.message }); }
+});
+
+app.post("/api/wa/conversas/:jid/responsavel", (req, res) => {
+  try { res.json(definirResponsavelDaConversa(req.params.jid, req.body?.usuarioId || "")); }
+  catch (e) { res.status(400).json({ erro: e.message }); }
 });
 
 // Permite que a página da Chave7 (aberta no seu navegador) envie imóveis para cá
@@ -207,6 +468,27 @@ app.post("/api/imoveis", (req, res) => {
   if (!m.codigo) return res.status(400).json({ erro: "Informe o código do imóvel." });
   salvarImovel(m);
   res.json(m);
+});
+
+// importa um arquivo JSON que já está na pasta do projeto (data/…)
+// Serve para cargas grandes, que não cabem numa requisição comum.
+app.post("/api/imoveis/importar-arquivo", (req, res) => {
+  try {
+    const nome = String(req.body?.arquivo || "").replace(/[^\w.-]/g, "");
+    if (!nome) return res.status(400).json({ erro: "Informe o nome do arquivo." });
+    const caminho = path.join(raiz, "data", nome);
+    if (!fs.existsSync(caminho)) return res.status(404).json({ erro: "Arquivo não encontrado em data/" + nome });
+    const itens = JSON.parse(fs.readFileSync(caminho, "utf8"));
+    if (!Array.isArray(itens)) return res.status(400).json({ erro: "O arquivo precisa ser uma lista." });
+    let n = 0;
+    for (const bruto of itens) {
+      const m = normalizarImovel(bruto);
+      if (!m.codigo) continue;
+      salvarImovel(m);
+      n++;
+    }
+    res.json({ importados: n, total: itens.length });
+  } catch (e) { res.status(500).json({ erro: e.message }); }
 });
 
 app.post("/api/imoveis/importar", (req, res) => {
@@ -240,24 +522,42 @@ function normalizarImovel(o = {}) {
     link: String(o.link || "").trim(),
     descricao: String(o.descricao || "").trim(),
     status: String(o.status || "Disponível").trim(),
+    // campos que os portais pedem
+    fotos: JSON.stringify(Array.isArray(o.fotos) ? o.fotos.filter(Boolean)
+      : (typeof o.fotos === "string" && o.fotos.trim().startsWith("[") ? JSON.parse(o.fotos) : [])),
+    cep: String(o.cep || "").replace(/\D/g, "").slice(0, 8),
+    rua: String(o.rua || "").trim(),
+    numero: String(o.numero || "").trim(),
+    finalidade: /alug|loca/i.test(String(o.finalidade || "")) ? "aluguel" : "venda",
+    condominio: num(o.condominio), iptu: num(o.iptu), banheiros: num(o.banheiros),
     atualizado_em: agora(),
   };
 }
 function salvarImovel(m) {
   db.prepare(`INSERT INTO imoveis
-    (id,codigo,tipo,bairro,cidade,preco,quartos,suites,vagas,area,foto,link,descricao,status,atualizado_em)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    (id,codigo,tipo,bairro,cidade,preco,quartos,suites,vagas,area,foto,link,descricao,status,
+     fotos,cep,rua,numero,finalidade,condominio,iptu,banheiros,atualizado_em)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(id) DO UPDATE SET
       codigo=excluded.codigo, tipo=excluded.tipo, bairro=excluded.bairro, cidade=excluded.cidade,
       preco=excluded.preco, quartos=excluded.quartos, suites=excluded.suites, vagas=excluded.vagas,
       area=excluded.area, foto=excluded.foto, link=excluded.link, descricao=excluded.descricao,
-      status=excluded.status, atualizado_em=excluded.atualizado_em`)
+      status=excluded.status,
+      fotos=CASE WHEN excluded.fotos = '[]' THEN imoveis.fotos ELSE excluded.fotos END,
+      cep=CASE WHEN excluded.cep = '' THEN imoveis.cep ELSE excluded.cep END,
+      rua=CASE WHEN excluded.rua = '' THEN imoveis.rua ELSE excluded.rua END,
+      numero=CASE WHEN excluded.numero = '' THEN imoveis.numero ELSE excluded.numero END,
+      finalidade=excluded.finalidade, condominio=excluded.condominio, iptu=excluded.iptu,
+      banheiros=CASE WHEN excluded.banheiros = 0 THEN imoveis.banheiros ELSE excluded.banheiros END,
+      atualizado_em=excluded.atualizado_em`)
     .run(m.id, m.codigo, m.tipo, m.bairro, m.cidade, m.preco, m.quartos, m.suites,
-         m.vagas, m.area, m.foto, m.link, m.descricao, m.status, m.atualizado_em);
+         m.vagas, m.area, m.foto, m.link, m.descricao, m.status,
+         m.fotos, m.cep, m.rua, m.numero, m.finalidade, m.condominio, m.iptu, m.banheiros,
+         m.atualizado_em);
 }
 
 /* ==================== LEADS ==================== */
-app.get("/api/leads", (req, res) => res.json(listarLeads()));
+app.get("/api/leads", (req, res) => res.json(listarLeadsDe(daPonte(req) ? null : req.escopo)));
 app.get("/api/leads/:id", (req, res) => {
   const l = lerLead(req.params.id);
   l ? res.json(l) : res.status(404).json({ erro: "Lead não encontrado." });
@@ -278,18 +578,26 @@ app.post("/api/leads", (req, res) => {
     estagio: b.estagio || "Novo",
     obs: String(b.obs || ""),
     imoveis: JSON.stringify(Array.isArray(b.imoveis) ? b.imoveis : []),
+    responsavel_id: b.responsavel_id !== undefined
+      ? String(b.responsavel_id || "") : (existente?.responsavel_id || ""),
     criado_em: existente?.criado_em || b.criado_em || hoje(),
     atualizado_em: agora(),
   };
   db.prepare(`INSERT INTO leads
-    (id,nome,telefone,email,origem,campanha,interesse,temperatura,estagio,obs,imoveis,criado_em,atualizado_em)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+    (id,nome,telefone,email,origem,campanha,interesse,temperatura,estagio,obs,imoveis,responsavel_id,criado_em,atualizado_em)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(id) DO UPDATE SET
       nome=excluded.nome, telefone=excluded.telefone, email=excluded.email, origem=excluded.origem,
       campanha=excluded.campanha, interesse=excluded.interesse, temperatura=excluded.temperatura,
-      estagio=excluded.estagio, obs=excluded.obs, imoveis=excluded.imoveis, atualizado_em=excluded.atualizado_em`)
+      estagio=excluded.estagio, obs=excluded.obs, imoveis=excluded.imoveis,
+      responsavel_id=excluded.responsavel_id, atualizado_em=excluded.atualizado_em`)
     .run(l.id, l.nome, l.telefone, l.email, l.origem, l.campanha, l.interesse,
-         l.temperatura, l.estagio, l.obs, l.imoveis, l.criado_em, l.atualizado_em);
+         l.temperatura, l.estagio, l.obs, l.imoveis, l.responsavel_id, l.criado_em, l.atualizado_em);
+
+  // o lead e a conversa daquele telefone andam juntos
+  if (l.telefone)
+    db.prepare("UPDATE wa_conversas SET responsavel_id = ? WHERE telefone = ?")
+      .run(l.responsavel_id, l.telefone);
 
   if (!existente) registrarHistorico(l.id, "Lead criado (" + (l.origem || "manual") + ")");
   else if (existente.estagio !== l.estagio)
@@ -452,9 +760,10 @@ app.post("/api/webhook/meta", (req, res) => {
 
 // Cookie de sessão: dura 90 dias, então o login fica salvo no aparelho.
 // Em endereço https (Render, domínio próprio) vai com Secure.
-function biscoito(req, token) {
+function biscoito(req, token, empresa = null) {
   const https = req.secure || req.headers["x-forwarded-proto"] === "https";
-  return COOKIE + "=" + token + "; HttpOnly; Path=/; Max-Age=" + 90 * 86400 +
+  const valor = (empresa?.id ? empresa.id + "." : "") + token;
+  return COOKIE + "=" + valor + "; HttpOnly; Path=/; Max-Age=" + 90 * 86400 +
     "; SameSite=Lax" + (https ? "; Secure" : "");
 }
 
@@ -492,10 +801,17 @@ app.get("/api/versao", (req, res) => {
 });
 
 /* ==================== CHATBOT ==================== */
+// Cada empresa pode ter o seu jeito de falar, em data/empresas/<id>/estilo.md.
+// Sem esse arquivo, vale o estilo padrão que veio com o sistema.
 function estiloDoCorretor() {
-  const arq = path.join(raiz, "server", "estilo.md");
-  try { return fs.existsSync(arq) ? fs.readFileSync(arq, "utf8").trim() : ""; }
-  catch { return ""; }
+  const e = empresaAtual();
+  const caminhos = [];
+  if (e) caminhos.push(path.join(raiz, "data", "empresas", e.id, "estilo.md"));
+  caminhos.push(path.join(raiz, "server", "estilo.md"));
+  for (const arq of caminhos) {
+    try { if (fs.existsSync(arq)) return fs.readFileSync(arq, "utf8").trim(); } catch { /* segue */ }
+  }
+  return "";
 }
 
 // ---- data e hora reais, fuso de Brasília ----
@@ -898,9 +1214,16 @@ function respostaLocal(mensagens) {
   if (tem("obrigado", "obrigada", "valeu", "tá bom", "ta bom", "tchau"))
     return "Imagina ! Tô por aqui se precisar";
 
-  /* ---- primeira mensagem ---- */
-  if (!jaFalou && !teto && !quartos && !disseRegiao)
-    return `${saudacaoAgora()} ! Aqui é a ${assistente}, da ${empresa}`;
+  /* ---- primeira mensagem ----
+     Só o cumprimento quando a pessoa só cumprimentou. Se ela já chegou dizendo
+     o que quer ("quero comprar uma casa"), o cumprimento vem junto com a
+     primeira pergunta — devolver só "Bom dia" a quem já falou parece robô. */
+  if (!jaFalou && !teto && !quartos && !disseRegiao) {
+    const abre = `${saudacaoAgora()} ! Aqui é a ${assistente}, da ${empresa}`;
+    const jaPediu = temNaConversa("casa", "apartamento", "apto", "lote", "terreno", "chacara",
+      "comprar", "compra", "alugar", "aluguel", "imovel", "procuro", "procurando", "quero", "queria");
+    return jaPediu ? `${abre}\nQual região de Uberlândia mais te atende ?` : abre;
+  }
 
   /* ---- com região e valor: mostra o que encaixa ---- */
   const criterio = Boolean(teto || quartos || bairro);
@@ -1088,9 +1411,11 @@ app.post("/api/leads/:id/sugestao", async (req, res) => {
 
 
 /* ==================== WHATSAPP (conversas e controle) ==================== */
-app.get("/api/wa/conversas", (req, res) => res.json(waConversas()));
+app.get("/api/wa/conversas", (req, res) => res.json(waConversasDe(daPonte(req) ? null : req.escopo)));
 
 app.get("/api/wa/conversas/:jid/mensagens", (req, res) => {
+  if (!daPonte(req) && !podeVerConversa(req.params.jid, req.escopo))
+    return res.status(403).json({ erro: "Essa conversa é de outra equipe." });
   waMarcarLido(req.params.jid);
   res.json(waMensagens(req.params.jid));
 });
@@ -1118,6 +1443,108 @@ app.post("/api/wa/mensagem", (req, res) => {
 });
 
 
+
+/* ==================== WHATSAPP OFICIAL (Cloud API da Meta) ====================
+   Cada empresa cadastra na Meta o endereço abaixo, com o código dela:
+     https://SEU-ENDERECO/api/whatsapp/<código>
+   A Meta chama esse endereço toda vez que alguém manda mensagem. A gente
+   responde com a mesma assistente que já existe. */
+
+// A Meta confere o endereço uma vez, com uma palavra que você escolheu
+app.get("/api/whatsapp/:codigo", (req, res) => {
+  const empresa = empresaPorCodigo(req.params.codigo);
+  if (!empresa) return res.sendStatus(404);
+  usarEmpresa(empresa, () => {
+    const c = lerConfig();
+    const q = req.query;
+    if (q["hub.mode"] === "subscribe" && q["hub.verify_token"] === (c.waVerificacao || ""))
+      return res.status(200).send(String(q["hub.challenge"] || ""));
+    res.sendStatus(403);
+  });
+});
+
+// mensagem chegando
+app.post("/api/whatsapp/:codigo", (req, res) => {
+  const empresa = empresaPorCodigo(req.params.codigo);
+  res.sendStatus(200);                       // a Meta precisa da resposta na hora
+  if (!empresa || !empresa.ativo) return;
+  usarEmpresa(empresa, () => { atenderOficial(empresa, req.body, enderecoPublico(req)).catch(
+    (e) => console.error("  WhatsApp oficial: " + e.message)); });
+});
+
+async function atenderOficial(empresa, corpo, base) {
+  const config = lerConfig();
+  if (!zapOficial.oficialLigado(config)) return;
+
+  // você respondeu pelo celular: o bot recua nessa conversa
+  for (const numero of zapOficial.respostasSuas(corpo)) {
+    const jid = numero + "@c.us";
+    const conversa = waLerConversa(jid);
+    if (conversa) waDefinirBot(jid, true, new Date(Date.now() + 6 * 3600e3).toISOString());
+  }
+
+  for (const m of zapOficial.lerRecebidas(corpo)) {
+    const jid = m.de + "@c.us";
+    waSalvarMensagem(jid, "cliente", m.texto, m.nome);
+    zapOficial.marcarLida(config, m.id);
+
+    // vira lead, como na ponte antiga
+    const existente = db.prepare("SELECT id FROM leads WHERE telefone = ?").get(m.de);
+    if (!existente) {
+      const id = novoId();
+      db.prepare(`INSERT INTO leads (id,nome,telefone,email,origem,campanha,interesse,temperatura,estagio,obs,imoveis,criado_em,atualizado_em)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+        .run(id, m.nome || "", m.de, "", "WhatsApp", "", m.texto.slice(0, 120), "Morno", "Novo", "", "[]", hoje(), agora());
+      registrarHistorico(id, "Lead criado (WhatsApp)");
+    }
+
+    const pode = waPodeResponder(jid, m.texto);
+    if (!pode.pode) { console.log("  · sem resposta (" + pode.motivo + ")"); continue; }
+
+    // a mesma assistente do resto do sistema
+    const historico = waMensagens(jid, 12).map((x) => ({ papel: x.de === "cliente" ? "cliente" : "bot", texto: x.texto }));
+    const resposta = await responderComIA(historico, { jid, nome: m.nome, telefone: m.de });
+    if (!resposta?.texto) continue;
+
+    for (const parte of resposta.texto.split(/\n{2,}/).filter(Boolean))
+      await zapOficial.enviarTexto(config, m.de, parte.trim());
+    waSalvarMensagem(jid, "bot", resposta.texto, m.nome);
+
+    // folha em PDF e fotos, quando a assistente pedir
+    if (resposta.folha?.codigos?.length) {
+      const { pdf } = await montarFolha({ codigos: resposta.folha.codigos, cliente: m.nome });
+      const nome = `folha-${Date.now()}.pdf`;
+      fs.writeFileSync(path.join(pastaDeFotos(empresa), nome), pdf);
+      await zapOficial.enviarDocumento(config, m.de, `${base}/fotos/${nome}`, "Opções de imóveis.pdf");
+    }
+    for (const codigo of (resposta.fotos || []).slice(0, 2)) {
+      const imovel = db.prepare("SELECT * FROM imoveis WHERE codigo = ?").get(codigo);
+      const foto = imovel && fotosDoImovel(imovel, base)[0];
+      if (foto) await zapOficial.enviarImagem(config, m.de, foto,
+        `${imovel.tipo} no ${imovel.bairro} — cód. ${imovel.codigo}`);
+    }
+  }
+}
+
+// o miolo do chat, reaproveitado pelas duas pontes
+async function responderComIA(historico, { jid = "", nome = "", telefone = "" }) {
+  const msgs = historico.filter((m) => m?.texto)
+    .map((m) => ({ role: m.papel === "bot" ? "assistant" : "user", content: String(m.texto) }));
+  if (!msgs.length) return null;
+  const procura = historico.filter((m) => m.papel !== "bot").map((m) => m.texto).join(" ").slice(-1200);
+
+  let bruto;
+  try { bruto = await pedirIA(msgs, 600, procura); }
+  catch { bruto = respostaLocal(msgs); }
+
+  const m = lerMarcadores(bruto);
+  try { aplicarMarcadores(m, { jid, nome, telefone }); } catch { /* segue */ }
+  if (m.folha) {
+    const escolha = await melhoresOpcoes({ codigos: m.folha.codigos || [], procura });
+    m.folha = { codigos: escolha.map((x) => String(x.codigo)) };
+  }
+  return m;
+}
 
 /* ============ A IA LÊ A CONVERSA E ANOTA O QUE FICOU COMBINADO ============ */
 function proximaData(diaSemana, base = new Date()) {
@@ -1239,13 +1666,20 @@ app.put("/api/agendamentos/:id", (req, res) =>
   res.json(mudarStatusAgendamento(req.params.id, String(req.body?.status || "Marcado"))));
 
 app.get("/api/gerencia/resumo", (req, res) => {
-  const agenda = listarAgendamentos();
+  // cada um só vê o que é da sua equipe
+  const meus = req.escopo;
+  const minha = (jid) => !meus || podeVerConversa(jid, meus);
+
+  const agenda = listarAgendamentos().filter((a) => minha(a.jid));
   const hoje10 = hoje();
   const proximos = agenda.filter((a) => a.status !== "Cancelado" && (!a.data || a.data >= hoje10));
   const paradas = conversasParadas(Number(req.query.dias) || 2)
-    .filter((c) => c.ultimo_de === "cliente");
+    .filter((c) => c.ultimo_de === "cliente" && minha(c.jid));
   res.json({
-    agenda, proximos, interesses: todosInteresses(), paradas, duvidas: duvidasAbertas(),
+    agenda, proximos,
+    interesses: todosInteresses().filter((i) => minha(i.jid)),
+    paradas,
+    duvidas: duvidasAbertas().filter((d) => minha(d.jid)),
     numeros: {
       marcados: agenda.filter((a) => a.status === "Marcado").length,
       compareceram: agenda.filter((a) => a.status === "Compareceu").length,
@@ -1338,12 +1772,15 @@ app.post("/api/gerencia/retomar/:jid", async (req, res) => {
   }
 });
 
-app.get("/api/gerencia/conversa/:jid", (req, res) =>
-  res.json({
+app.get("/api/gerencia/conversa/:jid", (req, res) => {
+  if (!podeVerConversa(req.params.jid, req.escopo))
+    return res.status(403).json({ erro: "Essa conversa é de outra equipe." });
+  return res.json({
     mensagens: waMensagens(req.params.jid, 400),
     interesses: interessesPorConversa(req.params.jid),
     agenda: listarAgendamentos().filter((a) => a.jid === req.params.jid),
-  }));
+  });
+});
 
 // a ponte manda a conversa para a IA extrair agendamento e imóveis
 app.post("/api/wa/analisar", async (req, res) => {
@@ -1354,9 +1791,27 @@ app.post("/api/wa/analisar", async (req, res) => {
 
 
 /* ==================== FOTOS ==================== */
+// cada empresa guarda as fotos na pasta dela
 const PASTA_FOTOS = path.join(raiz, "data", "fotos");
 fs.mkdirSync(PASTA_FOTOS, { recursive: true });
-app.use("/fotos", express.static(PASTA_FOTOS, { maxAge: "7d" }));
+const pastasDeFoto = (empresa) => [
+  pastaDeFotos(empresa || empresaPadrao()),
+  PASTA_FOTOS,
+  path.join(raiz, "public", "fotos"),
+];
+
+app.use("/fotos", (req, res, next) => {
+  const arquivo = decodeURIComponent(req.path.replace(/^\//, "")).replace(/[^\w.-]/g, "");
+  if (!arquivo) return next();
+  for (const pasta of pastasDeFoto(req.empresa)) {
+    const caminho = path.join(pasta, arquivo);
+    if (fs.existsSync(caminho)) {
+      res.set("Cache-Control", "public, max-age=604800");
+      return res.sendFile(caminho);
+    }
+  }
+  next();
+});
 app.use("/fotos", express.static(path.join(raiz, "public", "fotos"), { maxAge: "7d" }));
 
 // baixa para dentro do sistema as fotos que ainda estão em endereço de fora
@@ -1366,7 +1821,7 @@ app.post("/api/imoveis/baixar-fotos", async (req, res) => {
   const up = db.prepare("UPDATE imoveis SET foto = ?, link = '', atualizado_em = ? WHERE id = ?");
   for (const m of lista) {
     const arq = m.codigo + ".jpg";
-    const destino = path.join(PASTA_FOTOS, arq);
+    const destino = path.join(pastaDeFotos(req.empresa || empresaPadrao()), arq);
     try {
       if (!fs.existsSync(destino)) {
         const r = await fetch(m.foto);
@@ -1386,7 +1841,7 @@ app.post("/api/imoveis/fotos-nuvem", async (req, res) => {
   if (!nuvemLigada()) return res.status(400).json({ erro: "Supabase não configurado." });
   try {
     res.json(await subirFotosLocais(bancoBruto, fs, path,
-      [PASTA_FOTOS, path.join(raiz, "public", "fotos")]));
+      pastasDeFoto(req.empresa)));
   } catch (e) { res.status(500).json({ erro: e.message }); }
 });
 
@@ -1402,7 +1857,7 @@ async function fotoDoImovel(m) {
       return r.ok ? Buffer.from(await r.arrayBuffer()) : null;
     }
     const arquivo = m.foto.replace(/^\/fotos\//, "");
-    for (const pasta of [PASTA_FOTOS, path.join(raiz, "public", "fotos")]) {
+    for (const pasta of pastasDeFoto(empresaAtual())) {
       const caminho = path.join(pasta, arquivo);
       if (fs.existsSync(caminho)) return fs.readFileSync(caminho);
     }
@@ -1490,6 +1945,58 @@ app.post("/api/imoveis/folha", async (req, res) => {
     res.set("content-disposition", 'inline; filename="royal-imoveis.pdf"');
     res.send(pdf);
   } catch (e) { res.status(400).json({ erro: e.message }); }
+});
+
+/* ==================== PORTAIS (ZAP, Viva Real, OLX) ====================
+   O portal lê um endereço fixo e se atualiza sozinho. Este é o endereço. */
+const enderecoPublico = (req) =>
+  (process.env.URL_PUBLICA || "").replace(/\/+$/, "") ||
+  (req.headers["x-forwarded-proto"] || req.protocol || "http") + "://" + req.headers.host;
+
+function contatoDaEmpresa(empresa) {
+  const c = lerConfig();
+  return {
+    nome: c.corretor || empresa?.responsavel || empresa?.nome || "Corretor",
+    email: c.email || empresa?.email || "",
+    telefone: c.whats || empresa?.telefone || "",
+    creci: c.creci || "",
+  };
+}
+
+// o arquivo que o portal busca — um por empresa, pelo código dela
+app.get("/feed/:codigo/zap.xml", (req, res) => {
+  const empresa = empresaPorCodigo(req.params.codigo);
+  if (!empresa || !empresa.ativo) return res.status(404).send("Feed não encontrado.");
+  usarEmpresa(empresa, () => {
+    const base = enderecoPublico(req);
+    const imoveis = listarImoveis().filter((m) => (m.status || "Disponível") === "Disponível");
+    const { xml } = feedVRSync({ imoveis, empresa, config: lerConfig(), base, contato: contatoDaEmpresa(empresa) });
+    res.set("content-type", "application/xml; charset=utf-8");
+    res.set("cache-control", "public, max-age=900");
+    res.send(xml);
+  });
+});
+
+// o painel mostra o que já está publicável e o que falta em cada imóvel
+app.get("/api/portais/situacao", (req, res) => {
+  const base = enderecoPublico(req);
+  const imoveis = listarImoveis();
+  const pendencias = {};
+  let prontos = 0;
+  const lista = imoveis.map((m) => {
+    const falta = faltaParaOPortal(m, base);
+    if (!falta.length) prontos++;
+    for (const f of falta) pendencias[f] = (pendencias[f] || 0) + 1;
+    return { codigo: m.codigo, tipo: m.tipo, bairro: m.bairro, falta };
+  });
+  res.json({
+    endereco: `${base}/feed/${req.empresa?.codigo || ""}/zap.xml`,
+    total: imoveis.length,
+    prontos,
+    exigencias: EXIGENCIAS,
+    pendencias,
+    incompletos: lista.filter((x) => x.falta.length).slice(0, 200),
+  });
 });
 
 /* ==================== SITES DOS CLIENTES ==================== */
@@ -1607,20 +2114,23 @@ app.get("/captar", (req, res) => res.sendFile(path.join(raiz, "public", "captar.
 app.get("/imovel/:codigo", (req, res) => res.sendFile(path.join(raiz, "public", "imovel.html")));
 app.use((req, res) => res.sendFile(path.join(raiz, "public", "index.html")));
 
-// Antes de abrir a porta: alinhar com o Supabase.
+// Antes de abrir a porta: alinhar cada empresa com o Supabase.
 // Se a nuvem tem dado, ela manda. Se está vazia, o que existe aqui sobe pra lá.
-await sincronizarNoInicio(bancoBruto);
+for (const empresa of listarEmpresas()) {
+  const banco = bancoDaEmpresa(empresa);
+  await sincronizarNoInicio(banco, empresa);
 
-// As fotos que ainda estão em arquivo sobem para o Storage, em segundo plano.
-const PASTAS_DE_FOTO = [PASTA_FOTOS, path.join(raiz, "public", "fotos")];
-if (nuvemLigada())
-  subirFotosLocais(bancoBruto, fs, path, PASTAS_DE_FOTO,
-    (feitas, total) => console.log(`  Supabase: fotos ${feitas}/${total}`))
-    .then((r) => { if (r.subidas) console.log(`  Supabase: ${r.subidas} fotos agora estão na nuvem`); })
-    .catch(() => {});
+  // As fotos que ainda estão em arquivo sobem para o Storage, em segundo plano.
+  if (nuvemLigada())
+    subirFotosLocais(banco, fs, path, pastasDeFoto(empresa), null, empresa)
+      .then((r) => { if (r.subidas) console.log(`  Supabase: ${r.subidas} fotos de ${empresa.nome} agora estão na nuvem`); })
+      .catch(() => {});
+}
 
 for (const sinal of ["SIGINT", "SIGTERM"])
   process.on(sinal, async () => { await despedir(); process.exit(0); });
+
+ligarBackupDiario();
 
 app.listen(PORTA, () => {
   console.log("\n  ROYAL HUB rodando");
@@ -1628,6 +2138,9 @@ app.listen(PORTA, () => {
   console.log("  Captação:    http://localhost:" + PORTA + "/captar");
   console.log("  Webhook:     POST http://localhost:" + PORTA + "/api/webhook/meta?token=" + WEBHOOK_TOKEN);
   console.log("  Chave7:      " + (chave7Ligada() ? "ligada — a busca olha os dois lugares" : "desligada (sem CHAVE7_API_KEY) — busca só na sua carteira"));
-  console.log("  Banco:       " + (nuvemLigada() ? "Supabase (nuvem) + cópia local" : "só local (data/royal.db)"));
+  const emp = listarEmpresas();
+  console.log("  Empresas:    " + emp.length + " — " + emp.map((e) => e.nome + " (" + e.codigo + ")").join(", "));
+  console.log("  Painel dono: http://localhost:" + PORTA + "/dono");
+  console.log("  Banco:       " + (nuvemLigada() ? "Supabase (nuvem) + cópia local" : "só local, um arquivo por empresa"));
   console.log("  Chatbot IA:  " + (process.env.ANTHROPIC_API_KEY ? "ligado (" + MODELO + ")" : process.env.GROQ_API_KEY ? "ligado (Groq)" : process.env.GEMINI_API_KEY ? "ligado (Gemini)" : "sem chave — respondendo pelo modo local") + "\n");
 });

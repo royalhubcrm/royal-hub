@@ -1,17 +1,52 @@
-// Banco local em SQLite, usando o módulo nativo do Node (sem compilar nada).
+// Banco de dados — um arquivo SQLite para CADA empresa.
+//
+// O sistema é vendido para várias imobiliárias. Cada uma tem o seu banco, e o
+// código continua escrevendo `db.prepare(...)` como antes: quem resolve de qual
+// empresa é a requisição é o contexto abaixo. Assim nenhuma consulta precisa
+// lembrar de filtrar por empresa — é impossível uma ver a outra por engano.
 import { DatabaseSync } from "node:sqlite";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { fileURLToPath } from "node:url";
 import { marcarMudanca } from "./supabase.js";
+import { PASTA_DADOS, PASTA_EMPRESAS, arquivoDaEmpresa } from "./empresas.js";
 
 const raiz = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const pastaDados = path.join(raiz, "data");
+const pastaDados = PASTA_DADOS;
 if (!fs.existsSync(pastaDados)) fs.mkdirSync(pastaDados, { recursive: true });
 
-const bruto = new DatabaseSync(path.join(pastaDados, "royal.db"));
-export const bancoBruto = bruto;   // usado pela sincronização com a nuvem
+/* ---------------- de quem é esta requisição ---------------- */
+const contexto = new AsyncLocalStorage();
+
+// roda um trecho inteiro "dentro" de uma empresa
+export const usarEmpresa = (empresa, fn) => contexto.run({ empresa }, fn);
+export const empresaAtual = () => contexto.getStore()?.empresa || null;
+
+const abertos = new Map();          // id da empresa -> banco aberto
+
+export function bancoDaEmpresa(empresa) {
+  const chave = empresa?.id || "_padrao";
+  if (abertos.has(chave)) return abertos.get(chave);
+  const arquivo = empresa ? arquivoDaEmpresa(empresa) : path.join(pastaDados, "royal.db");
+  fs.mkdirSync(path.dirname(arquivo), { recursive: true });
+  const b = new DatabaseSync(arquivo);
+  prepararBanco(b);
+  abertos.set(chave, b);
+  return b;
+}
+
+const bancoAtual = () => bancoDaEmpresa(empresaAtual());
+
+// fecha os bancos abertos — necessário antes de sobrescrever os arquivos
+export function fecharBancos() {
+  for (const b of abertos.values()) { try { b.close(); } catch { /* já fechado */ } }
+  abertos.clear();
+}
+
+// mantido para a sincronização com a nuvem
+export const bancoBruto = { get banco() { return bancoAtual(); } };
 
 // Toda gravação avisa a nuvem. Quem chama continua escrevendo igual —
 // o aviso é automático, ninguém precisa lembrar de sincronizar.
@@ -21,20 +56,21 @@ const tabelaDoComando = (sql) => {
 };
 
 export const db = {
-  exec: (sql) => bruto.exec(sql),
+  exec: (sql) => bancoAtual().exec(sql),
   prepare(sql) {
-    const stmt = bruto.prepare(sql);
+    const stmt = bancoAtual().prepare(sql);
     const tabela = tabelaDoComando(sql);
     if (!tabela) return stmt;
+    const empresa = empresaAtual();
     return {
       get: (...a) => stmt.get(...a),
       all: (...a) => stmt.all(...a),
-      run: (...a) => { const r = stmt.run(...a); marcarMudanca(tabela); return r; },
+      run: (...a) => { const r = stmt.run(...a); marcarMudanca(tabela, empresa); return r; },
     };
   },
 };
 
-db.exec(`
+const ESQUEMA = `
 PRAGMA journal_mode = WAL;
 
 CREATE TABLE IF NOT EXISTS imoveis (
@@ -155,6 +191,13 @@ CREATE TABLE IF NOT EXISTS conversas (
   criado_em TEXT
 );
 
+CREATE TABLE IF NOT EXISTS equipes (
+  id TEXT PRIMARY KEY,
+  nome TEXT DEFAULT '',
+  gerente_id TEXT DEFAULT '',
+  criado_em TEXT
+);
+
 CREATE TABLE IF NOT EXISTS duvidas (
   id TEXT PRIMARY KEY,
   jid TEXT DEFAULT '',
@@ -171,18 +214,64 @@ CREATE TABLE IF NOT EXISTS config (
   valor TEXT
 );
 
+CREATE TABLE IF NOT EXISTS usuarios (
+  id TEXT PRIMARY KEY,
+  nome TEXT DEFAULT '',
+  email TEXT UNIQUE,
+  telefone TEXT DEFAULT '',
+  senha TEXT DEFAULT '',
+  papel TEXT DEFAULT 'corretor',
+  equipe_id TEXT DEFAULT '',
+  ativo INTEGER DEFAULT 1,
+  criado_em TEXT,
+  ultimo_acesso TEXT
+);
+
+CREATE TABLE IF NOT EXISTS sessoes (
+  token TEXT PRIMARY KEY,
+  usuario_id TEXT NOT NULL,
+  criado_em TEXT,
+  expira_em TEXT
+);
+
+CREATE TABLE IF NOT EXISTS codigos_recuperacao (
+  email TEXT PRIMARY KEY,
+  codigo TEXT,
+  expira_em TEXT,
+  tentativas INTEGER DEFAULT 0
+);
+
 CREATE INDEX IF NOT EXISTS idx_hist_lead ON historico(lead_id);
 CREATE INDEX IF NOT EXISTS idx_imv_bairro ON imoveis(bairro);
-`);
+`;
 
 // colunas que entraram depois — em banco antigo elas precisam ser acrescentadas
-for (const [tabela, coluna, tipo] of [
+const COLUNAS_NOVAS = [
   ["wa_conversas", "nao_perturbe", "INTEGER DEFAULT 0"],
   ["wa_conversas", "ultima_retomada", "TEXT DEFAULT ''"],
   ["wa_conversas", "retomadas", "INTEGER DEFAULT 0"],
-]) {
-  try { db.exec(`ALTER TABLE ${tabela} ADD COLUMN ${coluna} ${tipo}`); }
-  catch { /* já existe */ }
+  ["wa_conversas", "responsavel_id", "TEXT DEFAULT ''"],
+  ["leads", "responsavel_id", "TEXT DEFAULT ''"],
+  ["sites", "dominio", "TEXT DEFAULT ''"],
+  ["usuarios", "equipe_id", "TEXT DEFAULT ''"],
+  // campos que os portais exigem
+  ["imoveis", "fotos", "TEXT DEFAULT '[]'"],
+  ["imoveis", "cep", "TEXT DEFAULT ''"],
+  ["imoveis", "rua", "TEXT DEFAULT ''"],
+  ["imoveis", "numero", "TEXT DEFAULT ''"],
+  ["imoveis", "finalidade", "TEXT DEFAULT 'venda'"],
+  ["imoveis", "condominio", "INTEGER DEFAULT 0"],
+  ["imoveis", "iptu", "INTEGER DEFAULT 0"],
+  ["imoveis", "banheiros", "INTEGER DEFAULT 0"],
+];
+
+// deixa qualquer banco de empresa pronto para uso
+export function prepararBanco(banco) {
+  banco.exec(ESQUEMA);
+  for (const [tabela, coluna, tipo] of COLUNAS_NOVAS) {
+    try { banco.exec(`ALTER TABLE ${tabela} ADD COLUMN ${coluna} ${tipo}`); }
+    catch { /* já existe */ }
+  }
 }
 
 const CONFIG_PADRAO = {
@@ -475,8 +564,6 @@ export function conversasParadas(dias = 2) {
 
 
 /* ==================== SITES DOS CLIENTES ==================== */
-// bancos antigos não têm a coluna de domínio
-try { db.exec("ALTER TABLE sites ADD COLUMN dominio TEXT DEFAULT ''"); } catch {}
 
 export function salvarSite(s) {
   const id = s.id || novoId();
@@ -577,4 +664,110 @@ export function fecharDuvida(id, resposta = "") {
   db.prepare("UPDATE duvidas SET status = 'Respondida', resposta = ? WHERE id = ?")
     .run(String(resposta || ""), id);
   return db.prepare("SELECT * FROM duvidas WHERE id = ?").get(id);
+}
+
+/* ==========================================================================
+   EQUIPES
+
+   Cada gerente cuida de uma equipe de corretores. Ele enxerga os leads e as
+   conversas da equipe dele — e nada além disso. O administrador vê tudo; o
+   corretor vê só o que é dele.
+   ========================================================================== */
+export function listarEquipes() {
+  return db.prepare("SELECT * FROM equipes ORDER BY nome").all();
+}
+
+export function lerEquipe(id) {
+  return db.prepare("SELECT * FROM equipes WHERE id = ?").get(id);
+}
+
+export function salvarEquipe({ id, nome, gerente_id = "" }) {
+  nome = String(nome || "").trim();
+  if (!nome) throw new Error("Dê um nome para a equipe.");
+  const eid = id || novoId();
+  db.prepare(`INSERT INTO equipes (id, nome, gerente_id, criado_em) VALUES (?,?,?,?)
+    ON CONFLICT(id) DO UPDATE SET nome = excluded.nome, gerente_id = excluded.gerente_id`)
+    .run(eid, nome, String(gerente_id || ""), agora());
+  // o gerente pertence à própria equipe
+  if (gerente_id) db.prepare("UPDATE usuarios SET equipe_id = ? WHERE id = ?").run(eid, gerente_id);
+  return lerEquipe(eid);
+}
+
+export function apagarEquipe(id) {
+  db.prepare("UPDATE usuarios SET equipe_id = '' WHERE equipe_id = ?").run(id);
+  db.prepare("DELETE FROM equipes WHERE id = ?").run(id);
+}
+
+export function definirEquipeDoUsuario(usuarioId, equipeId) {
+  db.prepare("UPDATE usuarios SET equipe_id = ? WHERE id = ?").run(String(equipeId || ""), usuarioId);
+}
+
+export const membrosDaEquipe = (equipeId) =>
+  db.prepare("SELECT id, nome, email, papel, ativo FROM usuarios WHERE equipe_id = ? ORDER BY nome").all(equipeId);
+
+/* ---------------- até onde cada pessoa enxerga ----------------
+   Devolve null quando a pessoa vê tudo; ou a lista de ids de usuários cujo
+   trabalho ela pode ver (ela mesma + a equipe dela, se for gerente). */
+export function escopoDe(usuario) {
+  if (!usuario) return [];                                  // sem sessão, não vê nada
+  if (usuario.papel === "admin") return null;               // vê tudo
+
+  if (usuario.papel === "gerente") {
+    const minhas = db.prepare("SELECT id FROM equipes WHERE gerente_id = ?").all(usuario.id).map((e) => e.id);
+    const daEquipe = usuario.equipe_id ? [usuario.equipe_id] : [];
+    const ids = [...new Set([...minhas, ...daEquipe])];
+    if (!ids.length) return [usuario.id];
+    const marcas = ids.map(() => "?").join(",");
+    const pessoas = db.prepare(`SELECT id FROM usuarios WHERE equipe_id IN (${marcas})`).all(...ids);
+    return [...new Set([usuario.id, ...pessoas.map((p) => p.id)])];
+  }
+
+  return [usuario.id];                                      // corretor e assistente: só o próprio
+}
+
+// pedaço de SQL que aplica o escopo — usado nas listagens
+function recorte(coluna, escopo) {
+  if (escopo === null) return { onde: "", valores: [] };
+  if (!escopo.length) return { onde: `AND 1 = 0`, valores: [] };
+  const marcas = escopo.map(() => "?").join(",");
+  // quem não tem dono ainda aparece para todo mundo do escopo, para ninguém perder lead novo
+  return { onde: `AND (${coluna} IN (${marcas}) OR ${coluna} IS NULL OR ${coluna} = '')`, valores: escopo };
+}
+
+export function listarLeadsDe(escopo) {
+  const { onde, valores } = recorte("responsavel_id", escopo);
+  return db.prepare(`SELECT * FROM leads WHERE 1=1 ${onde} ORDER BY criado_em DESC, rowid DESC`)
+    .all(...valores).map(hidratarLead);
+}
+
+export function waConversasDe(escopo) {
+  const { onde, valores } = recorte("responsavel_id", escopo);
+  return db.prepare(`SELECT * FROM wa_conversas WHERE 1=1 ${onde} ORDER BY atualizado_em DESC LIMIT 200`)
+    .all(...valores);
+}
+
+export function podeVerConversa(jid, escopo) {
+  if (escopo === null) return true;
+  const c = waLerConversa(jid);
+  if (!c) return false;
+  return !c.responsavel_id || escopo.includes(c.responsavel_id);
+}
+
+export function definirResponsavelDoLead(leadId, usuarioId) {
+  db.prepare("UPDATE leads SET responsavel_id = ?, atualizado_em = ? WHERE id = ?")
+    .run(String(usuarioId || ""), agora(), leadId);
+  // a conversa daquele telefone segue o mesmo dono
+  const l = lerLead(leadId);
+  if (l?.telefone)
+    db.prepare("UPDATE wa_conversas SET responsavel_id = ? WHERE telefone = ?")
+      .run(String(usuarioId || ""), l.telefone);
+  return lerLead(leadId);
+}
+
+export function definirResponsavelDaConversa(jid, usuarioId) {
+  db.prepare("UPDATE wa_conversas SET responsavel_id = ? WHERE jid = ?").run(String(usuarioId || ""), jid);
+  const c = waLerConversa(jid);
+  if (c?.telefone)
+    db.prepare("UPDATE leads SET responsavel_id = ? WHERE telefone = ?").run(String(usuarioId || ""), c.telefone);
+  return c;
 }
