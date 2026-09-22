@@ -1,8 +1,3 @@
-.estreito { max-width: 720px; display: flex; flex-direction: column; gap: 14px; h2 { font-size: 14px; } }
-.sem-quebra { flex-wrap: nowrap; }
-.passos { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; color: var(--slate-700); font-size: 13px; }
-.duas { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 16px;
-  .cartao { display: flex; flex-direction: column; gap: 10px; margin: 0; } h2 { font-size: 14px; } }
-section > .cartao { display: flex; flex-direction: column; gap: 10px; h2 { font-size: 14px; } }
-@media (max-width: 900px) { .duas { grid-template-columns: minmax(0, 1fr); } }
-ul.lista { list-style: none; margin: 0; padding: 0; max-height: 360px; overflow-y: auto; }
+.estreito { max-width: 720px; display: flex; flex-direction: column; gap: 14px; }
+.duas .cartao, section > .cartao { display: flex; flex-direction: column; gap: 10px; }
+ul.lista { max-height: 360px; overflow-y: auto; }

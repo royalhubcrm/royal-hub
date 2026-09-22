@@ -23,7 +23,7 @@ import { emailValido, focarPrimeiroErro } from '../../shared/util/validacao';
 
     <section class="cartao" aria-labelledby="t-nova-emp">
       <h2 id="t-nova-emp">Nova imobiliária</h2>
-      <form class="nova" (ngSubmit)="criar()" novalidate>
+      <form class="form-grade" (ngSubmit)="criar()" novalidate>
         <div class="campo">
           <label for="e-emp" class="obrigatorio">Nome da imobiliária</label>
           <input id="e-emp" name="empresa" [(ngModel)]="nova.empresa" required (blur)="tocar('empresa')"
@@ -77,7 +77,6 @@ import { emailValido, focarPrimeiroErro } from '../../shared/util/validacao';
       </div>
     </section>
   `,
-  styles: `.nova { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: end; } .cartao h2 { font-size: 14px; margin-bottom: 12px; }`,
 })
 export default class EmpresasPage {
   private readonly srv = inject(EquipeService);

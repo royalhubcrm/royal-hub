@@ -11,10 +11,9 @@ details.bloco summary { cursor: pointer; font-weight: 600; margin-bottom: 10px; 
   .acoes-visita { grid-column: 1 / -1; padding-top: 8px; border-top: 1px solid var(--slate-100); }
 }
 .cartao + .cartao { margin-top: 0; }
-.duas { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 22px; }
-@media (max-width: 1000px) { .duas { grid-template-columns: minmax(0, 1fr); } }
+.duas { margin-bottom: 22px; }
 @media (max-width: 520px) { .agenda { grid-template-columns: minmax(0, 1fr); } .visita { grid-template-columns: 80px minmax(0, 1fr); } }
 .duvida { align-items: flex-start;
   .principal { display: flex; flex-direction: column; gap: 6px; }
   small { white-space: normal; } }
-ul.lista { list-style: none; margin: 0; padding: 0; }
+

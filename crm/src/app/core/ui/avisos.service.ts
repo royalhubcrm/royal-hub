@@ -37,6 +37,11 @@ export class AvisosService {
 
   fechar(id: number) { this.avisos.update((l) => l.filter((a) => a.id !== id)); }
 
+  /** Copia para a área de transferência e avisa. */
+  copiar(texto: string, aviso = 'Copiado.') {
+    void navigator.clipboard?.writeText(texto).then(() => this.ok(aviso), () => this.mostrar('Não deu para copiar. Selecione o texto e use Ctrl+C.', 'erro'));
+  }
+
   /** Pergunta antes de uma ação sem volta. Resolve true se a pessoa confirmou. */
   confirmar(titulo: string, opcoes: { texto?: string; confirmar?: string; perigo?: boolean } = {}): Promise<boolean> {
     return new Promise((resolver) => {

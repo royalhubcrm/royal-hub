@@ -121,5 +121,5 @@ export default class AjustesPage {
     catch (e) { this.avisos.erro(e); }
   }
 
-  protected copiar(t: string) { void navigator.clipboard?.writeText(t).then(() => this.avisos.ok('Copiado.')); }
+  protected copiar(t: string) { this.avisos.copiar(t); }
 }

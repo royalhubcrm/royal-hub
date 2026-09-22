@@ -44,7 +44,6 @@ import { lerLeadsDaPlanilha } from '../../../shared/util/planilha';
       </div>
     </app-gaveta>
   `,
-  styles: `.passos { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; color: var(--slate-700); }`,
 })
 export class ImportarLeads {
   readonly aberta = input(false);

@@ -155,5 +155,5 @@ export default class SitesPage {
     }
   }
 
-  protected copiar(s: Site) { void navigator.clipboard?.writeText(`${this.origem}/s/${s.slug}`).then(() => this.avisos.ok('Link copiado.')); }
+  protected copiar(s: Site) { this.avisos.copiar(`${this.origem}/s/${s.slug}`, 'Link copiado.'); }
 }

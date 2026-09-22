@@ -91,9 +91,7 @@ export default class ImoveisPage {
 
   protected linkPublico(m: Imovel) { return `${location.origin}/imovel/${m.id}`; }
 
-  protected copiar(m: Imovel) {
-    void navigator.clipboard?.writeText(this.linkPublico(m)).then(() => this.avisos.ok('Link copiado.'));
-  }
+  protected copiar(m: Imovel) { this.avisos.copiar(this.linkPublico(m), 'Link copiado.'); }
 
   protected novo() { this.aberto.set(null); this.gavetaAberta.set(true); }
   protected editar(m: Imovel) { this.aberto.set(m); this.gavetaAberta.set(true); }

@@ -8,7 +8,7 @@
 
 <section class="cartao" aria-labelledby="t-nova">
   <h2 id="t-nova">Adicionar pessoa</h2>
-  <form class="nova" (ngSubmit)="criar()" novalidate>
+  <form class="form-grade" (ngSubmit)="criar()" novalidate>
     <div class="campo">
       <label for="n-nome" class="obrigatorio">Nome</label>
       <input id="n-nome" name="nome" [(ngModel)]="nova.nome" autocomplete="off" required (blur)="tocar('nome')"

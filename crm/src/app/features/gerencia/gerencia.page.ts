@@ -141,7 +141,7 @@ export default class GerenciaPage {
     }
   }
 
-  protected copiar(t: string) { void navigator.clipboard?.writeText(t).then(() => this.avisos.ok('Copiado.')); }
+  protected copiar(t: string) { this.avisos.copiar(t); }
 
   protected tocar(campo: string) { this.tocados.update((s) => new Set(s).add(campo)); }
   protected mostraErro(campo: string) { return this.tentouMarcar() || this.tocados().has(campo); }

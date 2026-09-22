@@ -156,9 +156,7 @@ export class LeadGaveta {
     }
   }
 
-  protected copiar(texto: string) {
-    void navigator.clipboard?.writeText(texto).then(() => this.avisos.ok('Copiado.'));
-  }
+  protected copiar(texto: string) { this.avisos.copiar(texto); }
 
   protected whatsCom(texto: string) { return linkWhats(this.f.telefone, texto); }
 
