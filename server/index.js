@@ -845,7 +845,8 @@ const semAcentoSimples = (t) =>
   String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 function imoveisQueServem(procura = "") {
-  const todos = listarImoveis();
+  // imóvel arquivado (vendido, ou que saiu da plataforma) nunca é oferecido
+  const todos = listarImoveis().filter((m) => (m.status || "Disponível") === "Disponível");
   if (!todos.length) return [];
   const texto = semAcentoSimples(procura);
   if (!texto) return todos.slice(0, 20);
@@ -1172,7 +1173,7 @@ function respostaLocal(mensagens) {
     : temNaConversa("lote", "terreno") ? "Lote/Terreno"
     : temNaConversa("chacara") ? "Chácara" : "";
 
-  const todos = listarImoveis();
+  const todos = listarImoveis().filter((m) => (m.status || "Disponível") === "Disponível");
   const bairro = todos.map((m) => m.bairro).filter(Boolean)
     .find((b) => tudo.includes(semAcentoSimples(b))) || "";
 
@@ -1893,7 +1894,7 @@ function criteriosDoTexto(procura = "") {
 // Procura na carteira daqui e, quando a Chave7 estiver configurada, lá também —
 // o que vier de lá só entra para completar as vagas que sobraram.
 async function melhoresOpcoes({ codigos = [], procura = "", quantas = 3 }) {
-  const todos = listarImoveis();
+  const todos = listarImoveis().filter((m) => (m.status || "Disponível") === "Disponível");
   const pedidos = codigos.map((c) => todos.find((m) => String(m.codigo) === String(c))).filter(Boolean);
   if (pedidos.length >= quantas) return pedidos.slice(0, quantas);
 
@@ -1997,6 +1998,59 @@ app.get("/api/portais/situacao", (req, res) => {
     pendencias,
     incompletos: lista.filter((x) => x.falta.length).slice(0, 200),
   });
+});
+
+/* Preenche o CEP pelo bairro, usando os Correios (ViaCEP).
+   O portal exige CEP em todo anúncio. Quando a ficha tem rua, o sistema procura
+   a rua dentro do bairro; quando não tem, usa o CEP do bairro — que é o que o
+   portal precisa para localizar o imóvel no mapa. Cada bairro é consultado uma
+   vez só: a resposta fica guardada na configuração da empresa. */
+const semAcentoCep = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+async function cepsDoBairro(cidade, bairro) {
+  const uf = "MG";
+  const url = `https://viacep.com.br/ws/${uf}/${encodeURIComponent(cidade || "Uberlandia")}/${encodeURIComponent(bairro)}/json/`;
+  const r = await fetch(url, { headers: { accept: "application/json" } });
+  if (!r.ok) return [];
+  const lista = await r.json().catch(() => []);
+  return Array.isArray(lista) ? lista : [];
+}
+
+app.post("/api/portais/completar-cep", async (req, res) => {
+  const alvos = listarImoveis().filter((m) => !m.cep && m.bairro);
+  if (!alvos.length) return res.json({ preenchidos: 0, semResposta: 0, bairros: 0, restam: 0 });
+
+  const cfg = lerConfig();
+  let cache = {};
+  try { cache = JSON.parse(cfg.cepPorBairro || "{}"); } catch { cache = {}; }
+
+  const bairros = [...new Set(alvos.map((m) => m.bairro))];
+  let consultados = 0;
+  for (const bairro of bairros) {
+    const chave = semAcentoCep(bairro);
+    if (cache[chave]) continue;
+    try {
+      const lista = await cepsDoBairro("Uberlandia", bairro);
+      cache[chave] = lista.map((x) => ({ cep: String(x.cep || "").replace(/\D/g, ""), rua: x.logradouro || "" }))
+        .filter((x) => x.cep.length === 8);
+      consultados++;
+      await new Promise((r) => setTimeout(r, 250));   // sem apressar os Correios
+    } catch { cache[chave] = []; }
+  }
+  gravarConfig({ cepPorBairro: JSON.stringify(cache) });
+
+  let preenchidos = 0, semResposta = 0;
+  for (const m of alvos) {
+    const lista = cache[semAcentoCep(m.bairro)] || [];
+    if (!lista.length) { semResposta++; continue; }
+    const daRua = m.rua && lista.find((x) => semAcentoCep(x.rua).includes(semAcentoCep(m.rua)));
+    const escolhido = daRua || lista[0];
+    salvarImovel({ ...m, cep: escolhido.cep, rua: m.rua || escolhido.rua || "" });
+    preenchidos++;
+  }
+
+  res.json({ preenchidos, semResposta, bairros: consultados,
+    restam: listarImoveis().filter((m) => !m.cep).length });
 });
 
 /* ==================== SITES DOS CLIENTES ==================== */
