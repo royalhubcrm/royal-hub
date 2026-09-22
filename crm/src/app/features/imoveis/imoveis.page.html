@@ -82,7 +82,7 @@
         <div class="acoes-card">
           <button type="button" class="btn pequeno" (click)="editar(m)">Editar <span class="sr-only">{{ m.codigo }}</span></button>
           @if (m.status === 'disponivel') {
-            <a class="btn pequeno fantasma" [href]="linkPublico(m)" target="_blank" rel="noopener">Página <span class="sr-only">do {{ m.codigo }} (abre em nova aba)</span></a>
+            <a class="btn pequeno fantasma" [href]="linkPublico(m)" target="_blank" rel="noopener" title="Abre a página pública em nova aba">Página <span class="sr-only">do {{ m.codigo }} (abre em nova aba)</span></a>
             <button type="button" class="btn pequeno fantasma" (click)="copiar(m)">Copiar link</button>
           }
         </div>

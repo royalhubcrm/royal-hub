@@ -18,11 +18,11 @@
   }
 </header>
 
-<div class="abas" role="tablist" aria-label="Seções">
+<div class="abas" role="tablist" aria-label="Seções" appAbas>
   <button type="button" role="tab" id="aba-conv" aria-controls="painel-conv" [attr.aria-selected]="aba() === 'conversas'"
-          (click)="aba.set('conversas')">Conversas</button>
+          [attr.tabindex]="aba() === 'conversas' ? 0 : -1" (click)="aba.set('conversas')">Conversas</button>
   <button type="button" role="tab" id="aba-testar" aria-controls="painel-testar" [attr.aria-selected]="aba() === 'testar'"
-          (click)="aba.set('testar')">Testar a assistente</button>
+          [attr.tabindex]="aba() === 'testar' ? 0 : -1" (click)="aba.set('testar')">Testar a assistente</button>
 </div>
 
 @if (aba() === 'conversas') {
@@ -63,7 +63,7 @@
       <section class="lista-conversas" aria-label="Lista de conversas">
         <div class="filtro-lista">
           <label class="sr-only" for="c-busca">Buscar conversa</label>
-          <input id="c-busca" type="search" placeholder="Buscar nome, número ou mensagem" [ngModel]="busca()" (ngModelChange)="busca.set($event)" />
+          <input id="c-busca" type="search" title="Atalho: tecla /" placeholder="Buscar nome, número ou mensagem" [ngModel]="busca()" (ngModelChange)="busca.set($event)" />
           <label class="nao-lidas"><input type="checkbox" [ngModel]="soNaoLidas()" (ngModelChange)="soNaoLidas.set($event)" /> Só não lidas</label>
         </div>
         <ul>

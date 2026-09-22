@@ -8,13 +8,14 @@ import { ConfigService } from '../../core/services/config.service';
 import { ImoveisService } from '../../core/services/imoveis.service';
 import { SUPABASE } from '../../core/supabase/supabase.client';
 import { AvisosService } from '../../core/ui/avisos.service';
+import { AbasDirective } from '../../shared/ui/abas.directive';
 import { MascaraDirective } from '../../shared/ui/mascara.directive';
 
 type Aba = 'imobiliaria' | 'assistente' | 'whatsapp' | 'captacao' | 'portais';
 
 @Component({
   selector: 'app-ajustes',
-  imports: [FormsModule, RouterLink, MascaraDirective],
+  imports: [FormsModule, RouterLink, MascaraDirective, AbasDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './ajustes.page.html',
   styleUrl: './ajustes.page.scss',
@@ -77,15 +78,6 @@ export default class AjustesPage {
   protected escolher(a: Aba) {
     this.aba.set(a);
     if (a === 'portais' && !this.imoveis().length) void this.imoveisSrv.listar().then((l) => this.imoveis.set(l)).catch((e) => this.avisos.erro(e));
-  }
-
-  /** Setas do teclado entre as abas (padrão ARIA de tablist). */
-  protected teclaAba(ev: KeyboardEvent, i: number) {
-    const passo = ev.key === 'ArrowRight' ? 1 : ev.key === 'ArrowLeft' ? -1 : 0;
-    if (!passo) return;
-    const prox = this.abas[(i + passo + this.abas.length) % this.abas.length];
-    this.escolher(prox.id);
-    (document.getElementById('aba-' + prox.id) as HTMLElement | null)?.focus();
   }
 
   protected async salvar(campos: (keyof Config)[]) {

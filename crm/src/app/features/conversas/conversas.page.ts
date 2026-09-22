@@ -13,10 +13,11 @@ import { QuandoPipe, TelefonePipe } from '../../shared/pipes/formatos.pipe';
 import { linkWhats } from '../../shared/util/telefone';
 import { semAcento } from '../../shared/util/planilha';
 import { TestarAssistente } from './testar-assistente';
+import { AbasDirective } from '../../shared/ui/abas.directive';
 
 @Component({
   selector: 'app-conversas',
-  imports: [FormsModule, RouterLink, QuandoPipe, TelefonePipe, TestarAssistente],
+  imports: [FormsModule, RouterLink, QuandoPipe, TelefonePipe, TestarAssistente, AbasDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './conversas.page.html',
   styleUrl: './conversas.page.scss',

@@ -50,15 +50,15 @@
       <caption class="sr-only">Leads, {{ faixa() }}. Os cabeçalhos com botão ordenam a tabela.</caption>
       <thead>
         <tr>
-          <th scope="col" [attr.aria-sort]="ariaSort('nome')"><button type="button" class="ordenar" (click)="ordenar('nome')">Lead {{ ariaSort('nome') === 'ascending' ? '↑' : ariaSort('nome') === 'descending' ? '↓' : '' }}</button></th>
+          <th scope="col" [attr.aria-sort]="ariaSort('nome')"><button type="button" class="ordenar" (click)="ordenar('nome')" title="Ordenar por nome">Lead {{ ariaSort('nome') === 'ascending' ? '↑' : ariaSort('nome') === 'descending' ? '↓' : '' }}</button></th>
           <th scope="col">Contato</th>
           <th scope="col">Procura</th>
           <th scope="col">Origem</th>
-          <th scope="col" [attr.aria-sort]="ariaSort('temperatura')"><button type="button" class="ordenar" (click)="ordenar('temperatura')">Temp. {{ ariaSort('temperatura') === 'ascending' ? '↑' : ariaSort('temperatura') === 'descending' ? '↓' : '' }}</button></th>
-          <th scope="col" [attr.aria-sort]="ariaSort('status')"><button type="button" class="ordenar" (click)="ordenar('status')">Etapa {{ ariaSort('status') === 'ascending' ? '↑' : ariaSort('status') === 'descending' ? '↓' : '' }}</button></th>
-          <th scope="col" class="num" [attr.aria-sort]="ariaSort('valor_estimado')"><button type="button" class="ordenar" (click)="ordenar('valor_estimado')">Valor {{ ariaSort('valor_estimado') === 'ascending' ? '↑' : ariaSort('valor_estimado') === 'descending' ? '↓' : '' }}</button></th>
+          <th scope="col" [attr.aria-sort]="ariaSort('temperatura')"><button type="button" class="ordenar" (click)="ordenar('temperatura')" title="Ordenar por temperatura" aria-label="Temperatura, ordenar">Temp. {{ ariaSort('temperatura') === 'ascending' ? '↑' : ariaSort('temperatura') === 'descending' ? '↓' : '' }}</button></th>
+          <th scope="col" [attr.aria-sort]="ariaSort('status')"><button type="button" class="ordenar" (click)="ordenar('status')" title="Ordenar por etapa">Etapa {{ ariaSort('status') === 'ascending' ? '↑' : ariaSort('status') === 'descending' ? '↓' : '' }}</button></th>
+          <th scope="col" class="num" [attr.aria-sort]="ariaSort('valor_estimado')"><button type="button" class="ordenar" (click)="ordenar('valor_estimado')" title="Ordenar por valor">Valor {{ ariaSort('valor_estimado') === 'ascending' ? '↑' : ariaSort('valor_estimado') === 'descending' ? '↓' : '' }}</button></th>
           <th scope="col">Responsável</th>
-          <th scope="col" [attr.aria-sort]="ariaSort('data_criacao')"><button type="button" class="ordenar" (click)="ordenar('data_criacao')">Entrou {{ ariaSort('data_criacao') === 'ascending' ? '↑' : ariaSort('data_criacao') === 'descending' ? '↓' : '' }}</button></th>
+          <th scope="col" [attr.aria-sort]="ariaSort('data_criacao')"><button type="button" class="ordenar" (click)="ordenar('data_criacao')" title="Ordenar por data de entrada">Entrou {{ ariaSort('data_criacao') === 'ascending' ? '↑' : ariaSort('data_criacao') === 'descending' ? '↓' : '' }}</button></th>
         </tr>
       </thead>
       <tbody>

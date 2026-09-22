@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { SUPABASE_CONFIGURADO, erroAmigavel } from '../../core/supabase/supabase.client';
 import { Marca } from '../../shared/ui/marca';
+import { focarPrimeiroErro } from '../../shared/util/validacao';
 
 type Modo = 'entrar' | 'esqueci' | 'enviado' | 'primeiro' | 'sem-acesso';
 
@@ -29,16 +30,17 @@ type Modo = 'entrar' | 'esqueci' | 'enviado' | 'primeiro' | 'sem-acesso';
           @switch (modo()) {
             @case ('entrar') {
               <h1>Entrar</h1>
-              <form class="pilha" (ngSubmit)="entrar()" #f="ngForm">
+              <form class="pilha" (ngSubmit)="entrar()" novalidate>
                 <div class="campo">
                   <label for="email">E-mail</label>
-                  <input id="email" name="email" type="email" autocomplete="username" required [(ngModel)]="email" autofocus />
+                  <input id="email" name="email" type="email" autocomplete="username" required [(ngModel)]="email" autofocus
+                         [attr.aria-invalid]="tentou() && !email" />
                 </div>
                 <div class="campo">
                   <label for="senha">Senha</label>
                   <div class="senha">
                     <input id="senha" name="senha" [type]="verSenha() ? 'text' : 'password'" autocomplete="current-password"
-                           required [(ngModel)]="senha" />
+                           required [(ngModel)]="senha" [attr.aria-invalid]="tentou() && !senha" />
                     <button type="button" class="btn fantasma pequeno" (click)="verSenha.set(!verSenha())"
                             [attr.aria-pressed]="verSenha()">{{ verSenha() ? 'Esconder' : 'Mostrar' }}</button>
                   </div>
@@ -105,6 +107,7 @@ export default class EntrarPage {
   protected readonly erro = signal('');
   protected readonly ocupado = signal(false);
   protected readonly verSenha = signal(false);
+  protected readonly tentou = signal(false);
   protected email = '';
   protected senha = '';
   protected nomeEmpresa = '';
@@ -118,7 +121,8 @@ export default class EntrarPage {
   protected trocar(m: Modo) { this.modo.set(m); this.erro.set(''); }
 
   protected async entrar() {
-    if (!this.email || !this.senha) { this.erro.set('Preencha e-mail e senha.'); return; }
+    this.tentou.set(true);
+    if (!this.email || !this.senha) { this.erro.set('Preencha e-mail e senha.'); focarPrimeiroErro(); return; }
     await this.tentar(async () => {
       const perfil = await this.auth.entrar(this.email, this.senha);
       if (perfil?.ativo) await this.router.navigateByUrl(this.volta() || '/');

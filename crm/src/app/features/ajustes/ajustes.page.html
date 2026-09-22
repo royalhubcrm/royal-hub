@@ -6,11 +6,11 @@
   </div>
 </header>
 
-<div class="abas" role="tablist" aria-label="Ajustes">
-  @for (a of abas; track a.id; let i = $index) {
+<div class="abas" role="tablist" aria-label="Ajustes" appAbas>
+  @for (a of abas; track a.id) {
     <button type="button" role="tab" [id]="'aba-' + a.id" [attr.aria-controls]="'painel-' + a.id"
             [attr.aria-selected]="aba() === a.id" [attr.tabindex]="aba() === a.id ? 0 : -1"
-            (click)="escolher(a.id)" (keydown)="teclaAba($event, i)">{{ a.rotulo }}</button>
+            (click)="escolher(a.id)">{{ a.rotulo }}</button>
   }
 </div>
 
