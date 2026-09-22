@@ -10,6 +10,7 @@ import { AvisosService } from '../../../core/ui/avisos.service';
 import { erroAmigavel } from '../../../core/supabase/supabase.client';
 import { QuandoPipe } from '../../../shared/pipes/formatos.pipe';
 import { Gaveta } from '../../../shared/ui/gaveta';
+import { MascaraDirective } from '../../../shared/ui/mascara.directive';
 import { formatarTelefone, linkWhats, soDigitos } from '../../../shared/util/telefone';
 
 interface Rascunho {
@@ -24,7 +25,7 @@ interface Rascunho {
  */
 @Component({
   selector: 'app-lead-gaveta',
-  imports: [FormsModule, Gaveta, QuandoPipe],
+  imports: [FormsModule, Gaveta, QuandoPipe, MascaraDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './lead-gaveta.html',
   styleUrl: './lead-gaveta.scss',

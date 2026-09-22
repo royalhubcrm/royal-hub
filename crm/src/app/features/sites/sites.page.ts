@@ -8,10 +8,11 @@ import { SitesService } from '../../core/services/sites.service';
 import { AvisosService } from '../../core/ui/avisos.service';
 import { slugDe } from '../../shared/util/texto';
 import { Vitrine } from '../publico/vitrine';
+import { MascaraDirective } from '../../shared/ui/mascara.directive';
 
 @Component({
   selector: 'app-sites',
-  imports: [FormsModule, Vitrine],
+  imports: [FormsModule, Vitrine, MascaraDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './sites.page.html',
   styleUrl: './sites.page.scss',
@@ -75,7 +76,7 @@ export default class SitesPage {
     });
   }
 
-  protected mudarFiltro(campo: 'cidade' | 'precoMax', valor: string) {
+  protected mudarFiltro(campo: 'cidade' | 'precoMax', valor: string | number | null) {
     this.rascunho.update((r) => r && { ...r, filtro: { ...r.filtro, [campo]: campo === 'precoMax' ? Number(valor) || undefined : valor || undefined } });
   }
 

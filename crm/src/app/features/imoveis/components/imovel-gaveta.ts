@@ -5,10 +5,12 @@ import { ConfigService } from '../../../core/services/config.service';
 import { ImoveisService } from '../../../core/services/imoveis.service';
 import { AvisosService } from '../../../core/ui/avisos.service';
 import { Gaveta } from '../../../shared/ui/gaveta';
+import { MascaraDirective } from '../../../shared/ui/mascara.directive';
+import { soDigitos } from '../../../shared/util/telefone';
 
 @Component({
   selector: 'app-imovel-gaveta',
-  imports: [FormsModule, Gaveta],
+  imports: [FormsModule, Gaveta, MascaraDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './imovel-gaveta.html',
   styleUrl: './imovel-gaveta.scss',
@@ -102,7 +104,8 @@ export class ImovelGaveta {
     if (this.erroCodigo) return this.avisos.erro('Confira os campos marcados.');
     this.salvando.set(true);
     try {
-      const { id: _id, criado_em: _c, atualizado_em: _a, ...campos } = { ...this.f, fotos: this.fotos() } as Imovel;
+      // o CEP vai para o banco só com os dígitos (é assim que o feed dos portais espera)
+      const { id: _id, criado_em: _c, atualizado_em: _a, ...campos } = { ...this.f, cep: soDigitos(this.f.cep) ?? '', fotos: this.fotos() } as Imovel;
       const numeros = ['preco', 'condominio', 'iptu', 'quartos', 'suites', 'banheiros', 'vagas', 'area'] as const;
       for (const n of numeros) (campos as Record<string, unknown>)[n] = Number(campos[n]) || 0;
       const salvo = await this.srv.salvar(this.imovel()?.id ?? null, campos);

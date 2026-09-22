@@ -8,12 +8,13 @@ import { ConfigService } from '../../core/services/config.service';
 import { ImoveisService } from '../../core/services/imoveis.service';
 import { SUPABASE } from '../../core/supabase/supabase.client';
 import { AvisosService } from '../../core/ui/avisos.service';
+import { MascaraDirective } from '../../shared/ui/mascara.directive';
 
 type Aba = 'imobiliaria' | 'assistente' | 'whatsapp' | 'captacao' | 'portais';
 
 @Component({
   selector: 'app-ajustes',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, MascaraDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './ajustes.page.html',
   styleUrl: './ajustes.page.scss',

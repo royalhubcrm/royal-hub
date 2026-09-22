@@ -8,6 +8,7 @@ import { AvisosService } from '../../core/ui/avisos.service';
 import { Metrica } from '../dashboard/components/metrica';
 import { DiaSemanaPipe, QuandoPipe, TelefonePipe } from '../../shared/pipes/formatos.pipe';
 import { Gaveta } from '../../shared/ui/gaveta';
+import { MascaraDirective } from '../../shared/ui/mascara.directive';
 import { soDigitos } from '../../shared/util/telefone';
 
 const DIAS_PARADA = 2;
@@ -16,7 +17,7 @@ interface Retomada { conversa: Conversa; texto: string; dias: number }
 
 @Component({
   selector: 'app-gerencia',
-  imports: [FormsModule, RouterLink, Metrica, DiaSemanaPipe, QuandoPipe, TelefonePipe, Gaveta],
+  imports: [FormsModule, RouterLink, Metrica, DiaSemanaPipe, QuandoPipe, TelefonePipe, Gaveta, MascaraDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './gerencia.page.html',
   styleUrl: './gerencia.page.scss',

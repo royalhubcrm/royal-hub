@@ -9,7 +9,7 @@
       </div>
       <div class="campo">
         <label for="l-tel">WhatsApp / telefone</label>
-        <input id="l-tel" name="telefone" [(ngModel)]="f.telefone" inputmode="tel" placeholder="(34) 99999-0000"
+        <input id="l-tel" name="telefone" [(ngModel)]="f.telefone" appMascara="telefone" placeholder="(34) 99999-0000"
                [attr.aria-invalid]="tentouSalvar() && !!erroTelefone" aria-describedby="l-tel-erro" />
         @if (tentouSalvar() && erroTelefone) { <span class="erro" id="l-tel-erro">{{ erroTelefone }}</span> }
       </div>
@@ -55,7 +55,7 @@
     <div class="grade-campos">
       <div class="campo">
         <label for="l-valor">Valor estimado (R$)</label>
-        <input id="l-valor" name="valor" type="number" min="0" step="1000" inputmode="numeric" [(ngModel)]="f.valor_estimado" />
+        <input id="l-valor" name="valor" class="mono" appMascara="moeda" [(ngModel)]="f.valor_estimado" placeholder="850.000" />
       </div>
       <div class="campo">
         <label for="l-resp">Responsável</label>

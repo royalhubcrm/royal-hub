@@ -78,12 +78,12 @@
         <p class="ajuda">Nenhum tipo marcado = todos.</p>
         <div class="grade-campos">
           <div class="campo"><label for="r-cidade">Cidade</label><input id="r-cidade" [ngModel]="r.filtro.cidade ?? ''" name="cidade" (ngModelChange)="mudarFiltro('cidade', $event)" placeholder="Todas" /></div>
-          <div class="campo"><label for="r-teto">Preço máximo (R$)</label><input id="r-teto" type="number" min="0" step="10000" [ngModel]="r.filtro.precoMax ?? ''" name="teto" (ngModelChange)="mudarFiltro('precoMax', $event)" placeholder="Sem limite" /></div>
+          <div class="campo"><label for="r-teto">Preço máximo (R$)</label><input id="r-teto" class="mono" appMascara="moeda" [ngModel]="r.filtro.precoMax ?? null" name="teto" (ngModelChange)="mudarFiltro('precoMax', $event)" placeholder="Sem limite" /></div>
         </div>
       </fieldset>
 
       <div class="grade-campos">
-        <div class="campo"><label for="r-whats">WhatsApp</label><input id="r-whats" inputmode="tel" [ngModel]="r.whats" name="whats" (ngModelChange)="mudar('whats', $event)" /></div>
+        <div class="campo"><label for="r-whats">WhatsApp</label><input id="r-whats" appMascara="telefone" [ngModel]="r.whats" name="whats" (ngModelChange)="mudar('whats', $event)" placeholder="(34) 99999-0000" /></div>
         <div class="campo"><label for="r-creci">CRECI</label><input id="r-creci" [ngModel]="r.creci" name="creci" (ngModelChange)="mudar('creci', $event)" /></div>
       </div>
       <div class="campo"><label for="r-email">E-mail</label><input id="r-email" type="email" [ngModel]="r.email" name="email" (ngModelChange)="mudar('email', $event)" /></div>

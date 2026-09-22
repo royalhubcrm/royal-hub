@@ -3,12 +3,13 @@ import { FormsModule } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
 import { EmpresaPublica, SitesService } from '../../core/services/sites.service';
 import { erroAmigavel } from '../../core/supabase/supabase.client';
+import { MascaraDirective } from '../../shared/ui/mascara.directive';
 import { linkWhats, soDigitos } from '../../shared/util/telefone';
 
 /** /captar/:empresa?c=campanha — o formulário que vai no anúncio ou na bio. */
 @Component({
   selector: 'app-captar',
-  imports: [FormsModule],
+  imports: [FormsModule, MascaraDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="captar">
@@ -26,7 +27,7 @@ import { linkWhats, soDigitos } from '../../shared/util/telefone';
             </div>
             <div class="campo">
               <label for="c-tel">WhatsApp com DDD</label>
-              <input id="c-tel" name="tel" type="tel" autocomplete="tel" inputmode="tel" [(ngModel)]="f.telefone" required
+              <input id="c-tel" name="tel" appMascara="telefone" [(ngModel)]="f.telefone" required
                      placeholder="(34) 99999-0000" [attr.aria-invalid]="tentou() && !telOk()" aria-describedby="c-tel-erro" />
               @if (tentou() && !telOk()) { <span class="erro" id="c-tel-erro">Confira o número com DDD.</span> }
             </div>

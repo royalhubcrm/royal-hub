@@ -30,7 +30,7 @@
         <div class="grade-campos">
           <div class="campo">
             <label for="a-whats">WhatsApp da imobiliária</label>
-            <input id="a-whats" name="whats" inputmode="tel" [(ngModel)]="f.whats" placeholder="34 99999-0000" aria-describedby="a-whats-ajuda" />
+            <input id="a-whats" name="whats" appMascara="telefone" [(ngModel)]="f.whats" placeholder="(34) 99999-0000" aria-describedby="a-whats-ajuda" />
             <span class="ajuda" id="a-whats-ajuda">Aparece nas páginas públicas e na folha de imóveis.</span>
           </div>
           <div class="campo">

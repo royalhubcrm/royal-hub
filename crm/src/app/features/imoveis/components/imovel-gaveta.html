@@ -32,9 +32,9 @@
     <fieldset>
       <legend>Valores e tamanho</legend>
       <div class="grade-campos">
-        <div class="campo"><label for="m-preco">Preço (R$)</label><input id="m-preco" name="preco" type="number" min="0" step="1000" inputmode="numeric" [(ngModel)]="f.preco" /></div>
-        <div class="campo"><label for="m-cond">Condomínio (R$/mês)</label><input id="m-cond" name="condominio" type="number" min="0" inputmode="numeric" [(ngModel)]="f.condominio" /></div>
-        <div class="campo"><label for="m-iptu">IPTU (R$/ano)</label><input id="m-iptu" name="iptu" type="number" min="0" inputmode="numeric" [(ngModel)]="f.iptu" /></div>
+        <div class="campo"><label for="m-preco">Preço (R$)</label><input id="m-preco" name="preco" class="mono" appMascara="moeda" [(ngModel)]="f.preco" placeholder="890.000" /></div>
+        <div class="campo"><label for="m-cond">Condomínio (R$/mês)</label><input id="m-cond" name="condominio" class="mono" appMascara="moeda" [(ngModel)]="f.condominio" /></div>
+        <div class="campo"><label for="m-iptu">IPTU (R$/ano)</label><input id="m-iptu" name="iptu" class="mono" appMascara="moeda" [(ngModel)]="f.iptu" /></div>
         <div class="campo"><label for="m-area">Área (m²)</label><input id="m-area" name="area" type="number" min="0" inputmode="decimal" [(ngModel)]="f.area" /></div>
       </div>
       <div class="grade-campos numeros">
@@ -50,7 +50,7 @@
       <div class="grade-campos">
         <div class="campo">
           <label for="m-cep">CEP</label>
-          <input id="m-cep" name="cep" class="mono" inputmode="numeric" [(ngModel)]="f.cep" (blur)="preencherCep()" aria-describedby="m-cep-ajuda" />
+          <input id="m-cep" name="cep" class="mono" appMascara="cep" [(ngModel)]="f.cep" (blur)="preencherCep()" placeholder="38400-100" aria-describedby="m-cep-ajuda" />
           <span class="ajuda" id="m-cep-ajuda">Ao sair do campo, rua e bairro se preenchem.</span>
         </div>
         <div class="campo"><label for="m-rua">Rua</label><input id="m-rua" name="rua" [(ngModel)]="f.rua" /></div>
