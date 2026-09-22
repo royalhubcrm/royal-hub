@@ -16,7 +16,7 @@ import { AvisosService } from '../../core/ui/avisos.service';
     </div>
 
     <dialog #dlg class="confirmar" aria-labelledby="confirmar-titulo" aria-describedby="confirmar-texto"
-            (cancel)="$event.preventDefault(); responder(false)">
+            (keydown.escape)="$event.preventDefault(); responder(false)" (cancel)="$event.preventDefault(); responder(false)" (close)="responder(false)">
       @if (avisos.pergunta(); as p) {
         <h2 id="confirmar-titulo">{{ p.titulo }}</h2>
         <p id="confirmar-texto">{{ p.texto }}</p>

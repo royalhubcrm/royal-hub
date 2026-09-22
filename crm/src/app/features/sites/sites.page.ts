@@ -29,6 +29,7 @@ export default class SitesPage {
   protected readonly carteira = signal<Imovel[]>([]);
   /** O site sendo editado (null = nenhum aberto). É um sinal para a prévia acompanhar cada tecla. */
   protected readonly rascunho = signal<SiteEditavel | null>(null);
+  private rascunhoInicial = '';
   protected readonly salvando = signal(false);
   protected readonly desenhando = signal(false);
   protected readonly tentouSalvar = signal(false);
@@ -64,9 +65,16 @@ export default class SitesPage {
   protected async novo() {
     const c = await this.cfg.garantir().catch(() => null);
     this.rascunho.set({ ...siteVazio(), whats: c?.whats ?? '', creci: c?.creci ?? '', endereco: c?.endereco ?? '' });
+    this.rascunhoInicial = JSON.stringify(this.rascunho());
   }
 
-  protected editar(s: Site) { this.rascunho.set(structuredClone(s)); }
+  protected editar(s: Site) { this.rascunho.set(structuredClone(s)); this.rascunhoInicial = JSON.stringify(this.rascunho()); }
+
+  protected async descartar() {
+    if (JSON.stringify(this.rascunho()) !== this.rascunhoInicial
+        && !(await this.avisos.confirmar('Descartar as alterações?', { texto: 'O que você mudou no site ainda não foi salvo.', confirmar: 'Descartar' }))) return;
+    this.rascunho.set(null);
+  }
 
   protected slugOk(slug: string) { return /^[a-z0-9-]{2,40}$/.test(slug); }
   protected tocar(campo: string) { this.tocados.update((s) => new Set(s).add(campo)); }

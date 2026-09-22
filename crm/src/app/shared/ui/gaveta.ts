@@ -1,20 +1,23 @@
-import { ChangeDetectionStrategy, Component, ElementRef, effect, input, output, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, effect, inject, input, output, viewChild } from '@angular/core';
+import { AvisosService } from '../../core/ui/avisos.service';
 
 /**
  * Painel lateral (lead, imóvel, importação). Usa o <dialog> nativo do
  * navegador: prende o foco lá dentro, fecha com Esc e devolve o foco para
- * quem abriu — acessibilidade de graça.
+ * quem abriu — acessibilidade de graça. Com [sujo]="true", qualquer jeito de
+ * fechar (Esc, clique fora, botão) pergunta antes de descartar o que foi digitado.
  */
 @Component({
   selector: 'app-gaveta',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dlg class="gaveta" [class.larga]="larga()" [attr.aria-labelledby]="idTitulo"
-            (cancel)="$event.preventDefault(); fechar.emit()" (click)="cliqueFora($event)">
+            (keydown.escape)="$event.preventDefault(); pedirFechar()" (cancel)="$event.preventDefault(); pedirFechar()"
+            (close)="fechou()" (click)="cliqueFora($event)">
       <div class="gaveta-corpo">
         <header>
           <h2 [id]="idTitulo">{{ titulo() }}</h2>
-          <button type="button" class="btn fantasma pequeno" (click)="fechar.emit()">Fechar <span aria-hidden="true">✕</span></button>
+          <button type="button" class="btn fantasma pequeno" (click)="pedirFechar()">Fechar <span aria-hidden="true">✕</span></button>
         </header>
         <div class="gaveta-conteudo"><ng-content /></div>
         <ng-content select="[rodape]" />
@@ -43,7 +46,11 @@ export class Gaveta {
   readonly titulo = input.required<string>();
   readonly aberta = input(false);
   readonly larga = input(false);
+  /** Tem alteração não salva? Se sim, fechar pede confirmação. */
+  readonly sujo = input(false);
   readonly fechar = output<void>();
+
+  private readonly avisos = inject(AvisosService);
 
   protected readonly idTitulo = 'gaveta-' + Math.random().toString(36).slice(2, 8);
   private readonly dlg = viewChild.required<ElementRef<HTMLDialogElement>>('dlg');
@@ -58,6 +65,23 @@ export class Gaveta {
 
   /** Clique no fundo escuro (fora do painel) fecha. */
   protected cliqueFora(ev: MouseEvent) {
-    if (ev.target === this.dlg().nativeElement) this.fechar.emit();
+    if (ev.target === this.dlg().nativeElement) void this.pedirFechar();
+  }
+
+  /**
+   * O navegador pode fechar o <dialog> por conta própria (o Chrome ignora o
+   * preventDefault do "cancel" depois de um Esc seguido). Se isso acontecer,
+   * avisa o dono para o estado não ficar "aberta" com o painel sumido.
+   */
+  protected fechou() { if (this.aberta()) this.fechar.emit(); }
+
+  protected async pedirFechar() {
+    if (this.sujo()) {
+      const ok = await this.avisos.confirmar('Descartar as alterações?', {
+        texto: 'O que você mudou aqui ainda não foi salvo.', confirmar: 'Descartar',
+      });
+      if (!ok) return;
+    }
+    this.fechar.emit();
   }
 }

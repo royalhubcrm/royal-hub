@@ -51,6 +51,8 @@ export class LeadGaveta {
   protected readonly origens = ORIGENS;
   protected readonly temperaturas = TEMPERATURAS;
   protected f: Rascunho = this.vazio();
+  /** Foto do formulário na abertura, para saber se algo mudou. */
+  private inicial = '';
   protected readonly tentouSalvar = signal(false);
   /** Campos por onde a pessoa já passou: o erro aparece ao sair do campo, não enquanto digita. */
   protected readonly tocados = signal<Set<string>>(new Set());
@@ -69,6 +71,7 @@ export class LeadGaveta {
       const l = this.lead();
       if (!this.aberta()) return;
       this.f = l ? this.deLead(l) : { ...this.vazio(), status: this.etapaInicial() };
+      this.inicial = JSON.stringify(this.f);
       this.tentouSalvar.set(false);
       this.tocados.set(new Set());
       this.sugestao.set('');
@@ -87,6 +90,7 @@ export class LeadGaveta {
   protected tocar(campo: string) { this.tocados.update((s) => new Set(s).add(campo)); }
   protected mostraErro(campo: string) { return this.tentouSalvar() || this.tocados().has(campo); }
   protected get whats() { return linkWhats(this.f.telefone); }
+  protected estaSujo() { return this.aberta() && JSON.stringify(this.f) !== this.inicial; }
 
   protected async salvar() {
     this.tentouSalvar.set(true);
@@ -99,6 +103,7 @@ export class LeadGaveta {
     try {
       const salvo = await this.leads.salvar(this.lead()?.id ?? null, this.paraSalvar());
       this.avisos.ok(this.lead() ? 'Lead atualizado.' : 'Lead cadastrado.');
+      this.inicial = JSON.stringify(this.f); // salvou: não há mais o que descartar
       this.salvo.emit(salvo);
     } catch (e) {
       this.avisos.erro(e);

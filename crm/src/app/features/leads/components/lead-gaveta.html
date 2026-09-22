@@ -1,4 +1,4 @@
-<app-gaveta [titulo]="titulo()" [aberta]="aberta()" (fechar)="fechar.emit()">
+<app-gaveta [titulo]="titulo()" [aberta]="aberta()" [sujo]="estaSujo()" (fechar)="fechar.emit()">
   <form id="form-lead" class="pilha" (ngSubmit)="salvar()" novalidate>
     <div class="grade-campos">
       <div class="campo">

@@ -31,6 +31,7 @@ export class ImovelGaveta {
   protected readonly tipos = TIPOS_IMOVEL;
   protected readonly statusLista = STATUS_IMOVEL;
   protected f: ImovelEditavel = imovelVazio();
+  private inicial = '';
   protected readonly fotos = signal<string[]>([]);
   protected readonly tentou = signal(false);
   protected readonly tocados = signal<Set<string>>(new Set());
@@ -47,6 +48,7 @@ export class ImovelGaveta {
       const cidade = this.config.config()?.cidade || 'Uberlândia';
       this.f = m ? { ...m } : imovelVazio(cidade);
       this.fotos.set(m ? [...m.fotos] : []);
+      this.inicial = this.foto();
       this.tentou.set(false);
       this.tocados.set(new Set());
       this.novaUrl = '';
@@ -58,6 +60,9 @@ export class ImovelGaveta {
   protected get erroCep() { return cepValido(this.f.cep) ? '' : 'O CEP tem 8 dígitos.'; }
   protected tocar(campo: string) { this.tocados.update((s) => new Set(s).add(campo)); }
   protected mostraErro(campo: string) { return this.tentou() || this.tocados().has(campo); }
+  /** Formulário + fotos, para comparar com a abertura. */
+  private foto() { return JSON.stringify({ ...this.f, fotos: this.fotos() }); }
+  protected estaSujo() { return this.aberta() && this.foto() !== this.inicial; }
   protected get pendencias() { return pendenciasPortais({ ...this.f, fotos: this.fotos() } as Imovel); }
 
   protected async preencherCep() {
@@ -116,6 +121,7 @@ export class ImovelGaveta {
       for (const n of numeros) (campos as Record<string, unknown>)[n] = Number(campos[n]) || 0;
       const salvo = await this.srv.salvar(this.imovel()?.id ?? null, campos);
       this.avisos.ok('Imóvel salvo.');
+      this.inicial = this.foto();
       this.salvo.emit(salvo);
     } catch (e) {
       this.avisos.erro(e);

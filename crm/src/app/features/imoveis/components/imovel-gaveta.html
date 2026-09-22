@@ -1,4 +1,4 @@
-<app-gaveta [titulo]="titulo()" [aberta]="aberta()" [larga]="true" (fechar)="fechar.emit()">
+<app-gaveta [titulo]="titulo()" [aberta]="aberta()" [larga]="true" [sujo]="estaSujo()" (fechar)="fechar.emit()">
   <form id="form-imovel" class="pilha" (ngSubmit)="salvar()" novalidate>
     <fieldset>
       <legend>O imóvel</legend>

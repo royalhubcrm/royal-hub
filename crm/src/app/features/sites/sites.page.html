@@ -45,7 +45,7 @@
     <form class="cartao pilha" (ngSubmit)="salvar()" aria-label="Editar site" novalidate>
       <div class="linha">
         <h2>{{ r.id ? 'Editando ' + r.nome : 'Novo site' }}</h2>
-        <button type="button" class="btn fantasma pequeno empurra" (click)="rascunho.set(null)">Descartar</button>
+        <button type="button" class="btn fantasma pequeno empurra" (click)="descartar()">Descartar</button>
       </div>
 
       <div class="campo">
