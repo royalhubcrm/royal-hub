@@ -62,6 +62,15 @@ npx supabase secrets set GROQ_API_KEY=sua-chave SITE_URL=https://endereco-do-app
 
 Páginas públicas, sem login: `/captar/<empresa>` (formulário do anúncio), `/imovel/<id>` e `/s/<site>`.
 
+## Atalhos e detalhes de uso
+
+- **/** leva o foco para a busca da tela (Leads, Pipeline, Imóveis, Conversas). **Esc** fecha a ficha aberta — se houver alteração não salva, ele pergunta antes.
+- Nas abas (Ajustes, Conversas) as **setas** trocam de aba; no Kanban, as setas do card movem o lead de etapa sem arrastar.
+- Telefone, CEP e valores em R$ ganham máscara enquanto você digita; o erro de um campo aparece ao sair dele.
+- Na tabela de leads, clicar em qualquer ponto da linha abre a ficha, e cada contato tem um link direto para o WhatsApp.
+
+As propostas que mudam fluxo ou criam telas novas estão em `PROPOSTAS_MELHORIAS.md`, aguardando decisão.
+
 ## A marca
 
 - A coroa-casa é um desenho vetorial em `src/app/shared/ui/marca.ts` (componente `<app-marca>`) e em `public/favicon.svg` — nítida em qualquer tamanho e leve. O arquivo original enviado está guardado em `public/logo-royal.webp`.
