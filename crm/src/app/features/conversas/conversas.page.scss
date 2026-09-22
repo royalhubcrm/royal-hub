@@ -1,0 +1,49 @@
+.regras { margin-bottom: 14px;
+  summary { cursor: pointer; font-weight: 600; font-size: 13px; }
+  &[open] summary { margin-bottom: 14px; }
+  .grade-campos { margin-bottom: 12px; } }
+
+.conversas { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 0; height: calc(100dvh - 260px); min-height: 460px;
+  background: var(--superficie); border: 1px solid var(--slate-200); border-radius: var(--raio); overflow: hidden; }
+
+.lista-conversas { border-right: 1px solid var(--slate-200); display: flex; flex-direction: column; min-height: 0;
+  ul { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; position: relative; } }
+.filtro-lista { padding: 10px; border-bottom: 1px solid var(--slate-200); display: flex; flex-direction: column; gap: 6px; }
+.nao-lidas { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; cursor: pointer; }
+.item { display: flex; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--slate-100);
+  &.atual { background: var(--azul-100); box-shadow: inset 3px 0 0 var(--azul-500); }
+  .principal { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+  .nome { font-weight: 600; font-size: 13px; }
+  small { color: var(--slate-500); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .etiqueta { font-size: 11px; width: fit-content; }
+  .lado { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; } }
+.contador { min-width: 20px; padding: 1px 6px; border-radius: 999px; background: var(--azul-500); color: #fff; font: 500 11px/18px var(--mono); text-align: center; }
+.vazio-lista { padding: 20px 14px; font-size: 13px; }
+
+.conversa { display: flex; flex-direction: column; min-height: 0; min-width: 0;
+  > .vazio { margin: auto; border: 0; } }
+.conversa-topo { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--slate-200);
+  .quem { flex: 1; min-width: 160px; h2 { font-size: 15px; } } }
+.estado { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--slate-100); background: #FAFBFD;
+  .resp { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; select { width: auto; min-height: 30px; padding: 2px 26px 2px 8px; font-size: 12px; } } }
+
+.mensagens { list-style: none; margin: 0; padding: 14px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; background: var(--fundo);
+  &:focus-visible { box-shadow: inset 0 0 0 2px var(--azul-500); } }
+.msg { max-width: min(78%, 560px); padding: 8px 11px; border-radius: 8px; background: var(--superficie); border: 1px solid var(--slate-200); align-self: flex-start;
+  p { white-space: pre-wrap; font-size: 13.5px; }
+  .autor { display: block; font: 500 10.5px/1.3 var(--mono); color: var(--slate-500); margin-bottom: 2px; text-transform: uppercase; letter-spacing: .04em; }
+  &.bot, &.voce { align-self: flex-end; background: var(--azul-100); border-color: #C9D9EA; }
+  &.voce { background: #E6EFE9; border-color: #C3DCCB; } }
+
+.enviar { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--slate-200);
+  textarea { min-height: 44px; } .btn { align-self: flex-end; } }
+.conversa > .aviso { margin: 10px; }
+.so-celular { display: none; }
+
+@media (max-width: 860px) {
+  .conversas { grid-template-columns: 1fr; height: auto; min-height: 0; }
+  .conversas .conversa { display: none; min-height: 70dvh; }
+  .conversas.com-selecao .lista-conversas { display: none; }
+  .conversas.com-selecao .conversa { display: flex; }
+  .so-celular { display: inline-flex; }
+}

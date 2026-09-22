@@ -1,0 +1,91 @@
+<header class="cabecalho-pagina">
+  <div>
+    <p class="sobretitulo">Carteira</p>
+    <h1>Imóveis</h1>
+    <p>A base que a assistente do WhatsApp, os sites e os portais usam. {{ prontosPortal() }} prontos para os portais.</p>
+  </div>
+  <div class="acoes">
+    <button type="button" class="btn" (click)="folha()">
+      Folha para o cliente{{ selecionados().size ? ' (' + selecionados().size + ')' : '' }}
+    </button>
+    <button type="button" class="btn" (click)="importando.set(true)">Importar</button>
+    <button type="button" class="btn primario" (click)="novo()">+ Imóvel</button>
+  </div>
+</header>
+
+<form class="filtros" role="search" aria-label="Filtrar imóveis" (submit)="$event.preventDefault()">
+  <div class="campo busca">
+    <label for="i-busca">Buscar</label>
+    <input id="i-busca" type="search" placeholder="Código, bairro, rua ou descrição" [ngModel]="busca()" name="busca" (ngModelChange)="busca.set($event)" />
+  </div>
+  <div class="campo">
+    <label for="i-bairro">Bairro</label>
+    <select id="i-bairro" [ngModel]="bairro()" name="bairro" (ngModelChange)="bairro.set($event)">
+      <option value="">Todos</option>
+      @for (b of bairros(); track b) { <option [value]="b">{{ b }}</option> }
+    </select>
+  </div>
+  <div class="campo">
+    <label for="i-tipo">Tipo</label>
+    <select id="i-tipo" [ngModel]="tipo()" name="tipo" (ngModelChange)="tipo.set($event)">
+      <option value="">Todos</option>
+      @for (t of tipos(); track t) { <option [value]="t">{{ t }}</option> }
+    </select>
+  </div>
+  <div class="campo">
+    <label for="i-status">Situação</label>
+    <select id="i-status" [ngModel]="status()" name="status" (ngModelChange)="status.set($event)">
+      <option value="">Todas</option>
+      @for (s of statusLista; track s.valor) { <option [value]="s.valor">{{ s.rotulo }}</option> }
+    </select>
+  </div>
+  <span class="contagem" role="status">{{ carregando() ? 'Carregando…' : lista().length + ' imóvel(is)' }}</span>
+</form>
+
+@if (lista().length) {
+  <ul class="grade-imoveis">
+    @for (m of lista(); track m.id) {
+      <li class="imovel" [class.marcado]="selecionados().has(m.id)">
+        <div class="foto">
+          @if (m.fotos[0]) { <img [src]="m.fotos[0]" [alt]="m.tipo + ' no ' + m.bairro" loading="lazy" /> }
+          @else { <span class="sem-foto">sem foto</span> }
+          <span class="codigo mono">{{ m.codigo }}</span>
+          <label class="marcar">
+            <input type="checkbox" [checked]="selecionados().has(m.id)" (change)="marcar(m.id, $any($event.target).checked)" />
+            <span class="sr-only">Incluir o imóvel {{ m.codigo }} na folha</span>
+          </label>
+        </div>
+        <div class="corpo">
+          <p class="preco mono">{{ m.preco ? (m.preco | brl) : 'Sob consulta' }}@if (m.finalidade === 'aluguel') {<small>/mês</small>}</p>
+          <h2>{{ m.tipo }} · {{ m.bairro || 'sem bairro' }}</h2>
+          <p class="specs mudo">
+            @if (m.quartos) { <span>{{ m.quartos }} qto</span> }
+            @if (m.suites) { <span>{{ m.suites }} suíte</span> }
+            @if (m.vagas) { <span>{{ m.vagas }} vaga</span> }
+            @if (m.area) { <span>{{ m.area }} m²</span> }
+          </p>
+          <p class="situacao">
+            @if (m.status !== 'disponivel') { <span class="etiqueta">{{ rotuloStatus(m.status) }}</span> }
+            @if (pendencias(m).length) { <span class="etiqueta morno sem-ponto" [title]="'Falta para os portais: ' + pendencias(m).join(', ')">Portais: falta {{ pendencias(m).join(', ') }}</span> }
+            @else { <span class="etiqueta ok sem-ponto">Pronto para os portais</span> }
+          </p>
+        </div>
+        <div class="acoes-card">
+          <button type="button" class="btn pequeno" (click)="editar(m)">Editar <span class="sr-only">{{ m.codigo }}</span></button>
+          @if (m.status === 'disponivel') {
+            <a class="btn pequeno fantasma" [href]="linkPublico(m)" target="_blank" rel="noopener">Página <span class="sr-only">do {{ m.codigo }} (abre em nova aba)</span></a>
+            <button type="button" class="btn pequeno fantasma" (click)="copiar(m)">Copiar link</button>
+          }
+        </div>
+      </li>
+    }
+  </ul>
+} @else if (!carregando()) {
+  <div class="vazio">
+    @if (todos().length) { Nenhum imóvel com esses filtros. <button type="button" class="btn pequeno" (click)="limpar()">Limpar filtros</button> }
+    @else { Carteira vazia. Use <b>Importar</b> para colar os imóveis de outra planilha ou cadastre um. }
+  </div>
+}
+
+<app-imovel-gaveta [imovel]="aberto()" [aberta]="gavetaAberta()" (fechar)="gavetaAberta.set(false)" (salvo)="aoSalvar()" (removido)="aoSalvar()" />
+<app-importar-imoveis [aberta]="importando()" (fechar)="importando.set(false)" (importou)="carregar()" />

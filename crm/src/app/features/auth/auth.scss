@@ -1,0 +1,23 @@
+.auth { display: grid; grid-template-columns: minmax(280px, 42%) 1fr; min-height: 100dvh; }
+.auth-marca {
+  background: var(--navy-900); color: #C5D0DE; padding: 48px; display: flex; flex-direction: column; justify-content: flex-end; gap: 22px;
+  background-image: radial-gradient(120% 80% at 20% 100%, rgba(201, 162, 39, .16), transparent 60%),
+                    linear-gradient(160deg, rgba(74, 127, 181, .16), transparent 55%);
+  border-right: 3px solid var(--ouro-500);
+  p { max-width: 30ch; font-size: 15px; line-height: 1.6; color: #B7C3D4; }
+}
+.auth-caixa {
+  align-self: center; justify-self: center; width: min(380px, calc(100vw - 32px)); padding: 32px 0;
+  display: flex; flex-direction: column; gap: 14px;
+  h1 { font-family: var(--serif); font-weight: 600; font-size: 26px; letter-spacing: .01em; color: var(--navy-900); }
+  .btn.primario { width: 100%; min-height: 44px; font-size: 14px; letter-spacing: .02em; }
+}
+.senha { display: flex; gap: 6px; }
+.link { all: unset; cursor: pointer; color: var(--azul-500); text-decoration: underline; width: fit-content; font-size: 13px;
+  &:focus-visible { box-shadow: var(--foco); border-radius: 2px; } }
+
+@media (max-width: 760px) {
+  .auth { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .auth-marca { padding: 20px 16px; border-right: 0; border-bottom: 3px solid var(--ouro-500);
+    app-marca { --escala: .7; } p { display: none; } }
+}

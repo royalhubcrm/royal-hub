@@ -1,0 +1,46 @@
+<a class="pular nao-imprimir" href="#conteudo" (click)="$event.preventDefault(); conteudo.focus()">Pular para o conteúdo</a>
+
+<header class="lateral nao-imprimir">
+  <div class="topo">
+    <a class="marca" routerLink="/painel" aria-label="Royal Hub — ir para o painel">
+      <app-marca [escuro]="true" [altura]="30" />
+    </a>
+    <button type="button" class="menu-celular" [attr.aria-expanded]="menuAberto()" aria-controls="menu-principal"
+            (click)="menuAberto.set(!menuAberto())">
+      {{ menuAberto() ? 'Fechar' : 'Menu' }}
+    </button>
+  </div>
+
+  <nav id="menu-principal" aria-label="Principal" [class.aberto]="menuAberto()">
+    <ul>
+      @for (item of dia(); track item.rota) {
+        <li>
+          <a [routerLink]="item.rota" routerLinkActive="ativo" ariaCurrentWhenActive="page">
+            {{ item.rotulo }}
+            @if (item.rota === '/conversas' && naoLidas()) {
+              <span class="contador" aria-label="{{ naoLidas() }} mensagens não lidas">{{ naoLidas() }}</span>
+            }
+          </a>
+        </li>
+      }
+    </ul>
+    @if (gestao().length) {
+      <p class="grupo" id="grupo-gestao">Gestão</p>
+      <ul aria-labelledby="grupo-gestao">
+        @for (item of gestao(); track item.rota) {
+          <li><a [routerLink]="item.rota" routerLinkActive="ativo" ariaCurrentWhenActive="page">{{ item.rotulo }}</a></li>
+        }
+      </ul>
+    }
+
+    <div class="eu">
+      <span class="nome">{{ auth.perfil()?.nome }}</span>
+      <span class="papel">{{ rotuloPapel(auth.papel() ?? '') }} · {{ auth.empresa()?.nome }}</span>
+      <button type="button" class="sair" (click)="auth.sair()">Sair</button>
+    </div>
+  </nav>
+</header>
+
+<main id="conteudo" #conteudo tabindex="-1" class="conteudo">
+  <router-outlet />
+</main>

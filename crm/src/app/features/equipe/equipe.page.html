@@ -1,0 +1,137 @@
+<header class="cabecalho-pagina">
+  <div>
+    <p class="sobretitulo">Gestão</p>
+    <h1>Equipe</h1>
+    <p>Quem entra no sistema e o que cada um pode ver. Cada pessoa entra com o próprio e-mail e senha.</p>
+  </div>
+</header>
+
+<section class="cartao" aria-labelledby="t-nova">
+  <h2 id="t-nova">Adicionar pessoa</h2>
+  <form class="nova" (ngSubmit)="criar()" novalidate>
+    <div class="campo">
+      <label for="n-nome">Nome</label>
+      <input id="n-nome" name="nome" [(ngModel)]="nova.nome" autocomplete="off" [attr.aria-invalid]="tentouCriar() && !nova.nome.trim()" />
+    </div>
+    <div class="campo">
+      <label for="n-email">E-mail</label>
+      <input id="n-email" name="email" type="email" [(ngModel)]="nova.email" autocomplete="off"
+             [attr.aria-invalid]="tentouCriar() && !!erroEmail" aria-describedby="n-email-erro" />
+      @if (tentouCriar() && erroEmail) { <span class="erro" id="n-email-erro">{{ erroEmail }}</span> }
+    </div>
+    <div class="campo">
+      <label for="n-senha">Senha provisória</label>
+      <div class="linha sem-quebra">
+        <input id="n-senha" name="senha" class="mono" [(ngModel)]="nova.senha" autocomplete="new-password"
+               [attr.aria-invalid]="tentouCriar() && !!erroSenha" aria-describedby="n-senha-erro" />
+        <button type="button" class="btn pequeno" (click)="sugerirSenha()">Gerar</button>
+      </div>
+      @if (tentouCriar() && erroSenha) { <span class="erro" id="n-senha-erro">{{ erroSenha }}</span> }
+    </div>
+    <div class="campo">
+      <label for="n-papel">Perfil</label>
+      <select id="n-papel" name="papel" [(ngModel)]="nova.papel">
+        @for (p of papeis; track p.valor) { <option [value]="p.valor">{{ p.rotulo }}</option> }
+      </select>
+    </div>
+    <button class="btn primario" type="submit" [disabled]="ocupado()">{{ ocupado() ? 'Criando…' : 'Adicionar' }}</button>
+  </form>
+</section>
+
+<section class="cartao" aria-labelledby="t-pessoas">
+  <h2 id="t-pessoas">Pessoas com acesso</h2>
+  <div class="tabela-rolagem">
+    <table class="tabela">
+      <caption class="sr-only">Pessoas com acesso ao sistema</caption>
+      <thead>
+        <tr><th scope="col">Pessoa</th><th scope="col">Perfil</th><th scope="col">Equipe</th><th scope="col">Situação</th><th scope="col">Último acesso</th><th scope="col"><span class="sr-only">Ações</span></th></tr>
+      </thead>
+      <tbody>
+        @for (p of pessoas(); track p.id) {
+          <tr [class.inativo]="!p.ativo">
+            <td><b>{{ p.nome }}</b>@if (p.id === auth.perfil()?.id) { <span class="mudo"> (você)</span> }<small class="mudo">{{ p.email }}</small></td>
+            <td>
+              <label class="sr-only" [for]="'papel-' + p.id">Perfil de {{ p.nome }}</label>
+              <select [id]="'papel-' + p.id" [ngModel]="p.papel" [disabled]="p.id === auth.perfil()?.id"
+                      (ngModelChange)="salvar(p, { papel: $event }, p.nome + ' agora é ' + rotuloPapel($event) + '.')">
+                @for (x of papeis; track x.valor) { <option [value]="x.valor">{{ x.rotulo }}</option> }
+              </select>
+            </td>
+            <td>
+              <label class="sr-only" [for]="'equipe-' + p.id">Equipe de {{ p.nome }}</label>
+              <select [id]="'equipe-' + p.id" [ngModel]="p.equipe_id ?? ''" (ngModelChange)="salvar(p, { equipe_id: $event || null }, 'Equipe atualizada.')">
+                <option value="">Sem equipe</option>
+                @for (e of equipes(); track e.id) { <option [value]="e.id">{{ e.nome }}</option> }
+              </select>
+            </td>
+            <td><span class="etiqueta" [class.ok]="p.ativo">{{ p.ativo ? 'Ativo' : 'Desativado' }}</span></td>
+            <td class="mudo mono pequeno">{{ p.ultimo_acesso ? (p.ultimo_acesso | quando) : 'nunca entrou' }}</td>
+            <td class="acoes-linha">
+              <button type="button" class="btn pequeno" (click)="trocandoSenha.set(p)">Nova senha <span class="sr-only">para {{ p.nome }}</span></button>
+              @if (p.id !== auth.perfil()?.id) {
+                <button type="button" class="btn pequeno" (click)="salvar(p, { ativo: !p.ativo }, p.ativo ? p.nome + ' não entra mais.' : p.nome + ' pode entrar de novo.')">
+                  {{ p.ativo ? 'Desativar' : 'Reativar' }} <span class="sr-only">{{ p.nome }}</span>
+                </button>
+                <button type="button" class="btn pequeno perigo" (click)="remover(p)">Excluir <span class="sr-only">{{ p.nome }}</span></button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="cartao" aria-labelledby="t-equipes">
+  <h2 id="t-equipes">Equipes</h2>
+  <p class="mudo pequeno">O gerente vê os leads e as conversas das pessoas da equipe dele. O administrador vê tudo.</p>
+  @if (equipes().length) {
+    <div class="tabela-rolagem">
+      <table class="tabela">
+        <caption class="sr-only">Equipes</caption>
+        <thead><tr><th scope="col">Equipe</th><th scope="col">Gerente</th><th scope="col">Pessoas</th><th scope="col"><span class="sr-only">Ações</span></th></tr></thead>
+        <tbody>
+          @for (e of equipes(); track e.id) {
+            <tr>
+              <td><b>{{ e.nome }}</b></td>
+              <td>
+                <label class="sr-only" [for]="'ger-' + e.id">Gerente da equipe {{ e.nome }}</label>
+                <select [id]="'ger-' + e.id" [ngModel]="e.gerente_id ?? ''" (ngModelChange)="definirGerente(e, $event)">
+                  <option value="">Escolher</option>
+                  @for (g of gerentes(); track g.id) { <option [value]="g.id">{{ g.nome }}</option> }
+                </select>
+              </td>
+              <td class="mudo">{{ membros(e) || 'ninguém ainda' }}</td>
+              <td class="acoes-linha"><button type="button" class="btn pequeno perigo" (click)="removerEquipe(e)">Excluir <span class="sr-only">{{ e.nome }}</span></button></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+  <form class="linha nova-equipe" (ngSubmit)="criarEquipe()">
+    <div class="campo">
+      <label for="eq-nome">Nova equipe</label>
+      <input id="eq-nome" name="eq" [(ngModel)]="nomeEquipe" placeholder="Ex.: Equipe Centro" />
+    </div>
+    <button class="btn" type="submit">Criar equipe</button>
+  </form>
+</section>
+
+<section class="cartao" aria-labelledby="t-perfis">
+  <h2 id="t-perfis">O que cada perfil pode</h2>
+  <dl class="perfis">
+    @for (p of papeis; track p.valor) { <dt>{{ p.rotulo }}</dt><dd>{{ p.pode }}</dd> }
+  </dl>
+</section>
+
+<app-gaveta [titulo]="'Nova senha para ' + (trocandoSenha()?.nome ?? '')" [aberta]="!!trocandoSenha()" (fechar)="trocandoSenha.set(null)">
+  <form id="form-senha" class="pilha" (ngSubmit)="trocarSenha()">
+    <div class="campo">
+      <label for="s-nova">Senha nova</label>
+      <input id="s-nova" name="nova" class="mono" [(ngModel)]="senhaNova" autocomplete="new-password" aria-describedby="s-nova-ajuda" />
+      <span class="ajuda" id="s-nova-ajuda">Pelo menos 8 caracteres. Passe para a pessoa; ela pode trocar depois em "Esqueci minha senha".</span>
+    </div>
+  </form>
+  <div rodape><button type="submit" form="form-senha" class="btn primario">Trocar senha</button></div>
+</app-gaveta>

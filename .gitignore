@@ -4,3 +4,6 @@ data/
 *.db
 *.db-journal
 .DS_Store
+
+# configuração local do Claude Code
+.claude/

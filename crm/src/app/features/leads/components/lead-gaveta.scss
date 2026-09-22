@@ -1,0 +1,22 @@
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+legend { padding: 0; margin-bottom: 5px; }
+.segmentos { display: flex; border: 1px solid var(--slate-300); border-radius: 6px; overflow: hidden;
+  label { flex: 1; display: flex; align-items: center; justify-content: center; min-height: calc(var(--alvo) - 2px);
+    font-size: 13px; cursor: pointer; color: var(--slate-700); border-left: 1px solid var(--slate-300); }
+  label:first-child { border-left: 0; }
+  input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  label:has(input:focus-visible) { box-shadow: inset 0 0 0 2px var(--azul-500); }
+  label.marcado.quente { background: var(--perda-100); color: var(--perda); font-weight: 600; }
+  label.marcado.morno { background: var(--alerta-100); color: var(--alerta); font-weight: 600; }
+  label.marcado.frio { background: var(--azul-100); color: var(--azul-600); font-weight: 600; }
+}
+
+.bloco { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--slate-200); display: flex; flex-direction: column; gap: 10px;
+  h3 { font-size: 13px; } }
+.sugestao { background: var(--slate-100); border-radius: var(--raio); padding: 12px; display: flex; flex-direction: column; gap: 10px;
+  p { white-space: pre-wrap; } }
+.anotar { display: flex; gap: 8px; }
+.linha-do-tempo { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column;
+  li { display: grid; grid-template-columns: 92px 1fr; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--slate-100); font-size: 13px; }
+  .quando { font-size: 11px; color: var(--slate-500); padding-top: 2px; }
+}

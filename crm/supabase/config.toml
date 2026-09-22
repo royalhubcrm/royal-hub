@@ -1,0 +1,18 @@
+# Configuração das Edge Functions (usada pelo "supabase functions deploy").
+# As que a Meta, o Make/Zapier e os portais chamam não têm login do Supabase:
+# a segurança delas é o token/palavra de verificação de cada empresa.
+[functions.whatsapp]
+verify_jwt = false
+
+[functions.leads-webhook]
+verify_jwt = false
+
+[functions.feed-portais]
+verify_jwt = false
+
+# Estas só o painel chama, sempre com o login de quem está usando.
+[functions.usuarios]
+verify_jwt = true
+
+[functions.assistente]
+verify_jwt = true

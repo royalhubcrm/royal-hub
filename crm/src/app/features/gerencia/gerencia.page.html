@@ -1,0 +1,176 @@
+<header class="cabecalho-pagina">
+  <div>
+    <p class="sobretitulo">Supervisão</p>
+    <h1>Agenda e gerência</h1>
+    <p>As visitas marcadas (pela assistente ou por você), as perguntas que ela deixou para você e os clientes que ficaram sem resposta.</p>
+  </div>
+  <div class="acoes">
+    <button type="button" class="btn" (click)="carregar()" [disabled]="carregando()">Atualizar</button>
+    <button type="button" class="btn primario" (click)="marcando.set(true)">+ Marcar visita</button>
+  </div>
+</header>
+
+<section class="metricas" aria-label="Resumo da agenda">
+  <app-metrica rotulo="Visitas marcadas" [valor]="numeros().marcados" [detalhe]="numeros().pelaIA + ' pela assistente'" [destaque]="true" />
+  <app-metrica rotulo="Compareceram" [valor]="numeros().compareceram" detalhe="confirmados por você" cor="var(--ganho)" />
+  <app-metrica rotulo="Faltaram" [valor]="numeros().faltaram" detalhe="para remarcar" />
+  <app-metrica rotulo="Sem resposta" [valor]="paradas().length" detalhe="clientes esperando" />
+  <app-metrica rotulo="Perguntas para você" [valor]="duvidas().length" detalhe="a assistente não soube" />
+</section>
+
+<section aria-labelledby="t-agenda" class="bloco">
+  <h2 id="t-agenda">Próximas visitas</h2>
+  @if (proximos().length) {
+    <ul class="agenda">
+      @for (a of proximos(); track a.id) {
+        <li class="cartao visita">
+          <div class="quando">
+            <span class="dia">{{ a.data | diaSemana }}</span>
+            <span class="hora mono">{{ a.hora ? a.hora.slice(0, 5) : 'sem hora' }}</span>
+          </div>
+          <div class="quem">
+            <h3>{{ a.nome || (a.telefone | telefone) }}</h3>
+            <p class="mudo pequeno mono">{{ a.telefone | telefone }}@if (a.imovel) { · imóvel {{ a.imovel }} }</p>
+            @if (a.como) { <p class="como">“{{ a.como }}”</p> }
+            <p class="mudo pequeno">
+              <span class="etiqueta" [class.ok]="a.marcado_por === 'assistente'">{{ a.marcado_por === 'assistente' ? 'Marcado pela assistente' : 'Marcado por ' + a.marcado_por }}</span>
+              @if (a.status !== 'marcado') { <span class="etiqueta">{{ rotuloStatus(a.status) }}</span> }
+            </p>
+          </div>
+          <div class="linha acoes-visita" role="group" [attr.aria-label]="'Resultado da visita de ' + a.nome">
+            <button type="button" class="btn pequeno" (click)="status(a, 'compareceu')" [attr.aria-pressed]="a.status === 'compareceu'">Compareceu</button>
+            <button type="button" class="btn pequeno" (click)="status(a, 'faltou')" [attr.aria-pressed]="a.status === 'faltou'">Faltou</button>
+            <button type="button" class="btn pequeno fantasma" (click)="status(a, 'cancelado')">Cancelar</button>
+            @if (a.conversa_id) { <a class="btn pequeno fantasma" routerLink="/conversas" [queryParams]="{ c: a.conversa_id }">Ver a conversa</a> }
+          </div>
+        </li>
+      }
+    </ul>
+  } @else {
+    <p class="vazio">{{ carregando() ? 'Carregando…' : 'Nenhuma visita marcada daqui para frente.' }}</p>
+  }
+</section>
+
+<section class="cartao bloco" aria-labelledby="t-duvidas">
+  <header><h2 id="t-duvidas">Perguntas esperando você</h2></header>
+  <p class="mudo pequeno">Quando a assistente não sabe, ela não inventa: avisa o cliente que vai confirmar e deixa a pergunta aqui.</p>
+  @if (duvidas().length) {
+    <ul class="lista">
+      @for (d of duvidas(); track d.id) {
+        <li class="duvida">
+          <div class="principal">
+            <b>{{ d.pergunta }}</b>
+            <small>{{ d.nome || 'Cliente' }} · {{ d.criado_em | quando }}</small>
+            <label class="sr-only" [for]="'resp-' + d.id">O que você respondeu</label>
+            <input [id]="'resp-' + d.id" [(ngModel)]="respostas[d.id]" placeholder="O que você respondeu (opcional, fica guardado)" />
+          </div>
+          <div class="linha">
+            <button type="button" class="btn pequeno" (click)="responder(d)">Respondi</button>
+            @if (d.conversa_id) { <a class="btn pequeno fantasma" routerLink="/conversas" [queryParams]="{ c: d.conversa_id }">Ver</a> }
+          </div>
+        </li>
+      }
+    </ul>
+  } @else {
+    <p class="vazio">Nenhuma pergunta parada. A assistente deu conta de tudo.</p>
+  }
+</section>
+
+<div class="duas">
+  <section class="cartao" aria-labelledby="t-paradas">
+    <header><h2 id="t-paradas">Clientes esperando resposta</h2></header>
+    <p class="mudo pequeno">Falaram por último há mais de {{ diasParada }} dias. A IA escreve uma retomada que continua de onde parou.</p>
+    @if (paradas().length) {
+      <ul class="lista">
+        @for (c of paradas(); track c.id) {
+          <li>
+            <span class="principal">{{ c.nome || (c.telefone | telefone) }}<small>{{ c.ultima }}</small></span>
+            <span class="mudo pequeno mono">{{ c.atualizado_em | quando }}</span>
+            <button type="button" class="btn pequeno" (click)="gerarRetomada(c)" [disabled]="gerando() === c.id">
+              {{ gerando() === c.id ? 'Escrevendo…' : 'Retomar' }}
+            </button>
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="vazio">Ninguém esperando resposta. Bom sinal.</p>
+    }
+  </section>
+
+  <section class="cartao" aria-labelledby="t-interesses">
+    <header><h2 id="t-interesses">Imóveis que interessaram</h2></header>
+    @if (porCliente().length) {
+      <ul class="lista">
+        @for (g of porCliente(); track $index) {
+          <li>
+            <span class="principal">{{ g.cliente }}
+              <small>@for (i of g.itens.slice(0, 3); track i.id) { {{ i.codigo }}{{ i.tipo ? ' · ' + i.tipo + ' ' + (i.bairro ?? '') : '' }}{{ $last ? '' : ' | ' }} }</small>
+            </span>
+            <span class="mudo pequeno">{{ g.itens.length }} imóvel(is)</span>
+            @if (g.conversa) { <a class="btn pequeno fantasma" routerLink="/conversas" [queryParams]="{ c: g.conversa }">Ver</a> }
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="vazio">Ninguém pediu imóvel pela conversa ainda.</p>
+    }
+  </section>
+</div>
+
+@if (passados().length) {
+  <details class="cartao bloco">
+    <summary>Visitas passadas ({{ passados().length }})</summary>
+    <div class="tabela-rolagem">
+      <table class="tabela">
+        <caption class="sr-only">Visitas passadas</caption>
+        <thead><tr><th scope="col">Dia</th><th scope="col">Cliente</th><th scope="col">Imóvel</th><th scope="col">Resultado</th><th scope="col"><span class="sr-only">Ações</span></th></tr></thead>
+        <tbody>
+          @for (a of passados(); track a.id) {
+            <tr>
+              <td class="mono pequeno">{{ a.data | diaSemana }} {{ a.hora?.slice(0, 5) }}</td>
+              <td>{{ a.nome }}</td>
+              <td class="mono">{{ a.imovel || '—' }}</td>
+              <td>{{ rotuloStatus(a.status) }}</td>
+              <td class="linha">
+                @if (a.status === 'marcado') {
+                  <button type="button" class="btn pequeno" (click)="status(a, 'compareceu')">Compareceu</button>
+                  <button type="button" class="btn pequeno" (click)="status(a, 'faltou')">Faltou</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </details>
+}
+
+<app-gaveta titulo="Mensagem de retomada" [aberta]="!!retomada()" (fechar)="retomada.set(null)">
+  @if (retomada(); as r) {
+    <div class="pilha">
+      <p class="mudo">{{ r.conversa.nome || 'O cliente' }} está parado há {{ r.dias }} dia(s). Revise antes de mandar.</p>
+      <div class="campo">
+        <label for="ret-texto">Mensagem</label>
+        <textarea id="ret-texto" rows="6" [ngModel]="r.texto" (ngModelChange)="retomada.set({ conversa: r.conversa, dias: r.dias, texto: $event })"></textarea>
+      </div>
+    </div>
+  }
+  <div rodape>
+    @if (cfg.config()?.wa_configurado) { <button type="button" class="btn primario" (click)="enviarRetomada()">Enviar pelo WhatsApp</button> }
+    <button type="button" class="btn" (click)="copiar(retomada()?.texto ?? '')">Copiar</button>
+  </div>
+</app-gaveta>
+
+<app-gaveta titulo="Marcar visita" [aberta]="marcando()" (fechar)="marcando.set(false)">
+  <form id="form-visita" class="pilha" (ngSubmit)="marcar()">
+    <div class="campo"><label for="v-nome">Cliente *</label><input id="v-nome" name="nome" [(ngModel)]="nova.nome" required /></div>
+    <div class="campo"><label for="v-tel">WhatsApp</label><input id="v-tel" name="tel" inputmode="tel" [(ngModel)]="nova.telefone" /></div>
+    <div class="grade-campos">
+      <div class="campo"><label for="v-data">Dia *</label><input id="v-data" name="data" type="date" [(ngModel)]="nova.data" required /></div>
+      <div class="campo"><label for="v-hora">Hora</label><input id="v-hora" name="hora" type="time" [(ngModel)]="nova.hora" /></div>
+    </div>
+    <div class="campo"><label for="v-imv">Imóvel (código)</label><input id="v-imv" name="imovel" class="mono" [(ngModel)]="nova.imovel" /></div>
+    <div class="campo"><label for="v-local">Local</label><input id="v-local" name="local" [(ngModel)]="nova.local" [placeholder]="cfg.config()?.endereco || 'Escritório'" /></div>
+  </form>
+  <div rodape><button type="submit" form="form-visita" class="btn primario">Marcar</button></div>
+</app-gaveta>

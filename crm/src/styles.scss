@@ -1,0 +1,241 @@
+/* ============================================================================
+   Royal CRM — base visual
+   Paleta corporativa (azul-marinho, ardósia, cinza), números em fonte mono,
+   densidade alta. Acessibilidade: contraste AA, foco sempre visível, alvos de
+   toque de 36px (44px no celular) e respeito a "reduzir movimento".
+   ============================================================================ */
+:root {
+  --navy-900: #0F1B2D;
+  --navy-800: #16263D;
+  --navy-700: #1E3A5F;
+  --azul-600: #264D75;
+  --azul-500: #2F5D8C;
+  --azul-400: #4A7FB5;
+  --azul-100: #E6EEF7;
+  --slate-900: #0F172A;
+  --slate-700: #334155;
+  --slate-600: #475569;
+  --slate-500: #5B687C;   /* um pouco mais escuro que o Tailwind: passa AA em fundo claro */
+  --slate-400: #94A3B8;
+  --slate-300: #CBD5E1;
+  --slate-200: #E2E8F0;
+  --slate-100: #F1F5F9;
+  /* o dourado da marca — decoração em fundo claro, texto só no tom escuro */
+  --ouro-300: #E0BE6B;   /* sobre o azul-marinho */
+  --ouro-500: #C9A227;   /* traços e detalhes */
+  --ouro-700: #A97E1E;
+  --ouro-texto: #8A6714; /* passa no contraste AA em fundo claro */
+
+  --fundo: #F5F7FA;
+  --superficie: #FFFFFF;
+  --ganho: #23704F;
+  --ganho-100: #E3F2EA;
+  --perda: #9B3B3B;
+  --perda-100: #F7E6E6;
+  --alerta: #8A5A00;
+  --alerta-100: #FBF0D9;
+
+  --sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;   /* os números: ar de recibo antigo, alinhados */
+  --serif: 'Cinzel', Georgia, 'Times New Roman', serif; /* a letra da marca, só em títulos */
+  --raio: 8px;
+  --sombra: 0 1px 2px rgba(15, 27, 45, .06), 0 1px 1px rgba(15, 27, 45, .04);
+  --foco: 0 0 0 2px var(--superficie), 0 0 0 4px var(--azul-500);
+  --alvo: 36px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--fundo); color: var(--slate-900);
+  font: 400 14px/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+}
+h1, h2, h3, h4 { margin: 0; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; }
+/* números sempre na fonte monoespaçada, do mesmo tamanho: colunas alinhadas e cara de livro-caixa */
+.mono, .num, table.tabela .num { font-variant-numeric: tabular-nums; }
+p { margin: 0; }
+a { color: var(--azul-500); }
+img { max-width: 100%; }
+
+:focus-visible { outline: none; box-shadow: var(--foco); border-radius: 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* só para leitor de tela. As áreas com rolagem própria precisam de position: relative,
+   senão o texto escondido "escapa" delas e estica a página. */
+.tabela-rolagem, [cdkDropList], .cdk-drop-list, .cdk-drag, .rolagem { position: relative; }
+.sr-only {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.pular {
+  position: absolute; left: 12px; top: -48px; z-index: 100;
+  background: var(--navy-900); color: #fff; padding: 10px 14px; border-radius: var(--raio);
+  &:focus { top: 12px; }
+}
+
+.mono { font-family: var(--mono); }
+.mudo { color: var(--slate-500); }
+.pequeno { font-size: 12px; }
+
+/* ---------------------------------------------------------------- cabeçalho */
+.cabecalho-pagina {
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
+  gap: 12px 24px; margin-bottom: 22px;
+  /* o título da tela usa a letra da marca — o resto da interface segue em sans, para ler rápido */
+  h1 { font-family: var(--serif); font-weight: 600; font-size: 25px; letter-spacing: .005em; color: var(--navy-900); }
+  p { color: var(--slate-500); margin-top: 6px; max-width: 72ch; }
+  .acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+}
+.sobretitulo {
+  font: 500 10.5px/1 var(--mono); letter-spacing: .18em; text-transform: uppercase;
+  color: var(--ouro-texto); margin-bottom: 8px;
+  display: flex; align-items: center; gap: 8px;
+  &::after { content: ''; flex: 0 0 22px; height: 1px; background: var(--ouro-500); opacity: .6; }
+}
+
+/* ------------------------------------------------------------------ botões */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: var(--alvo); padding: 0 14px; border-radius: 6px;
+  border: 1px solid var(--slate-300); background: var(--superficie); color: var(--slate-900);
+  font: 500 13px/1 var(--sans); letter-spacing: .012em; text-decoration: none; cursor: pointer; white-space: nowrap;
+  transition: background .12s, border-color .12s;
+  &:hover { background: var(--slate-100); border-color: var(--slate-400); }
+  &:disabled { opacity: .55; cursor: not-allowed; }
+  &.primario { background: var(--navy-700); border-color: var(--navy-700); color: #fff;
+    &:hover { background: var(--navy-800); } }
+  &.fantasma { background: transparent; border-color: transparent; color: var(--slate-700);
+    &:hover { background: var(--slate-100); } }
+  &.perigo { color: var(--perda); border-color: #E3C4C4;
+    &:hover { background: var(--perda-100); } }
+  &.pequeno { min-height: 30px; padding: 0 10px; font-size: 12px; }
+  &.icone { padding: 0; width: var(--alvo); }
+}
+
+/* ---------------------------------------------------------------- campos */
+.campo {
+  display: flex; flex-direction: column; gap: 5px; min-width: 0;
+  label, .rotulo { font-size: 12px; font-weight: 500; color: var(--slate-700); }
+  .ajuda { font-size: 12px; color: var(--slate-500); }
+  .erro { font-size: 12px; color: var(--perda); }
+}
+input:not([type=checkbox]):not([type=radio]):not([type=color]), select, textarea {
+  width: 100%; min-height: var(--alvo); padding: 7px 10px;
+  border: 1px solid var(--slate-300); border-radius: 6px; background: var(--superficie);
+  font: 400 14px/1.4 var(--sans); color: var(--slate-900);
+  &:hover { border-color: var(--slate-400); }
+  &:focus-visible { border-color: var(--azul-500); box-shadow: 0 0 0 3px rgba(47, 93, 140, .25); border-radius: 6px; }
+  &[aria-invalid=true] { border-color: var(--perda); }
+  &::placeholder { color: var(--slate-400); }
+  &:read-only { background: var(--slate-100); }
+}
+select { padding-right: 28px; }
+textarea { min-height: 88px; resize: vertical; }
+input[type=color] { width: 100%; height: var(--alvo); border: 1px solid var(--slate-300); border-radius: 6px; padding: 2px; background: #fff; }
+input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--navy-700); }
+
+.grade-campos { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.pilha { display: flex; flex-direction: column; gap: 14px; }
+.linha { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.linha.fim { justify-content: flex-end; }
+.empurra { margin-left: auto; }
+
+/* ------------------------------------------------------------------ cartões */
+.cartao {
+  background: var(--superficie); border: 1px solid var(--slate-200); border-radius: var(--raio);
+  box-shadow: var(--sombra); padding: 16px;
+  > h2, > header h2 { font-size: 13.5px; font-weight: 600; letter-spacing: .015em; color: var(--navy-900); }
+  > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+  > h2 { margin-bottom: 12px; }
+}
+.cartao + .cartao { margin-top: 16px; }
+
+/* ------------------------------------------------------------ barra de filtros */
+.filtros {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-bottom: 14px;
+  .campo { flex: 0 1 200px; }
+  .busca { flex: 1 1 260px; }
+  .contagem { margin-left: auto; font-size: 12px; color: var(--slate-500); align-self: center; }
+}
+
+/* ------------------------------------------------------------------ tabela */
+.tabela-rolagem { overflow-x: auto; border: 1px solid var(--slate-200); border-radius: var(--raio); background: var(--superficie); }
+table.tabela {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+  th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--slate-200); vertical-align: middle; }
+  th { font: 500 10.5px/1.2 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--slate-600);
+       background: var(--slate-100); position: sticky; top: 0; white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: #FAFBFD; }
+  .num { text-align: right; font-family: var(--mono); }
+  button.ordenar { all: unset; cursor: pointer; display: inline-flex; gap: 4px; align-items: center;
+    &:focus-visible { box-shadow: var(--foco); } }
+}
+
+/* ------------------------------------------------------------ etiquetas */
+.etiqueta {
+  display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px;
+  font-size: 12px; font-weight: 500; background: var(--slate-100); color: var(--slate-700); white-space: nowrap;
+  &::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  &.quente { background: var(--perda-100); color: var(--perda); }
+  &.morno  { background: var(--alerta-100); color: var(--alerta); }
+  &.frio   { background: var(--azul-100); color: var(--azul-600); }
+  &.ok     { background: var(--ganho-100); color: var(--ganho); }
+  &.sem-ponto::before { display: none; }
+}
+
+/* ------------------------------------------------------------ vazio / aviso */
+.vazio {
+  padding: 28px 16px; text-align: center; color: var(--slate-500);
+  border: 1px dashed var(--slate-300); border-radius: var(--raio); background: var(--superficie);
+}
+.aviso {
+  padding: 10px 14px; border-radius: var(--raio); border: 1px solid #EBD9B0;
+  background: var(--alerta-100); color: #5C3D00; font-size: 13px;
+  &.erro { border-color: #E3C4C4; background: var(--perda-100); color: #6B2020; }
+  &.info { border-color: #C9D9EA; background: var(--azul-100); color: var(--navy-700); }
+}
+
+/* --------------------------------------------------- abas (role="tablist") */
+.abas {
+  display: flex; gap: 2px; margin-bottom: 16px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
+  box-shadow: inset 0 -1px 0 var(--slate-200);
+  button { all: unset; cursor: pointer; padding: 10px 14px; font-size: 13px; font-weight: 500; color: var(--slate-500);
+    border-bottom: 2px solid transparent; white-space: nowrap;
+    &[aria-selected=true] { color: var(--navy-700); border-color: var(--navy-700); }
+    &:hover { color: var(--slate-900); }
+    &:focus-visible { box-shadow: var(--foco); } }
+}
+
+/* ---------------------------------------------------------- lista simples */
+.lista { display: flex; flex-direction: column;
+  > * { display: flex; align-items: center; gap: 10px; padding: 9px 4px; border-bottom: 1px solid var(--slate-200); }
+  > *:last-child { border-bottom: 0; }
+  .principal { flex: 1; min-width: 0; }
+  .principal small { display: block; color: var(--slate-500); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+button.linha-lista { all: unset; box-sizing: border-box; cursor: pointer; width: 100%;
+  &:hover { background: var(--slate-100); }
+  &:focus-visible { box-shadow: inset 0 0 0 2px var(--azul-500); } }
+
+/* -------------------------------------------------------- blocos de código */
+.bloco-codigo {
+  font: 12px/1.5 var(--mono); background: var(--navy-900); color: #D9E2EE; padding: 10px 12px;
+  border-radius: 6px; white-space: pre-wrap; word-break: break-all;
+}
+
+/* -------------------------------------------------------------- impressão */
+@media print {
+  .nao-imprimir { display: none !important; }
+  body { background: #fff; }
+}
+
+@media (max-width: 760px) {
+  :root { --alvo: 44px; }
+  .cabecalho-pagina h1 { font-size: 20px; }
+}

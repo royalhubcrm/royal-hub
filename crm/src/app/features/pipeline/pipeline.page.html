@@ -1,0 +1,80 @@
+<header class="cabecalho-pagina">
+  <div>
+    <p class="sobretitulo">Vendas</p>
+    <h1>Pipeline de vendas</h1>
+    <p>Arraste o card para mudar a etapa — ou use as setas do card, pelo teclado.
+      Em negociação: <b class="mono">{{ totalAberto() | brl }}</b> · ponderado pela chance de fechar: <b class="mono">{{ totalPonderado() | brl }}</b>.</p>
+  </div>
+  <div class="acoes"><button type="button" class="btn primario" (click)="novo('novo')">+ Novo lead</button></div>
+</header>
+
+<form class="filtros" role="search" aria-label="Filtrar o pipeline" (submit)="$event.preventDefault()">
+  <div class="campo busca">
+    <label for="k-busca">Buscar</label>
+    <input id="k-busca" type="search" placeholder="Nome, telefone ou o que procura" [ngModel]="busca()" name="busca" (ngModelChange)="busca.set($event)" />
+  </div>
+  <div class="campo">
+    <label for="k-temp">Temperatura</label>
+    <select id="k-temp" [ngModel]="temperatura()" name="temp" (ngModelChange)="temperatura.set($event)">
+      <option value="">Todas</option>
+      @for (t of temperaturas; track t.valor) { <option [value]="t.valor">{{ t.rotulo }}</option> }
+    </select>
+  </div>
+  <label class="so-meus"><input type="checkbox" [ngModel]="soMeus()" name="meus" (ngModelChange)="soMeus.set($event)" /> Só os meus</label>
+  <span class="contagem" role="status">{{ carregando() ? 'Carregando…' : visiveis().length + ' lead(s)' }}</span>
+</form>
+
+<div class="quadro" cdkDropListGroup>
+  @for (col of colunas(); track col.etapa.slug) {
+    <section class="coluna" [attr.aria-labelledby]="'col-' + col.etapa.slug" [style.--cor]="col.etapa.cor">
+      <header>
+        <div class="titulo">
+          <h2 [id]="'col-' + col.etapa.slug">{{ col.etapa.nome }}</h2>
+          <span class="qtd mono" [attr.aria-label]="col.cards.length + ' leads'">{{ col.cards.length }}</span>
+          <button type="button" class="btn fantasma pequeno mais" (click)="novo(col.etapa.slug)"
+                  [attr.aria-label]="'Novo lead em ' + col.etapa.nome">+</button>
+        </div>
+        <p class="valores mono">{{ col.total | brl }}
+          @if (col.etapa.tipo === 'aberta') { <span class="mudo" title="Valor × chance de fechar">· {{ col.ponderado | brl }} ({{ col.etapa.probabilidade }}%)</span> }
+        </p>
+      </header>
+
+      <ul class="cards" cdkDropList [cdkDropListData]="col" (cdkDropListDropped)="soltar($event)"
+          [attr.aria-label]="'Leads em ' + col.etapa.nome">
+        @for (l of col.cards.slice(0, maxCards); track l.id) {
+          <li class="card" cdkDrag [cdkDragData]="l" [attr.data-lead]="l.id">
+            <div class="card-lugar" *cdkDragPlaceholder></div>
+            <button type="button" class="card-abrir" (click)="abrir(l)">
+              <span class="nome">{{ l.nome }}</span>
+              @if (l.interesse) { <span class="interesse">{{ l.interesse }}</span> }
+            </button>
+            <div class="card-rodape">
+              <span class="etiqueta pequena" [class]="l.temperatura">{{ rotuloTemperatura(l.temperatura) }}</span>
+              @if (l.valor_estimado) { <span class="mono valor">{{ l.valor_estimado | brl }}</span> }
+              @if (iniciais(l.responsavel_id); as ini) {
+                <span class="avatar" [title]="equipe.nomeDe(l.responsavel_id)" aria-hidden="true">{{ ini }}</span>
+                <span class="sr-only">Responsável: {{ equipe.nomeDe(l.responsavel_id) }}</span>
+              }
+              <span class="setas">
+                @if (vizinha(col.etapa, -1); as ant) {
+                  <button type="button" class="seta" (click)="moverPara(l, ant)" [attr.aria-label]="'Mover ' + l.nome + ' para ' + ant.nome" [title]="'Mover para ' + ant.nome">←</button>
+                }
+                @if (vizinha(col.etapa, 1); as prox) {
+                  <button type="button" class="seta" (click)="moverPara(l, prox)" [attr.aria-label]="'Mover ' + l.nome + ' para ' + prox.nome" [title]="'Mover para ' + prox.nome">→</button>
+                }
+              </span>
+            </div>
+          </li>
+        } @empty {
+          <li class="vazia">Solte um card aqui</li>
+        }
+        @if (col.cards.length > maxCards) {
+          <li class="mais-cards mudo pequeno">+ {{ col.cards.length - maxCards }} — use a busca ou a tela de Leads</li>
+        }
+      </ul>
+    </section>
+  }
+</div>
+
+<app-lead-gaveta [lead]="aberto()" [aberta]="gavetaAberta()" [etapaInicial]="etapaNova()"
+                 (fechar)="gavetaAberta.set(false)" (salvo)="aoSalvar()" (removido)="aoRemover()" />

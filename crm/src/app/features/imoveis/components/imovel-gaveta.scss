@@ -1,0 +1,11 @@
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+legend { font-size: 13px; font-weight: 600; padding: 0; margin-bottom: 10px; }
+.numeros { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 520px) { .numeros { grid-template-columns: repeat(2, 1fr); } }
+.fotos { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  li { border: 1px solid var(--slate-200); border-radius: 6px; overflow: hidden; background: var(--superficie); }
+  img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; }
+  .foto-acoes { display: flex; justify-content: space-between; align-items: center; gap: 4px; padding: 6px; } }
+label.btn { cursor: pointer; }
+.linha:has(#m-arquivos:focus-visible) label.btn { box-shadow: var(--foco); }
+.url .linha { flex-wrap: nowrap; }

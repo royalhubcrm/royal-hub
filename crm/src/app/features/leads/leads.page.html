@@ -1,0 +1,114 @@
+<header class="cabecalho-pagina">
+  <div>
+    <p class="sobretitulo">CRM</p>
+    <h1>Leads</h1>
+    <p>Todo cliente que chega (anúncio, formulário, WhatsApp, planilha) entra aqui. Clique no nome para abrir a ficha.</p>
+  </div>
+  <div class="acoes">
+    <button type="button" class="btn" (click)="importando.set(true)">Importar planilha</button>
+    <button type="button" class="btn primario" (click)="novoLead()">+ Novo lead</button>
+  </div>
+</header>
+
+<form class="filtros" role="search" aria-label="Filtrar leads" (submit)="$event.preventDefault()">
+  <div class="campo busca">
+    <label for="f-busca">Buscar</label>
+    <input id="f-busca" type="search" placeholder="Nome, telefone, e-mail, interesse ou campanha"
+           [value]="filtro().busca ?? ''" (input)="digitar($any($event.target).value)" />
+  </div>
+  <div class="campo">
+    <label for="f-etapa">Etapa</label>
+    <select id="f-etapa" [ngModel]="filtro().status ?? ''" name="etapa" (ngModelChange)="mudar({ status: $event || undefined })">
+      <option value="">Todas</option>
+      @for (e of pipeline.etapasCache(); track e.slug) { <option [value]="e.slug">{{ e.nome }}</option> }
+    </select>
+  </div>
+  <div class="campo">
+    <label for="f-temp">Temperatura</label>
+    <select id="f-temp" [ngModel]="filtro().temperatura ?? ''" name="temp" (ngModelChange)="mudar({ temperatura: $event || undefined })">
+      <option value="">Todas</option>
+      @for (t of temperaturas; track t.valor) { <option [value]="t.valor">{{ t.rotulo }}</option> }
+    </select>
+  </div>
+  @if (auth.pode('admin', 'gerente')) {
+    <div class="campo">
+      <label for="f-resp">Responsável</label>
+      <select id="f-resp" [ngModel]="filtro().responsavel ?? ''" name="resp" (ngModelChange)="mudar({ responsavel: $event || undefined })">
+        <option value="">Todos</option>
+        <option value="ninguem">Sem responsável</option>
+        @for (p of equipe.pessoasCache(); track p.id) { <option [value]="p.id">{{ p.nome }}</option> }
+      </select>
+    </div>
+  }
+  @if (temFiltro()) { <button type="button" class="btn fantasma" (click)="limpar()">Limpar filtros</button> }
+  <span class="contagem" role="status">{{ carregando() ? 'Buscando…' : total() + ' lead(s)' }}</span>
+</form>
+
+@if (itens().length) {
+  <div class="tabela-rolagem" [class.esmaecida]="carregando()">
+    <table class="tabela">
+      <caption class="sr-only">Leads, {{ faixa() }}. Os cabeçalhos com botão ordenam a tabela.</caption>
+      <thead>
+        <tr>
+          <th scope="col" [attr.aria-sort]="ariaSort('nome')"><button type="button" class="ordenar" (click)="ordenar('nome')">Lead {{ ariaSort('nome') === 'ascending' ? '↑' : ariaSort('nome') === 'descending' ? '↓' : '' }}</button></th>
+          <th scope="col">Contato</th>
+          <th scope="col">Procura</th>
+          <th scope="col">Origem</th>
+          <th scope="col" [attr.aria-sort]="ariaSort('temperatura')"><button type="button" class="ordenar" (click)="ordenar('temperatura')">Temp. {{ ariaSort('temperatura') === 'ascending' ? '↑' : ariaSort('temperatura') === 'descending' ? '↓' : '' }}</button></th>
+          <th scope="col" [attr.aria-sort]="ariaSort('status')"><button type="button" class="ordenar" (click)="ordenar('status')">Etapa {{ ariaSort('status') === 'ascending' ? '↑' : ariaSort('status') === 'descending' ? '↓' : '' }}</button></th>
+          <th scope="col" class="num" [attr.aria-sort]="ariaSort('valor_estimado')"><button type="button" class="ordenar" (click)="ordenar('valor_estimado')">Valor {{ ariaSort('valor_estimado') === 'ascending' ? '↑' : ariaSort('valor_estimado') === 'descending' ? '↓' : '' }}</button></th>
+          <th scope="col">Responsável</th>
+          <th scope="col" [attr.aria-sort]="ariaSort('data_criacao')"><button type="button" class="ordenar" (click)="ordenar('data_criacao')">Entrou {{ ariaSort('data_criacao') === 'ascending' ? '↑' : ariaSort('data_criacao') === 'descending' ? '↓' : '' }}</button></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (l of itens(); track l.id) {
+          <tr>
+            <td><button type="button" class="nome-lead" (click)="abrirLead(l)">{{ l.nome }}</button>
+              @if (l.empresa) { <small class="mudo">{{ l.empresa }}</small> }</td>
+            <td class="mono pequeno">{{ l.telefone | telefone }}</td>
+            <td class="corta">{{ l.interesse || '—' }}</td>
+            <td class="mudo">{{ l.origem }}@if (l.campanha) { <small>{{ l.campanha }}</small> }</td>
+            <td><span class="etiqueta" [class]="l.temperatura">{{ rotuloTemperatura(l.temperatura) }}</span></td>
+            <td><span class="etapa"><i [style.background]="corEtapa(l.status)"></i>{{ nomeEtapa(l.status) }}</span></td>
+            <td class="num">{{ l.valor_estimado ? (l.valor_estimado | brl) : '—' }}</td>
+            <td class="mudo">{{ equipe.nomeDe(l.responsavel_id) || '—' }}</td>
+            <td class="mudo mono pequeno">{{ l.data_criacao | quando }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <nav class="paginacao" aria-label="Páginas da tabela">
+    <div class="campo por-pagina">
+      <label for="f-tam">Por página</label>
+      <select id="f-tam" [ngModel]="filtro().porPagina" name="tam" (ngModelChange)="mudar({ porPagina: +$event })">
+        @for (t of tamanhos; track t) { <option [ngValue]="t">{{ t }}</option> }
+      </select>
+    </div>
+    <span class="mudo pequeno">{{ faixa() }}</span>
+    <div class="linha">
+      <button type="button" class="btn pequeno" (click)="irPara(1)" [disabled]="filtro().pagina === 1" aria-label="Primeira página">«</button>
+      <button type="button" class="btn pequeno" (click)="irPara(filtro().pagina - 1)" [disabled]="filtro().pagina === 1">Anterior</button>
+      <span class="pequeno mono" aria-current="page">Página {{ filtro().pagina }} de {{ paginas() }}</span>
+      <button type="button" class="btn pequeno" (click)="irPara(filtro().pagina + 1)" [disabled]="filtro().pagina >= paginas()">Próxima</button>
+      <button type="button" class="btn pequeno" (click)="irPara(paginas())" [disabled]="filtro().pagina >= paginas()" aria-label="Última página">»</button>
+    </div>
+  </nav>
+} @else if (!carregando()) {
+  <div class="vazio">
+    @if (temFiltro()) {
+      Nenhum lead com esses filtros. <button type="button" class="btn pequeno" (click)="limpar()">Limpar filtros</button>
+    } @else if (erro()) {
+      {{ erro() }}
+    } @else {
+      Nenhum lead ainda. Cadastre o primeiro, importe uma planilha ou ligue o formulário de captação em Ajustes.
+    }
+  </div>
+}
+
+<app-lead-gaveta [lead]="aberto()" [aberta]="gavetaAberta()" (fechar)="fecharGaveta()"
+                 (salvo)="aoSalvar($event)" (removido)="aoRemover()" />
+
+<app-importar-leads [aberta]="importando()" (fechar)="importando.set(false)" (importou)="mudar({})" />

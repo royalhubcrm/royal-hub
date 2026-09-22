@@ -1,0 +1,107 @@
+<header class="cabecalho-pagina">
+  <div>
+    <p class="sobretitulo">Gestão</p>
+    <h1>Sites</h1>
+    <p>Cada cliente (ou cada linha de produto) ganha um site próprio, alimentado pela carteira: imóvel vendido some sozinho.</p>
+  </div>
+  @if (!rascunho()) { <div class="acoes"><button type="button" class="btn primario" (click)="novo()">+ Novo site</button></div> }
+</header>
+
+@if (!rascunho()) {
+  <section class="cartao" aria-labelledby="t-ia">
+    <h2 id="t-ia">Criar descrevendo com suas palavras</h2>
+    <p class="mudo pequeno">A IA monta o rascunho (nome, chamada, cores, quais imóveis mostrar) e você ajusta antes de publicar.</p>
+    <div class="campo">
+      <label for="s-desc" class="sr-only">Como o site deve ser</label>
+      <textarea id="s-desc" rows="3" [(ngModel)]="descricao"
+                placeholder="Ex.: Site da Prime Imóveis, de Uberlândia. Azul, fundo claro, letra moderna. Só apartamentos e casas até 600 mil. Atendimento familiar, 12 anos de mercado."></textarea>
+    </div>
+    <div class="linha"><button type="button" class="btn" (click)="desenhar()" [disabled]="desenhando()">{{ desenhando() ? 'Montando…' : 'Montar com IA' }}</button></div>
+  </section>
+
+  <section class="cartao" aria-labelledby="t-ar">
+    <h2 id="t-ar">Sites no ar</h2>
+    @if (sites().length) {
+      <ul class="lista">
+        @for (s of sites(); track s.id) {
+          <li>
+            <span class="cor" [style.background]="s.cor" aria-hidden="true"></span>
+            <span class="principal">{{ s.nome }}<small class="mono">{{ origem }}/s/{{ s.slug }}{{ s.dominio ? ' · ' + s.dominio : '' }}</small></span>
+            @if (!s.publicado) { <span class="etiqueta">Fora do ar</span> }
+            <a class="btn pequeno" [href]="'/s/' + s.slug" target="_blank" rel="noopener">Abrir <span class="sr-only">{{ s.nome }} (nova aba)</span></a>
+            <button type="button" class="btn pequeno" (click)="copiar(s)">Copiar link</button>
+            <button type="button" class="btn pequeno" (click)="editar(s)">Editar <span class="sr-only">{{ s.nome }}</span></button>
+            <button type="button" class="btn pequeno perigo" (click)="remover(s)">Excluir <span class="sr-only">{{ s.nome }}</span></button>
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="vazio">Nenhum site criado ainda.</p>
+    }
+  </section>
+} @else {
+  @let r = rascunho()!;
+  <div class="editor">
+    <form class="cartao pilha" (ngSubmit)="salvar()" aria-label="Editar site">
+      <div class="linha">
+        <h2>{{ r.id ? 'Editando ' + r.nome : 'Novo site' }}</h2>
+        <button type="button" class="btn fantasma pequeno empurra" (click)="rascunho.set(null)">Descartar</button>
+      </div>
+
+      <div class="campo"><label for="r-nome">Nome da imobiliária</label><input id="r-nome" [ngModel]="r.nome" name="nome" (ngModelChange)="mudar('nome', $event)" /></div>
+      <div class="campo">
+        <label for="r-slug">Endereço</label>
+        <div class="endereco"><span class="mono mudo pequeno">/s/</span><input id="r-slug" class="mono" [ngModel]="r.slug" name="slug" (ngModelChange)="mudar('slug', $event)" /></div>
+      </div>
+      <div class="campo"><label for="r-titulo">Chamada principal</label><input id="r-titulo" [ngModel]="r.titulo" name="titulo" (ngModelChange)="mudar('titulo', $event)" /></div>
+      <div class="campo"><label for="r-sub">Linha de apoio</label><input id="r-sub" [ngModel]="r.subtitulo" name="subtitulo" (ngModelChange)="mudar('subtitulo', $event)" /></div>
+
+      <div class="grade-campos">
+        <div class="campo"><label for="r-cor">Cor principal</label><input id="r-cor" type="color" [ngModel]="r.cor" name="cor" (ngModelChange)="mudar('cor', $event)" /></div>
+        <div class="campo">
+          <label for="r-fundo">Fundo</label>
+          <select id="r-fundo" [ngModel]="r.fundo" name="fundo" (ngModelChange)="mudar('fundo', $event)"><option value="claro">Claro</option><option value="escuro">Escuro</option></select>
+        </div>
+        <div class="campo">
+          <label for="r-fonte">Letra</label>
+          <select id="r-fonte" [ngModel]="r.fonte" name="fonte" (ngModelChange)="mudar('fonte', $event)"><option value="moderna">Moderna</option><option value="classica">Clássica</option></select>
+        </div>
+      </div>
+
+      <fieldset class="filtro">
+        <legend>Quais imóveis aparecem <span class="mudo pequeno">({{ vitrine().length }} agora)</span></legend>
+        <div class="tipos">
+          @for (t of tiposImovel; track t) {
+            <label><input type="checkbox" [checked]="r.filtro.tipos?.includes(t)" (change)="alternarTipo(t, $any($event.target).checked)" /> {{ t }}</label>
+          }
+        </div>
+        <p class="ajuda">Nenhum tipo marcado = todos.</p>
+        <div class="grade-campos">
+          <div class="campo"><label for="r-cidade">Cidade</label><input id="r-cidade" [ngModel]="r.filtro.cidade ?? ''" name="cidade" (ngModelChange)="mudarFiltro('cidade', $event)" placeholder="Todas" /></div>
+          <div class="campo"><label for="r-teto">Preço máximo (R$)</label><input id="r-teto" type="number" min="0" step="10000" [ngModel]="r.filtro.precoMax ?? ''" name="teto" (ngModelChange)="mudarFiltro('precoMax', $event)" placeholder="Sem limite" /></div>
+        </div>
+      </fieldset>
+
+      <div class="grade-campos">
+        <div class="campo"><label for="r-whats">WhatsApp</label><input id="r-whats" inputmode="tel" [ngModel]="r.whats" name="whats" (ngModelChange)="mudar('whats', $event)" /></div>
+        <div class="campo"><label for="r-creci">CRECI</label><input id="r-creci" [ngModel]="r.creci" name="creci" (ngModelChange)="mudar('creci', $event)" /></div>
+      </div>
+      <div class="campo"><label for="r-email">E-mail</label><input id="r-email" type="email" [ngModel]="r.email" name="email" (ngModelChange)="mudar('email', $event)" /></div>
+      <div class="campo"><label for="r-end">Endereço do escritório</label><input id="r-end" [ngModel]="r.endereco" name="endereco" (ngModelChange)="mudar('endereco', $event)" /></div>
+      <div class="campo"><label for="r-sobre">Sobre a imobiliária</label><textarea id="r-sobre" rows="3" [ngModel]="r.sobre" name="sobre" (ngModelChange)="mudar('sobre', $event)"></textarea></div>
+      <div class="campo">
+        <label for="r-dom">Domínio próprio (opcional)</label>
+        <input id="r-dom" class="mono" [ngModel]="r.dominio" name="dominio" (ngModelChange)="mudar('dominio', $event)" placeholder="primeimoveis.com.br" aria-describedby="r-dom-ajuda" />
+        <span class="ajuda" id="r-dom-ajuda">Anotado aqui para referência; o domínio é apontado na hospedagem (veja o LEIA-ME).</span>
+      </div>
+      <label class="linha"><input type="checkbox" [ngModel]="r.publicado" name="publicado" (ngModelChange)="mudar('publicado', $event)" /> Site no ar</label>
+
+      <div class="linha"><button class="btn primario" type="submit" [disabled]="salvando()">{{ salvando() ? 'Salvando…' : r.id ? 'Salvar alterações' : 'Publicar site' }}</button></div>
+    </form>
+
+    <section class="previa" aria-label="Prévia do site">
+      <div class="barra-previa" aria-hidden="true"><i></i><i></i><i></i><span class="mono">{{ origem }}/s/{{ r.slug || '…' }}</span></div>
+      <div class="moldura"><app-vitrine [site]="r" [imoveis]="vitrine()" [linkBase]="origem" /></div>
+    </section>
+  </div>
+}

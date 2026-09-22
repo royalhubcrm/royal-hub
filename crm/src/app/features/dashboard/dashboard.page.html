@@ -1,0 +1,99 @@
+<header class="cabecalho-pagina">
+  <div>
+    <p class="sobretitulo">Painel</p>
+    <h1>{{ saudacao() }}</h1>
+    <p>Os números da {{ auth.empresa()?.nome }} agora. Clique em um cartão para ver a lista.</p>
+  </div>
+  <div class="acoes">
+    <a class="btn primario" routerLink="/leads" [queryParams]="{ novo: 1 }">+ Novo lead</a>
+  </div>
+</header>
+
+@if (erro()) {
+  <p class="aviso erro" role="alert">{{ erro() }} <button type="button" class="btn pequeno" (click)="carregar()">Tentar de novo</button></p>
+}
+
+@if (p(); as p) {
+  <section class="metricas" aria-label="Resumo">
+    <app-metrica rotulo="Leads no mês" [valor]="p.no_mes" [detalhe]="p.total + ' no total'" rota="/leads" [destaque]="true" />
+    <app-metrica rotulo="Quentes agora" [valor]="p.quentes" detalhe="prioridade de contato" rota="/leads"
+                 [params]="{ temperatura: 'quente' }" cor="var(--perda)" />
+    <app-metrica rotulo="Em atendimento" [valor]="p.abertos" [detalhe]="(p.em_aberto | brl) + ' em negociação'" rota="/pipeline" />
+    <app-metrica rotulo="Conversão" [valor]="conversao() + '%'" [detalhe]="p.fechados + ' fechado(s)'" />
+    <app-metrica rotulo="Carteira" [valor]="p.imoveis" [detalhe]="(p.vgv | brl) + ' em VGV'"
+                 [rota]="auth.pode('admin', 'gerente', 'corretor') ? '/imoveis' : ''" />
+    <app-metrica rotulo="Visitas hoje" [valor]="p.agenda_hoje"
+                 [detalhe]="p.duvidas ? p.duvidas + ' pergunta(s) esperando você' : 'nenhuma pergunta pendente'"
+                 [rota]="auth.pode('admin', 'gerente') ? '/gerencia' : ''" />
+  </section>
+
+  <div class="grade">
+    <section class="cartao" aria-labelledby="t-serie">
+      <header>
+        <h2 id="t-serie">Leads nos últimos 14 dias</h2>
+        <span class="mudo pequeno mono">{{ somaSerie() }} no período</span>
+      </header>
+      <app-grafico-barras [serie]="p.serie" titulo="Leads por dia nos últimos 14 dias" />
+    </section>
+
+    <section class="cartao" aria-labelledby="t-funil">
+      <header>
+        <h2 id="t-funil">Funil</h2>
+        <a class="pequeno" routerLink="/pipeline">Abrir o pipeline</a>
+      </header>
+      <ul class="funil">
+        @for (f of funil(); track f.slug) {
+          <li>
+            <span class="nome">{{ f.nome }}</span>
+            <span class="trilho" aria-hidden="true"><span [style.width.%]="(f.quantidade / maxFunil()) * 100" [style.background]="f.cor"></span></span>
+            <span class="qtd mono">{{ f.quantidade }}</span>
+            <span class="valor mono mudo">{{ f.valor_total | brl }}</span>
+          </li>
+        }
+      </ul>
+    </section>
+
+    <section class="cartao" aria-labelledby="t-recentes">
+      <header>
+        <h2 id="t-recentes">Últimos leads</h2>
+        <a class="pequeno" routerLink="/leads">Ver todos</a>
+      </header>
+      @if (p.recentes.length) {
+        <ul class="lista">
+          @for (l of p.recentes; track l.id) {
+            <li>
+              <span class="etiqueta" [class]="l.temperatura">{{ rotuloTemperatura(l.temperatura) }}</span>
+              <a class="principal" routerLink="/leads" [queryParams]="{ abrir: l.id }">
+                {{ l.nome }}
+                <small>{{ l.interesse || l.origem }}</small>
+              </a>
+              <span class="mudo pequeno">{{ nomeEtapa(l.status) }}</span>
+              <span class="mudo pequeno mono">{{ l.data_criacao | quando }}</span>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="vazio">Nenhum lead ainda. Ligue o formulário de captação (Ajustes) ou cadastre um manualmente.</p>
+      }
+    </section>
+
+    <section class="cartao" aria-labelledby="t-procurados">
+      <header><h2 id="t-procurados">Imóveis mais procurados</h2></header>
+      @if (p.procurados.length) {
+        <ol class="lista">
+          @for (m of p.procurados; track m.codigo) {
+            <li>
+              <span class="mono codigo">{{ m.codigo }}</span>
+              <span class="principal">{{ m.tipo ? m.tipo + ' · ' + m.bairro : 'Fora da carteira' }}</span>
+              <span class="mudo pequeno mono">{{ m.n }} pedido(s)</span>
+            </li>
+          }
+        </ol>
+      } @else {
+        <p class="vazio">Aparece aqui quando imóveis forem ligados aos leads ou pedidos no WhatsApp.</p>
+      }
+    </section>
+  </div>
+} @else if (!erro()) {
+  <p class="mudo" role="status">Carregando os números…</p>
+}

@@ -1,0 +1,143 @@
+<app-gaveta [titulo]="titulo()" [aberta]="aberta()" (fechar)="fechar.emit()">
+  <form id="form-lead" class="pilha" (ngSubmit)="salvar()" novalidate>
+    <div class="grade-campos">
+      <div class="campo">
+        <label for="l-nome">Nome *</label>
+        <input id="l-nome" name="nome" [(ngModel)]="f.nome" autocomplete="off" required autofocus
+               [attr.aria-invalid]="tentouSalvar() && !!erroNome" aria-describedby="l-nome-erro" />
+        @if (tentouSalvar() && erroNome) { <span class="erro" id="l-nome-erro">{{ erroNome }}</span> }
+      </div>
+      <div class="campo">
+        <label for="l-tel">WhatsApp / telefone</label>
+        <input id="l-tel" name="telefone" [(ngModel)]="f.telefone" inputmode="tel" placeholder="(34) 99999-0000"
+               [attr.aria-invalid]="tentouSalvar() && !!erroTelefone" aria-describedby="l-tel-erro" />
+        @if (tentouSalvar() && erroTelefone) { <span class="erro" id="l-tel-erro">{{ erroTelefone }}</span> }
+      </div>
+    </div>
+
+    <div class="grade-campos">
+      <div class="campo">
+        <label for="l-email">E-mail</label>
+        <input id="l-email" name="email" type="email" [(ngModel)]="f.email"
+               [attr.aria-invalid]="tentouSalvar() && !!erroEmail" aria-describedby="l-email-erro" />
+        @if (tentouSalvar() && erroEmail) { <span class="erro" id="l-email-erro">{{ erroEmail }}</span> }
+      </div>
+      <div class="campo">
+        <label for="l-empresa">Empresa do cliente</label>
+        <input id="l-empresa" name="empresa" [(ngModel)]="f.empresa" placeholder="Opcional" />
+      </div>
+    </div>
+
+    <div class="campo">
+      <label for="l-int">O que procura</label>
+      <input id="l-int" name="interesse" [(ngModel)]="f.interesse" placeholder="Casa 3 quartos, Zona Leste, até 700 mil" />
+    </div>
+
+    <div class="grade-campos">
+      <div class="campo">
+        <label for="l-etapa">Etapa</label>
+        <select id="l-etapa" name="status" [(ngModel)]="f.status">
+          @for (e of pipeline.etapasCache(); track e.slug) { <option [value]="e.slug">{{ e.nome }}</option> }
+        </select>
+      </div>
+      <fieldset class="campo temperatura">
+        <legend class="rotulo">Temperatura</legend>
+        <div class="segmentos">
+          @for (t of temperaturas; track t.valor) {
+            <label [class]="t.valor" [class.marcado]="f.temperatura === t.valor">
+              <input type="radio" name="temperatura" [value]="t.valor" [(ngModel)]="f.temperatura" />{{ t.rotulo }}
+            </label>
+          }
+        </div>
+      </fieldset>
+    </div>
+
+    <div class="grade-campos">
+      <div class="campo">
+        <label for="l-valor">Valor estimado (R$)</label>
+        <input id="l-valor" name="valor" type="number" min="0" step="1000" inputmode="numeric" [(ngModel)]="f.valor_estimado" />
+      </div>
+      <div class="campo">
+        <label for="l-resp">Responsável</label>
+        <select id="l-resp" name="responsavel" [(ngModel)]="f.responsavel_id" aria-describedby="l-resp-ajuda">
+          <option value="">Ninguém ainda</option>
+          @for (p of equipe.pessoasCache(); track p.id) {
+            @if (p.ativo || p.id === f.responsavel_id) { <option [value]="p.id">{{ p.nome }}</option> }
+          }
+        </select>
+        <span class="ajuda" id="l-resp-ajuda">O gerente da equipe dessa pessoa também vê o lead.</span>
+      </div>
+    </div>
+
+    <div class="grade-campos">
+      <div class="campo">
+        <label for="l-origem">Origem</label>
+        <input id="l-origem" name="origem" [(ngModel)]="f.origem" list="l-origens" />
+        <datalist id="l-origens">@for (o of origens; track o) { <option [value]="o"></option> }</datalist>
+      </div>
+      <div class="campo">
+        <label for="l-camp">Campanha / anúncio</label>
+        <input id="l-camp" name="campanha" [(ngModel)]="f.campanha" />
+      </div>
+    </div>
+
+    <div class="campo">
+      <label for="l-imv">Imóveis apresentados</label>
+      <input id="l-imv" name="imoveis" class="mono" [(ngModel)]="f.imoveis" placeholder="8685, 8574" aria-describedby="l-imv-ajuda" />
+      <span class="ajuda" id="l-imv-ajuda">Os códigos, separados por vírgula.</span>
+    </div>
+
+    <div class="campo">
+      <label for="l-obs">Observações</label>
+      <textarea id="l-obs" name="obs" rows="3" [(ngModel)]="f.obs"></textarea>
+    </div>
+  </form>
+
+  @if (lead()) {
+    <section class="bloco" aria-labelledby="t-mensagem">
+      <h3 id="t-mensagem">Primeira mensagem</h3>
+      <p class="mudo pequeno">A IA escreve uma sugestão com base no que o cliente procura. Você revisa antes de mandar.</p>
+      <div class="linha">
+        <button type="button" class="btn pequeno" (click)="sugerir()" [disabled]="pensando()">
+          {{ pensando() ? 'Escrevendo…' : sugestao() ? 'Sugerir outra' : 'Sugerir mensagem' }}
+        </button>
+      </div>
+      @if (sugestao()) {
+        <div class="sugestao" aria-live="polite">
+          <p>{{ sugestao() }}</p>
+          <div class="linha">
+            <button type="button" class="btn pequeno" (click)="copiar(sugestao())">Copiar</button>
+            @if (whatsCom(sugestao()); as link) {
+              <a class="btn pequeno" [href]="link" target="_blank" rel="noopener">Abrir no WhatsApp com o texto</a>
+            }
+          </div>
+        </div>
+      }
+    </section>
+
+    <section class="bloco" aria-labelledby="t-historico">
+      <h3 id="t-historico">Histórico</h3>
+      <form class="anotar" (ngSubmit)="anotar()">
+        <label class="sr-only" for="l-nota">Nova anotação</label>
+        <input id="l-nota" name="nota" [(ngModel)]="nota" placeholder="Ex.: ligou, pediu fotos do 8685" />
+        <button class="btn pequeno" type="submit">Anotar</button>
+      </form>
+      <ol class="linha-do-tempo">
+        @for (h of historico(); track h.id) {
+          <li>
+            <span class="quando mono">{{ h.criado_em | quando }}</span>
+            <span class="texto">{{ h.texto }} <small class="mudo">· {{ nomeAutor(h.autor_id) }}</small></span>
+          </li>
+        } @empty {
+          <li class="mudo">Nada registrado ainda.</li>
+        }
+      </ol>
+    </section>
+  }
+
+  <div rodape>
+    <button type="submit" form="form-lead" class="btn primario" [disabled]="salvando()">{{ salvando() ? 'Salvando…' : 'Salvar' }}</button>
+    @if (whats) { <a class="btn" [href]="whats" target="_blank" rel="noopener">Chamar no WhatsApp</a> }
+    @if (podeExcluir()) { <button type="button" class="btn perigo empurra" (click)="excluir()">Excluir</button> }
+  </div>
+</app-gaveta>

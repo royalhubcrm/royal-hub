@@ -1,0 +1,10 @@
+.nova { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: end; }
+.sem-quebra { flex-wrap: nowrap; }
+td small { display: block; font-size: 12px; }
+td select { width: auto; min-width: 150px; min-height: 32px; padding: 3px 26px 3px 8px; font-size: 13px; }
+.tabela { min-width: 860px; }
+tr.inativo td { color: var(--slate-500); }
+.acoes-linha { white-space: nowrap; text-align: right; .btn + .btn { margin-left: 4px; } }
+.nova-equipe { margin-top: 14px; align-items: flex-end; .campo { flex: 0 1 280px; } }
+.perfis { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0;
+  dt { font-weight: 600; } dd { margin: 0; color: var(--slate-600); } }

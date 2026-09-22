@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 96">
+  <defs>
+    <linearGradient id="ouro" x1="0" y1="0" x2="0.2" y2="1">
+      <stop offset="0" stop-color="#E0BE6B" />
+      <stop offset="0.55" stop-color="#C9A227" />
+      <stop offset="1" stop-color="#A97E1E" />
+    </linearGradient>
+  </defs>
+  <g stroke="url(#ouro)" fill="url(#ouro)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 66 L27 27 L44 50 L60 21 L76 50 L93 27 L100 66" fill="none" />
+    <path d="M44 52 L59 74" fill="none" stroke-width="6" />
+    <path d="M76 52 L61 74" fill="none" stroke-width="6" />
+    <path d="M24 70 C36 79 47 79 55 75" fill="none" stroke-width="6" />
+    <path d="M96 70 C84 79 73 79 65 75" fill="none" stroke-width="6" />
+    <circle cx="60" cy="14" r="7.5" stroke="none" />
+    <circle cx="26" cy="21" r="6.5" stroke="none" />
+    <circle cx="94" cy="21" r="6.5" stroke="none" />
+    <circle cx="60" cy="78" r="8" stroke="none" />
+    <circle cx="19" cy="70" r="6.5" stroke="none" />
+    <circle cx="101" cy="70" r="6.5" stroke="none" />
+    <g stroke="none">
+      <rect x="52" y="39" width="6.5" height="6.5" rx="1" />
+      <rect x="61.5" y="39" width="6.5" height="6.5" rx="1" />
+      <rect x="52" y="48.5" width="6.5" height="6.5" rx="1" />
+      <rect x="61.5" y="48.5" width="6.5" height="6.5" rx="1" />
+    </g>
+  </g>
+</svg>

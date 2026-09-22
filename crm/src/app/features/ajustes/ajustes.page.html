@@ -1,0 +1,167 @@
+<header class="cabecalho-pagina">
+  <div>
+    <p class="sobretitulo">Gestão</p>
+    <h1>Ajustes</h1>
+    <p>Os dados da imobiliária, o jeito da assistente falar e as ligações com WhatsApp, anúncios e portais.</p>
+  </div>
+</header>
+
+<div class="abas" role="tablist" aria-label="Ajustes">
+  @for (a of abas; track a.id; let i = $index) {
+    <button type="button" role="tab" [id]="'aba-' + a.id" [attr.aria-controls]="'painel-' + a.id"
+            [attr.aria-selected]="aba() === a.id" [attr.tabindex]="aba() === a.id ? 0 : -1"
+            (click)="escolher(a.id)" (keydown)="teclaAba($event, i)">{{ a.rotulo }}</button>
+  }
+</div>
+
+@if (!carregado()) { <p class="mudo" role="status">Carregando…</p> } @else {
+@switch (aba()) {
+  @case ('imobiliaria') {
+    <section id="painel-imobiliaria" role="tabpanel" aria-labelledby="aba-imobiliaria" class="cartao estreito">
+      <form class="pilha" (ngSubmit)="salvar(['corretor', 'creci', 'whats', 'endereco', 'cidade'])">
+        <div class="campo">
+          <label for="a-empresa">Nome da imobiliária</label>
+          <input id="a-empresa" name="empresa" [(ngModel)]="nomeEmpresa" />
+        </div>
+        <div class="grade-campos">
+          <div class="campo"><label for="a-corretor">Corretor responsável</label><input id="a-corretor" name="corretor" [(ngModel)]="f.corretor" /></div>
+          <div class="campo"><label for="a-creci">CRECI</label><input id="a-creci" name="creci" [(ngModel)]="f.creci" /></div>
+        </div>
+        <div class="grade-campos">
+          <div class="campo">
+            <label for="a-whats">WhatsApp da imobiliária</label>
+            <input id="a-whats" name="whats" inputmode="tel" [(ngModel)]="f.whats" placeholder="34 99999-0000" aria-describedby="a-whats-ajuda" />
+            <span class="ajuda" id="a-whats-ajuda">Aparece nas páginas públicas e na folha de imóveis.</span>
+          </div>
+          <div class="campo">
+            <label for="a-cidade">Cidade padrão</label>
+            <input id="a-cidade" name="cidade" [(ngModel)]="f.cidade" aria-describedby="a-cidade-ajuda" />
+            <span class="ajuda" id="a-cidade-ajuda">Vem preenchida no cadastro de imóvel.</span>
+          </div>
+        </div>
+        <div class="campo"><label for="a-end">Endereço do escritório</label><input id="a-end" name="endereco" [(ngModel)]="f.endereco" /></div>
+        <div><button class="btn primario" type="submit" [disabled]="salvando()">Salvar</button></div>
+      </form>
+    </section>
+  }
+
+  @case ('assistente') {
+    <section id="painel-assistente" role="tabpanel" aria-labelledby="aba-assistente" class="cartao estreito">
+      <form class="pilha" (ngSubmit)="salvar(['assistente', 'fatos', 'estilo'])">
+        <p class="mudo">A assistente responde no WhatsApp usando só os imóveis disponíveis da carteira. O objetivo dela é marcar a visita no escritório.
+          Teste o resultado em Conversas → Testar a assistente.</p>
+        <div class="campo">
+          <label for="a-nome">Nome da assistente</label>
+          <input id="a-nome" name="assistente" [(ngModel)]="f.assistente" />
+        </div>
+        <div class="campo">
+          <label for="a-fatos">O que ela pode afirmar com segurança</label>
+          <textarea id="a-fatos" name="fatos" rows="6" [(ngModel)]="f.fatos" aria-describedby="a-fatos-ajuda"></textarea>
+          <span class="ajuda" id="a-fatos-ajuda">Descontos, documentação, financiamento… Uma regra por linha. O que não estiver aqui ela não inventa: deixa a pergunta para você em Agenda e gerência.</span>
+        </div>
+        <div class="campo">
+          <label for="a-estilo">Como ela deve falar</label>
+          <textarea id="a-estilo" name="estilo" rows="8" [(ngModel)]="f.estilo" aria-describedby="a-estilo-ajuda"
+                    placeholder="Ex.: chama pelo nome, fala curto, nunca promete desconto, usa 'a gente'."></textarea>
+          <span class="ajuda" id="a-estilo-ajuda">Cole exemplos de mensagens suas: ela imita o jeito de escrever.</span>
+        </div>
+        <div><button class="btn primario" type="submit" [disabled]="salvando()">Salvar</button></div>
+      </form>
+    </section>
+  }
+
+  @case ('whatsapp') {
+    <section id="painel-whatsapp" role="tabpanel" aria-labelledby="aba-whatsapp" class="cartao estreito">
+      <p class="linha">
+        <span class="etiqueta" [class.ok]="f.wa_configurado">{{ f.wa_configurado ? 'Ligado' : 'Desligado' }}</span>
+        <span class="mudo">Número oficial da Meta (Cloud API): sem risco de banimento e sem computador ligado.</span>
+      </p>
+      <ol class="passos">
+        <li>No <b>Meta for Developers</b>, crie um app do tipo Empresa e adicione o produto <b>WhatsApp</b>.</li>
+        <li>Copie o <b>Phone Number ID</b> e gere um <b>token permanente</b> (usuário do sistema). Cole os dois abaixo e salve.</li>
+        <li>Em WhatsApp → Configuração → Webhook, cole o endereço e a palavra de verificação daqui. Assine o campo <b>messages</b>.</li>
+      </ol>
+      <form class="pilha" (ngSubmit)="salvarWhatsapp()">
+        <div class="campo"><label for="w-num">Phone Number ID</label><input id="w-num" name="numero" class="mono" inputmode="numeric" [(ngModel)]="wa.numero" /></div>
+        <div class="campo">
+          <label for="w-token">Token permanente</label>
+          <input id="w-token" name="token" type="password" autocomplete="off" [(ngModel)]="wa.token"
+                 [placeholder]="f.wa_configurado ? 'Já salvo — deixe em branco para manter' : 'Cole o token do app'" aria-describedby="w-token-ajuda" />
+          <span class="ajuda" id="w-token-ajuda">Fica guardado num cofre que só o servidor lê. Nem o administrador consegue ver de novo.</span>
+        </div>
+        <div class="campo"><label for="w-verif">Palavra de verificação</label><input id="w-verif" name="verif" class="mono" [(ngModel)]="wa.verificacao" /></div>
+        <div class="campo">
+          <label for="w-url">Endereço do webhook (cole na Meta)</label>
+          <div class="linha sem-quebra">
+            <input id="w-url" class="mono" readonly [value]="linkWhatsapp()" />
+            <button type="button" class="btn" (click)="copiar(linkWhatsapp())">Copiar</button>
+          </div>
+        </div>
+        <div><button class="btn primario" type="submit" [disabled]="salvando()">Salvar</button></div>
+      </form>
+    </section>
+  }
+
+  @case ('captacao') {
+    <section id="painel-captacao" role="tabpanel" aria-labelledby="aba-captacao">
+      <div class="duas">
+        <div class="cartao">
+          <h2>Formulário público</h2>
+          <p class="mudo pequeno">Use como destino do anúncio ou link da bio. O que o cliente preencher entra em Leads na hora — sem duplicar quem já existe.</p>
+          <div class="bloco-codigo">{{ linkCaptar() }}?c=NOME-DA-CAMPANHA</div>
+          <div class="linha">
+            <button type="button" class="btn pequeno" (click)="copiar(linkCaptar())">Copiar link</button>
+            <a class="btn pequeno" [href]="linkCaptar()" target="_blank" rel="noopener">Abrir <span class="sr-only">(nova aba)</span></a>
+          </div>
+        </div>
+        <div class="cartao">
+          <h2>Webhook para Make, Zapier ou n8n</h2>
+          <p class="mudo pequeno">Ligue o formulário de cadastro do Facebook/Instagram a este endereço (POST, JSON):</p>
+          <div class="bloco-codigo">POST {{ linkWebhook() }}
+
+{{ '{' }} "nome": "...", "telefone": "...", "email": "...", "interesse": "...", "campanha": "..." {{ '}' }}</div>
+          <div class="linha">
+            <button type="button" class="btn pequeno" (click)="token() ? copiar(linkWebhook()) : verToken()">{{ token() ? 'Copiar endereço' : 'Mostrar o token' }}</button>
+            @if (token()) { <button type="button" class="btn pequeno perigo" (click)="verToken(true)">Trocar token</button> }
+          </div>
+          <p class="mudo pequeno">Também aceita o formato do Lead Ads (<span class="mono">field_data</span>) direto.</p>
+        </div>
+      </div>
+      <div class="cartao">
+        <h2>Passo a passo no Meta</h2>
+        <ol class="passos">
+          <li><b>Anúncio com formulário instantâneo:</b> Gerenciador de Anúncios → objetivo "Cadastros" → campos nome, telefone e o que procura.</li>
+          <li><b>Conecte o formulário:</b> no Make/Zapier, gatilho "Facebook Lead Ads → novo lead", ação "HTTP → POST" no endereço acima.</li>
+          <li><b>Teste:</b> mande um lead pela ferramenta de teste do Meta e veja ele aparecer em Leads.</li>
+          <li><b>Responda:</b> abra o lead, clique em "Sugerir mensagem", revise e mande pelo WhatsApp.</li>
+        </ol>
+      </div>
+    </section>
+  }
+
+  @case ('portais') {
+    <section id="painel-portais" role="tabpanel" aria-labelledby="aba-portais" class="cartao estreito">
+      <h2>ZAP, Viva Real e OLX</h2>
+      <p class="mudo pequeno">Cole o endereço abaixo no painel do portal (feed XML no padrão VRSync). De hora em hora eles leem sozinhos:
+        imóvel novo aparece, vendido some, preço muda. Você mexe só aqui.</p>
+      <div class="linha sem-quebra">
+        <label class="sr-only" for="p-feed">Endereço do feed</label>
+        <input id="p-feed" class="mono" readonly [value]="linkFeed()" />
+        <button type="button" class="btn" (click)="copiar(linkFeed())">Copiar</button>
+      </div>
+      <p class="aviso" [class.info]="!comPendencia().length" role="status">
+        <b>{{ disponiveis().length - comPendencia().length }}</b> de {{ disponiveis().length }} imóveis disponíveis prontos para publicar.
+        @if (comPendencia().length) { Falta nos outros: {{ resumoPendencias() }}. Quem não está pronto fica fora do feed; o resto publica normalmente. }
+      </p>
+      @if (comPendencia().length) {
+        <ul class="lista">
+          @for (x of comPendencia().slice(0, 30); track x.m.id) {
+            <li><span class="mono">{{ x.m.codigo }}</span><span class="principal">{{ x.m.tipo }} · {{ x.m.bairro }}<small>falta {{ x.falta.join(', ') }}</small></span></li>
+          }
+        </ul>
+        <a class="btn" routerLink="/imoveis">Completar em Imóveis</a>
+      }
+    </section>
+  }
+}
+}

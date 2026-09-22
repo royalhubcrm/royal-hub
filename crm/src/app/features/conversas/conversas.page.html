@@ -1,0 +1,160 @@
+<header class="cabecalho-pagina">
+  <div>
+    <p class="sobretitulo">WhatsApp</p>
+    <h1>Conversas</h1>
+    <p>Tudo o que passa pelo WhatsApp da imobiliária. Quando você responde, a assistente recua sozinha por 6 horas.</p>
+  </div>
+  @if (cfg.config(); as c) {
+    <div class="acoes">
+      <span class="etiqueta" [class.ok]="c.bot_ligado" [class.frio]="!c.bot_ligado">
+        Assistente {{ c.bot_ligado ? 'ligada' : 'desligada' }}
+      </span>
+      @if (auth.pode('admin')) {
+        <button type="button" class="btn" (click)="salvarRegras({ bot_ligado: !c.bot_ligado })">
+          {{ c.bot_ligado ? 'Desligar em todas' : 'Ligar a assistente' }}
+        </button>
+      }
+    </div>
+  }
+</header>
+
+<div class="abas" role="tablist" aria-label="Seções">
+  <button type="button" role="tab" id="aba-conv" aria-controls="painel-conv" [attr.aria-selected]="aba() === 'conversas'"
+          (click)="aba.set('conversas')">Conversas</button>
+  <button type="button" role="tab" id="aba-testar" aria-controls="painel-testar" [attr.aria-selected]="aba() === 'testar'"
+          (click)="aba.set('testar')">Testar a assistente</button>
+</div>
+
+@if (aba() === 'conversas') {
+  <div id="painel-conv" role="tabpanel" aria-labelledby="aba-conv">
+    @if (auth.pode('admin') && cfg.config(); as c) {
+      <details class="cartao regras">
+        <summary>Regras da assistente <span class="mudo pequeno">— quem ela atende, em que horário, modo teste</span></summary>
+        <div class="grade-campos">
+          <div class="campo">
+            <label for="r-modo">Quem ela atende</label>
+            <select id="r-modo" [ngModel]="c.bot_modo" (ngModelChange)="salvarRegras({ bot_modo: $event })">
+              <option value="anuncio">Só quem chega pelo anúncio</option>
+              <option value="novos">Contatos novos (sem conversa com você antes)</option>
+              <option value="todos">Todo mundo que mandar mensagem</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label for="r-ini">Atende a partir de</label>
+            <input id="r-ini" type="time" [ngModel]="c.bot_hora_inicio" (change)="salvarRegras({ bot_hora_inicio: $any($event.target).value || null })" />
+          </div>
+          <div class="campo">
+            <label for="r-fim">Até</label>
+            <input id="r-fim" type="time" [ngModel]="c.bot_hora_fim" (change)="salvarRegras({ bot_hora_fim: $any($event.target).value || null })"
+                   aria-describedby="r-hora-ajuda" />
+            <span class="ajuda" id="r-hora-ajuda">Em branco = o dia inteiro.</span>
+          </div>
+        </div>
+        <div class="campo">
+          <label for="r-numeros">Modo teste — responder só nestes números</label>
+          <input id="r-numeros" [ngModel]="c.bot_numeros" (change)="salvarRegras({ bot_numeros: $any($event.target).value })"
+                 placeholder="34 99999-0000, 34 98888-1111" aria-describedby="r-num-ajuda" />
+          <span class="ajuda" id="r-num-ajuda">Com números aqui, ela só responde a eles — o resto espera você. Em branco, vale a regra de cima.</span>
+        </div>
+      </details>
+    }
+
+    <div class="conversas" [class.com-selecao]="!!sel()">
+      <section class="lista-conversas" aria-label="Lista de conversas">
+        <div class="filtro-lista">
+          <label class="sr-only" for="c-busca">Buscar conversa</label>
+          <input id="c-busca" type="search" placeholder="Buscar nome, número ou mensagem" [ngModel]="busca()" (ngModelChange)="busca.set($event)" />
+          <label class="nao-lidas"><input type="checkbox" [ngModel]="soNaoLidas()" (ngModelChange)="soNaoLidas.set($event)" /> Só não lidas</label>
+        </div>
+        <ul>
+          @for (c of filtradas(); track c.id) {
+            <li>
+              <button type="button" class="linha-lista item" [class.atual]="c.id === selId()" [attr.aria-current]="c.id === selId()" (click)="abrir(c)">
+                <span class="principal">
+                  <span class="nome">{{ c.nome || (c.telefone | telefone) }}</span>
+                  <small>{{ c.ultimo_de === 'cliente' ? '' : c.ultimo_de === 'bot' ? 'Assistente: ' : 'Você: ' }}{{ c.ultima }}</small>
+                  <span class="etiqueta" [class]="estado(c).classe">{{ estado(c).texto }}</span>
+                </span>
+                <span class="lado">
+                  <span class="mudo pequeno mono">{{ c.atualizado_em | quando }}</span>
+                  @if (c.nao_lidas) { <span class="contador" aria-label="{{ c.nao_lidas }} não lidas">{{ c.nao_lidas }}</span> }
+                </span>
+              </button>
+            </li>
+          } @empty {
+            <li class="vazio-lista mudo">
+              @if (carregando()) { Carregando… }
+              @else if (lista().length) { Nenhuma conversa com esse filtro. }
+              @else { Nenhuma conversa ainda. Elas aparecem quando o WhatsApp oficial estiver ligado (Ajustes → WhatsApp). }
+            </li>
+          }
+        </ul>
+      </section>
+
+      <section class="conversa" aria-label="Conversa aberta">
+        @if (sel(); as c) {
+          <header class="conversa-topo">
+            <button type="button" class="btn fantasma pequeno so-celular" (click)="voltar()">← Conversas</button>
+            <div class="quem">
+              <h2>{{ c.nome || (c.telefone | telefone) }}</h2>
+              <p class="mudo pequeno mono">{{ c.telefone | telefone }}
+                @if (c.lead_id) { · <a routerLink="/leads" [queryParams]="{ abrir: c.lead_id }">abrir a ficha do lead</a> }
+              </p>
+            </div>
+            <div class="linha">
+              <button type="button" class="btn pequeno" [attr.aria-pressed]="c.bot_ativo" (click)="alternarAssistente(c)">
+                {{ c.bot_ativo ? 'Desligar a assistente aqui' : 'Ligar a assistente aqui' }}
+              </button>
+              <button type="button" class="btn pequeno" [attr.aria-pressed]="c.nao_perturbe" (click)="alternarNaoPerturbe(c)">
+                {{ c.nao_perturbe ? 'Voltar a contatar' : 'Não perturbe' }}
+              </button>
+              @if (whats(c); as w) { <a class="btn pequeno fantasma" [href]="w" target="_blank" rel="noopener">Abrir no WhatsApp</a> }
+            </div>
+          </header>
+          <div class="estado pequeno">
+            <span class="etiqueta" [class]="estado(c).classe">{{ estado(c).texto }}</span>
+            @if (pausada(c)) {
+              <span>até {{ c.pausado_ate | quando }}</span>
+              <button type="button" class="btn fantasma pequeno" (click)="retomarAgora(c)">Devolver para a assistente</button>
+            }
+            @if (c.retomadas) { <span class="mudo">· já retomada {{ c.retomadas }}x</span> }
+            @if (auth.pode('admin', 'gerente')) {
+              <label class="resp">Responsável
+                <select [ngModel]="c.responsavel_id ?? ''" (ngModelChange)="definirResponsavel($event)">
+                  <option value="">Ninguém</option>
+                  @for (p of equipe.pessoasCache(); track p.id) { <option [value]="p.id">{{ p.nome }}</option> }
+                </select>
+              </label>
+            } @else if (c.responsavel_nome) { <span class="mudo">· com {{ c.responsavel_nome }}</span> }
+          </div>
+
+          <ol class="mensagens" #caixa tabindex="0" aria-label="Mensagens" aria-live="polite">
+            @for (m of mensagens(); track m.id) {
+              <li class="msg" [class]="m.de">
+                <span class="autor">{{ m.de === 'cliente' ? (c.nome || 'Cliente') : m.de === 'bot' ? 'Assistente' : 'Você' }} · {{ m.criado_em | quando }}</span>
+                <p>{{ m.texto }}</p>
+              </li>
+            } @empty { <li class="mudo pequeno">Sem mensagens.</li> }
+          </ol>
+
+          @if (podeEnviar()) {
+            <form class="enviar" (ngSubmit)="enviar()">
+              <label class="sr-only" for="c-texto">Sua mensagem</label>
+              <textarea id="c-texto" name="texto" rows="2" [(ngModel)]="texto" (keydown)="tecla($event)"
+                        placeholder="Escreva e aperte Enter (Shift+Enter quebra a linha)"></textarea>
+              <button class="btn primario" type="submit" [disabled]="enviando()">{{ enviando() ? 'Enviando…' : 'Enviar' }}</button>
+            </form>
+          } @else {
+            <p class="aviso info pequeno">Para responder daqui, ligue o WhatsApp oficial em Ajustes. Por enquanto, use "Abrir no WhatsApp".</p>
+          }
+        } @else {
+          <p class="vazio">Escolha uma conversa na lista.</p>
+        }
+      </section>
+    </div>
+  </div>
+} @else {
+  <div id="painel-testar" role="tabpanel" aria-labelledby="aba-testar">
+    <app-testar-assistente />
+  </div>
+}

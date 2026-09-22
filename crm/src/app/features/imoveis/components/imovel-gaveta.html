@@ -1,0 +1,115 @@
+<app-gaveta [titulo]="titulo()" [aberta]="aberta()" [larga]="true" (fechar)="fechar.emit()">
+  <form id="form-imovel" class="pilha" (ngSubmit)="salvar()" novalidate>
+    <fieldset>
+      <legend>O imóvel</legend>
+      <div class="grade-campos">
+        <div class="campo">
+          <label for="m-cod">Código *</label>
+          <input id="m-cod" name="codigo" class="mono" [(ngModel)]="f.codigo" [attr.aria-invalid]="tentou() && !!erroCodigo" aria-describedby="m-cod-erro" />
+          @if (tentou() && erroCodigo) { <span class="erro" id="m-cod-erro">{{ erroCodigo }}</span> }
+        </div>
+        <div class="campo">
+          <label for="m-tipo">Tipo</label>
+          <input id="m-tipo" name="tipo" [(ngModel)]="f.tipo" list="m-tipos" />
+          <datalist id="m-tipos">@for (t of tipos; track t) { <option [value]="t"></option> }</datalist>
+        </div>
+        <div class="campo">
+          <label for="m-fin">Finalidade</label>
+          <select id="m-fin" name="finalidade" [(ngModel)]="f.finalidade">
+            <option value="venda">Venda</option><option value="aluguel">Aluguel</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label for="m-status">Situação</label>
+          <select id="m-status" name="status" [(ngModel)]="f.status" aria-describedby="m-status-ajuda">
+            @for (s of statusLista; track s.valor) { <option [value]="s.valor">{{ s.rotulo }}</option> }
+          </select>
+          <span class="ajuda" id="m-status-ajuda">Só "Disponível" aparece para clientes, sites e portais.</span>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Valores e tamanho</legend>
+      <div class="grade-campos">
+        <div class="campo"><label for="m-preco">Preço (R$)</label><input id="m-preco" name="preco" type="number" min="0" step="1000" inputmode="numeric" [(ngModel)]="f.preco" /></div>
+        <div class="campo"><label for="m-cond">Condomínio (R$/mês)</label><input id="m-cond" name="condominio" type="number" min="0" inputmode="numeric" [(ngModel)]="f.condominio" /></div>
+        <div class="campo"><label for="m-iptu">IPTU (R$/ano)</label><input id="m-iptu" name="iptu" type="number" min="0" inputmode="numeric" [(ngModel)]="f.iptu" /></div>
+        <div class="campo"><label for="m-area">Área (m²)</label><input id="m-area" name="area" type="number" min="0" inputmode="decimal" [(ngModel)]="f.area" /></div>
+      </div>
+      <div class="grade-campos numeros">
+        <div class="campo"><label for="m-q">Quartos</label><input id="m-q" name="quartos" type="number" min="0" [(ngModel)]="f.quartos" /></div>
+        <div class="campo"><label for="m-s">Suítes</label><input id="m-s" name="suites" type="number" min="0" [(ngModel)]="f.suites" /></div>
+        <div class="campo"><label for="m-b">Banheiros</label><input id="m-b" name="banheiros" type="number" min="0" [(ngModel)]="f.banheiros" /></div>
+        <div class="campo"><label for="m-v">Vagas</label><input id="m-v" name="vagas" type="number" min="0" [(ngModel)]="f.vagas" /></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Endereço</legend>
+      <div class="grade-campos">
+        <div class="campo">
+          <label for="m-cep">CEP</label>
+          <input id="m-cep" name="cep" class="mono" inputmode="numeric" [(ngModel)]="f.cep" (blur)="preencherCep()" aria-describedby="m-cep-ajuda" />
+          <span class="ajuda" id="m-cep-ajuda">Ao sair do campo, rua e bairro se preenchem.</span>
+        </div>
+        <div class="campo"><label for="m-rua">Rua</label><input id="m-rua" name="rua" [(ngModel)]="f.rua" /></div>
+        <div class="campo"><label for="m-num">Número</label><input id="m-num" name="numero" [(ngModel)]="f.numero" /></div>
+      </div>
+      <div class="grade-campos">
+        <div class="campo"><label for="m-bairro">Bairro</label><input id="m-bairro" name="bairro" [(ngModel)]="f.bairro" /></div>
+        <div class="campo"><label for="m-cidade">Cidade</label><input id="m-cidade" name="cidade" [(ngModel)]="f.cidade" /></div>
+      </div>
+    </fieldset>
+
+    <div class="campo">
+      <label for="m-desc">Descrição</label>
+      <textarea id="m-desc" name="descricao" rows="5" [(ngModel)]="f.descricao" aria-describedby="m-desc-ajuda"></textarea>
+      <span class="ajuda" id="m-desc-ajuda">{{ f.descricao.length }} caracteres. Se ficar curta, o feed dos portais completa com os dados do imóvel.</span>
+    </div>
+
+    <fieldset>
+      <legend>Fotos <span class="mudo pequeno">(a primeira é a capa)</span></legend>
+      @if (fotos().length) {
+        <ul class="fotos">
+          @for (u of fotos(); track u; let i = $index) {
+            <li>
+              <img [src]="u" [alt]="'Foto ' + (i + 1)" loading="lazy" />
+              <div class="foto-acoes">
+                @if (i > 0) { <button type="button" class="btn pequeno" (click)="capa(i)">Virar capa <span class="sr-only">(foto {{ i + 1 }})</span></button> }
+                @else { <span class="etiqueta ok sem-ponto">Capa</span> }
+                <button type="button" class="btn pequeno perigo" (click)="tirar(i)">Tirar <span class="sr-only">a foto {{ i + 1 }}</span></button>
+              </div>
+            </li>
+          }
+        </ul>
+      }
+      <div class="linha">
+        <label class="btn" for="m-arquivos">{{ enviando() ? 'Enviando ' + enviando() + '…' : 'Enviar fotos do computador' }}</label>
+        <input id="m-arquivos" class="sr-only" type="file" accept="image/*" multiple (change)="enviarFotos($event)" />
+      </div>
+      <div class="campo url">
+        <label for="m-url">Ou cole o endereço de uma foto</label>
+        <div class="linha">
+          <input id="m-url" name="novaUrl" [(ngModel)]="novaUrl" placeholder="https://…" />
+          <button type="button" class="btn" (click)="adicionarUrl()">Adicionar</button>
+        </div>
+      </div>
+    </fieldset>
+
+    <div class="campo">
+      <label for="m-link">Link externo (opcional)</label>
+      <input id="m-link" name="link" [(ngModel)]="f.link" placeholder="Anúncio em outro site" />
+    </div>
+
+    <p class="aviso" [class.info]="!pendencias.length" role="status">
+      @if (pendencias.length) { Para aparecer nos portais ainda falta: {{ pendencias.join(', ') }}. }
+      @else { Pronto para os portais (ZAP, Viva Real, OLX). }
+    </p>
+  </form>
+
+  <div rodape>
+    <button type="submit" form="form-imovel" class="btn primario" [disabled]="salvando() || enviando() > 0">{{ salvando() ? 'Salvando…' : 'Salvar' }}</button>
+    @if (imovel()) { <button type="button" class="btn perigo empurra" (click)="excluir()">Excluir</button> }
+  </div>
+</app-gaveta>

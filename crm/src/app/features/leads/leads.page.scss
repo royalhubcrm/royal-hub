@@ -1,0 +1,15 @@
+.esmaecida { opacity: .6; transition: opacity .15s; }
+/* em tela estreita a tabela rola para o lado, em vez de espremer as colunas */
+.tabela { min-width: 1040px; }
+td.mono, td.num, td:has(.etiqueta), td:has(.etapa) { white-space: nowrap; }
+th:first-child, td:first-child { min-width: 190px; }
+.nome-lead { all: unset; cursor: pointer; font-weight: 600; color: var(--navy-700);
+  &:hover { text-decoration: underline; }
+  &:focus-visible { box-shadow: var(--foco); border-radius: 2px; } }
+td small { display: block; font-size: 11px; }
+td.corta { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.etapa { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  i { width: 8px; height: 8px; border-radius: 2px; } }
+
+.paginacao { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px;
+  .por-pagina { flex-direction: row; align-items: center; gap: 8px; select { width: auto; } } }
