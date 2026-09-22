@@ -9,6 +9,7 @@ import { PipelineService } from '../../core/services/pipeline.service';
 import { AvisosService } from '../../core/ui/avisos.service';
 import { BrlPipe } from '../../shared/pipes/brl.pipe';
 import { QuandoPipe, TelefonePipe } from '../../shared/pipes/formatos.pipe';
+import { linkWhats } from '../../shared/util/telefone';
 import { ImportarLeads } from './components/importar-leads';
 import { LeadGaveta } from './components/lead-gaveta';
 
@@ -138,6 +139,14 @@ export default class LeadsPage {
     this.aberto.set(l);
     this.gavetaAberta.set(true);
   }
+
+  /** A linha inteira abre a ficha — menos quando o clique foi num botão ou link dela. */
+  protected clicouLinha(ev: MouseEvent, l: Lead) {
+    if ((ev.target as HTMLElement).closest('a, button, input, select')) return;
+    this.abrirLead(l);
+  }
+
+  protected whats(l: Lead) { return linkWhats(l.telefone); }
 
   private async abrirPorId(id: string) {
     const l = await this.leads.buscar(id).catch(() => null);

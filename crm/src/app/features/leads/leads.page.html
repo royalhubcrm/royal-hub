@@ -13,7 +13,7 @@
 <form class="filtros" role="search" aria-label="Filtrar leads" (submit)="$event.preventDefault()">
   <div class="campo busca">
     <label for="f-busca">Buscar</label>
-    <input id="f-busca" type="search" placeholder="Nome, telefone, e-mail, interesse ou campanha"
+    <input id="f-busca" type="search" title="Atalho: tecla /" placeholder="Nome, telefone, e-mail, interesse ou campanha"
            [value]="filtro().busca ?? ''" (input)="digitar($any($event.target).value)" />
   </div>
   <div class="campo">
@@ -63,10 +63,11 @@
       </thead>
       <tbody>
         @for (l of itens(); track l.id) {
-          <tr>
+          <tr class="clicavel" (click)="clicouLinha($event, l)">
             <td><button type="button" class="nome-lead" (click)="abrirLead(l)">{{ l.nome }}</button>
               @if (l.empresa) { <small class="mudo">{{ l.empresa }}</small> }</td>
-            <td class="mono pequeno">{{ l.telefone | telefone }}</td>
+            <td class="mono pequeno contato">{{ l.telefone | telefone }}
+              @if (whats(l); as w) { <a class="whats" [href]="w" target="_blank" rel="noopener" [attr.aria-label]="'Chamar ' + l.nome + ' no WhatsApp (nova aba)'" title="Abrir no WhatsApp">WhatsApp</a> }</td>
             <td class="corta">{{ l.interesse || '—' }}</td>
             <td class="mudo">{{ l.origem }}@if (l.campanha) { <small>{{ l.campanha }}</small> }</td>
             <td><span class="etiqueta" [class]="l.temperatura">{{ rotuloTemperatura(l.temperatura) }}</span></td>

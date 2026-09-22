@@ -11,7 +11,7 @@
 <form class="filtros" role="search" aria-label="Filtrar o pipeline" (submit)="$event.preventDefault()">
   <div class="campo busca">
     <label for="k-busca">Buscar</label>
-    <input id="k-busca" type="search" placeholder="Nome, telefone ou o que procura" [ngModel]="busca()" name="busca" (ngModelChange)="busca.set($event)" />
+    <input id="k-busca" type="search" title="Atalho: tecla /" placeholder="Nome, telefone ou o que procura" [ngModel]="busca()" name="busca" (ngModelChange)="busca.set($event)" />
   </div>
   <div class="campo">
     <label for="k-temp">Temperatura</label>

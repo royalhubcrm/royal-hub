@@ -16,7 +16,7 @@
 <form class="filtros" role="search" aria-label="Filtrar imóveis" (submit)="$event.preventDefault()">
   <div class="campo busca">
     <label for="i-busca">Buscar</label>
-    <input id="i-busca" type="search" placeholder="Código, bairro, rua ou descrição" [ngModel]="busca()" name="busca" (ngModelChange)="busca.set($event)" />
+    <input id="i-busca" type="search" title="Atalho: tecla /" placeholder="Código, bairro, rua ou descrição" [ngModel]="busca()" name="busca" (ngModelChange)="busca.set($event)" />
   </div>
   <div class="campo">
     <label for="i-bairro">Bairro</label>
@@ -39,12 +39,21 @@
       @for (s of statusLista; track s.valor) { <option [value]="s.valor">{{ s.rotulo }}</option> }
     </select>
   </div>
+  <div class="campo">
+    <label for="i-ordem">Ordenar por</label>
+    <select id="i-ordem" [ngModel]="ordem()" name="ordem" (ngModelChange)="ordem.set($event)">
+      <option value="recentes">Mais recentes</option>
+      <option value="preco-asc">Menor preço</option>
+      <option value="preco-desc">Maior preço</option>
+      <option value="codigo">Código</option>
+    </select>
+  </div>
   <span class="contagem" role="status">{{ carregando() ? 'Carregando…' : lista().length + ' imóvel(is)' }}</span>
 </form>
 
 @if (lista().length) {
   <ul class="grade-imoveis">
-    @for (m of lista(); track m.id) {
+    @for (m of visiveis(); track m.id) {
       <li class="imovel" [class.marcado]="selecionados().has(m.id)">
         <div class="foto">
           @if (m.fotos[0]) { <img [src]="m.fotos[0]" [alt]="m.tipo + ' no ' + m.bairro" loading="lazy" /> }
@@ -80,6 +89,11 @@
       </li>
     }
   </ul>
+  @if (visiveis().length < lista().length) {
+    <div class="mostrar-mais">
+      <button type="button" class="btn" (click)="limite.set(limite() + passo)">Mostrar mais ({{ lista().length - visiveis().length }} restantes)</button>
+    </div>
+  }
 } @else if (!carregando()) {
   <div class="vazio">
     @if (todos().length) { Nenhum imóvel com esses filtros. <button type="button" class="btn pequeno" (click)="limpar()">Limpar filtros</button> }

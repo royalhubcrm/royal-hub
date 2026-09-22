@@ -27,6 +27,7 @@ const MENU: ItemMenu[] = [
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '(document:keydown)': 'atalho($event)' },
 })
 export class Shell {
   protected readonly auth = inject(AuthService);
@@ -36,6 +37,18 @@ export class Shell {
   protected readonly menuAberto = signal(false);
   protected readonly naoLidas = this.conversas.naoLidas;
   protected readonly rotuloPapel = rotuloPapel;
+
+  /** Tecla "/" leva o foco para a busca da tela (como no GitHub e no Gmail). */
+  protected atalho(ev: KeyboardEvent) {
+    if (ev.key !== '/' || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    const alvo = ev.target as HTMLElement | null;
+    if (alvo?.closest('input, textarea, select, [contenteditable="true"], dialog[open]')) return;
+    const busca = document.querySelector<HTMLInputElement>('main input[type="search"]');
+    if (!busca) return;
+    ev.preventDefault();
+    busca.focus();
+    busca.select();
+  }
 
   protected readonly itens = computed(() => {
     const p = this.auth.perfil();

@@ -6,6 +6,10 @@ th:first-child, td:first-child { min-width: 190px; }
 .nome-lead { all: unset; cursor: pointer; font-weight: 600; color: var(--navy-700);
   &:hover { text-decoration: underline; }
   &:focus-visible { box-shadow: var(--foco); border-radius: 2px; } }
+tr.clicavel { cursor: pointer; }
+td.contato { white-space: nowrap; }
+.whats { margin-left: 8px; font: 500 11px/1 var(--sans); color: var(--ganho); text-decoration: none; padding: 3px 7px; border: 1px solid #C3DCCB; border-radius: 999px;
+  &:hover { background: var(--ganho-100); } }
 td small { display: block; font-size: 11px; }
 td.corta { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .etapa { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;

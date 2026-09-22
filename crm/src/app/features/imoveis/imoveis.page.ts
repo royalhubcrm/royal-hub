@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Imovel, STATUS_IMOVEL, pendenciasPortais, rotuloStatusImovel } from '../../core/models/imovel.model';
@@ -30,6 +30,10 @@ export default class ImoveisPage {
   protected readonly bairro = signal('');
   protected readonly tipo = signal('');
   protected readonly status = signal('disponivel');
+  protected readonly ordem = signal<'recentes' | 'preco-asc' | 'preco-desc' | 'codigo'>('recentes');
+  /** Carteiras grandes: mostra em blocos, com "Mostrar mais". */
+  protected readonly passo = 48;
+  protected readonly limite = signal(this.passo);
   protected readonly selecionados = signal<Set<string>>(new Set());
 
   protected readonly aberto = signal<Imovel | null>(null);
@@ -40,16 +44,26 @@ export default class ImoveisPage {
   protected readonly tipos = computed(() => [...new Set(this.todos().map((m) => m.tipo).filter(Boolean))].sort());
   protected readonly lista = computed(() => {
     const t = semAcento(this.busca());
+    const ordem = this.ordem();
     return this.todos().filter((m) =>
       (!t || semAcento(`${m.codigo} ${m.tipo} ${m.bairro} ${m.rua} ${m.descricao}`).includes(t)) &&
       (!this.bairro() || m.bairro === this.bairro()) &&
       (!this.tipo() || m.tipo === this.tipo()) &&
-      (!this.status() || m.status === this.status()));
+      (!this.status() || m.status === this.status()))
+      .sort((a, b) => ordem === 'preco-asc' ? a.preco - b.preco
+        : ordem === 'preco-desc' ? b.preco - a.preco
+        : ordem === 'codigo' ? a.codigo.localeCompare(b.codigo, 'pt-BR', { numeric: true })
+        : b.criado_em.localeCompare(a.criado_em));
   });
+  protected readonly visiveis = computed(() => this.lista().slice(0, this.limite()));
   protected readonly prontosPortal = computed(() =>
     this.todos().filter((m) => m.status === 'disponivel' && !pendenciasPortais(m).length).length);
 
-  constructor() { void this.carregar(); }
+  constructor() {
+    void this.carregar();
+    // mudou o filtro ou a ordem: volta para o primeiro bloco
+    effect(() => { this.lista(); untracked(() => this.limite.set(this.passo)); });
+  }
 
   protected async carregar() {
     try { this.todos.set(await this.srv.listar()); }
