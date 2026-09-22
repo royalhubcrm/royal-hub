@@ -6,7 +6,7 @@ const state = {
   view:"dash", leads:[], imoveis:[], cfg:{empresa:"Royal Negócios Imobiliários",corretor:"Ricardo"},
   sel:null, filtros:{q:"",bairro:"",tipo:"",estagio:"",temp:""}, chat:[], pensando:false, iaLigada:false,
   conversas:[], convSel:null, convMsgs:[], convTimer:null,
-  usuario:null, usuarios:[], papeis:{}, ger:null, gerSel:null, gerDet:null, sites:[], siteRascunho:null, siteEditando:null
+  usuario:null, usuarios:[], papeis:{}, equipes:[], ger:null, gerSel:null, gerDet:null, sites:[], siteRascunho:null, siteEditando:null
 };
 
 const BRL = n => (Number(n)||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0});
@@ -73,6 +73,7 @@ async function carregar(){
   try{
     const a = await (await fetch("/api/auth/estado")).json();
     state.usuario = a.usuario; state.papeis = a.papeis || {};
+    state.empresa = a.empresa || null; state.cobranca = a.cobranca || null;
     if(!a.usuario){ esquecerTudo(); return location.href = "/login"; }
   }catch{}
 
@@ -98,6 +99,7 @@ async function carregar(){
   if(precisa("config", gCfg))
     tarefas.push(api("/config").then(d => { state.cfg = d; state.iaLigada = !!d.iaLigada; guardar("config", d, v.config); }));
 
+  if(!state.usuarios.length) api("/usuarios").then(u => { state.usuarios = u; }).catch(()=>{});
   if(tarefas.length){ await Promise.all(tarefas); render(); }
   else if(!(gLeads || gImoveis || gCfg)) render();
 
@@ -148,6 +150,7 @@ function render(){
   if(navG) navG.hidden = !(eu && (eu.papel === "admin" || eu.papel === "gerente"));
   document.getElementById("main").innerHTML =
     ({dash:vDash,leads:vLeads,imoveis:vImoveis,bot:vBot,conversas:vConversas,captacao:vCaptacao,gerencia:vGerencia,sites:vSites,usuarios:vUsuarios,config:vConfig}[state.view])();
+  if(state.view==="config" && !state.portais) carregarPortais();
   if(state.view==="bot") scrollChat();
   tickConversas();
   renderDrawer();
@@ -355,7 +358,57 @@ function vConfig(){
     <div class="field"><label for="c-estilo">Como o bot deve falar</label><textarea id="c-estilo" placeholder="Ex.: cumprimenta pelo nome, fala direto, nunca promete desconto sem falar comigo.">${esc(c.estilo||"")}</textarea></div>
     <div style="display:flex;gap:10px;align-items:center"><button class="btn primary" onclick="gravarCfg()">Salvar</button><span id="cfg-msg" class="muted"></span></div>
     <p class="muted" style="font-size:12px;margin:0">Chatbot: ${state.iaLigada?"ligado":"desligado — falta a chave da Anthropic no arquivo .env"}</p>
-  </div></div>`;
+  </div></div>
+
+  <div class="card" style="max-width:560px;margin-top:18px">
+    <h3 style="margin-top:0">WhatsApp oficial</h3>
+    <p class="meta" style="margin-top:0">O número aprovado pela Meta. Com ele, não existe risco de banimento, a mensagem não se perde e não precisa de computador ligado. Enquanto estiver em branco, o sistema usa a ponte antiga (QR code).</p>
+    <div style="display:flex;flex-direction:column;gap:13px">
+      <div class="field"><label for="c-wa-id">Phone Number ID</label><input id="c-wa-id" class="num" value="${esc(c.waNumeroId||"")}" placeholder="o número que a Meta mostra no painel"></div>
+      <div class="field"><label for="c-wa-token">Token permanente</label><input id="c-wa-token" type="password" value="${esc(c.waToken||"")}" placeholder="cole o token do app"></div>
+      <div class="field"><label for="c-wa-verif">Palavra de verificação</label><input id="c-wa-verif" value="${esc(c.waVerificacao||"")}" placeholder="invente uma palavra"></div>
+      <div class="field"><label>Endereço para colar na Meta (Webhook)</label>
+        <input readonly value="${esc((state.enderecoPublico||location.origin) + "/api/whatsapp/" + (state.empresa?.codigo||""))}" onclick="this.select()"></div>
+      <div style="display:flex;gap:10px;align-items:center"><button class="btn primary" onclick="gravarCfg()">Salvar</button>
+        <span class="meta">${c.waNumeroId && c.waToken ? "ligado" : "usando a ponte antiga"}</span></div>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:560px;margin-top:18px">
+    <h3 style="margin-top:0">Portais (ZAP, Viva Real, OLX)</h3>
+    <p class="meta" style="margin-top:0">Cole o endereço abaixo no painel do portal. De hora em hora eles leem sozinhos: imóvel novo aparece, vendido some, preço muda. Você mexe só aqui.</p>
+    <div class="field"><label>Endereço do feed</label>
+      <input readonly id="feed-url" value="${esc(state.portais?.endereco||"")}" onclick="this.select()"></div>
+    ${state.portais ? `<p class="meta" style="margin-top:12px">
+      <b>${state.portais.prontos}</b> de ${state.portais.total} imóveis prontos para publicar.
+      ${Object.keys(state.portais.pendencias||{}).length ? "O que falta nos outros: " +
+        Object.entries(state.portais.pendencias).map(([k,v])=>`${v} sem ${esc(k)}`).join(", ") + "." : ""}
+      </p>
+      <p class="meta">Os portais exigem no mínimo ${state.portais.exigencias.fotos} fotos e o CEP de cada imóvel. Quem não tiver fica de fora do feed — o resto continua publicando normalmente.</p>`
+      : `<p class="meta" style="margin-top:12px">Carregando…</p>`}
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn" onclick="carregarPortais()">Atualizar</button>
+      <button class="btn" id="b-cep" onclick="completarCep()">Buscar CEP pelo bairro</button>
+    </div>
+  </div>`;
+}
+
+async function carregarPortais(){
+  try{ state.portais = await api("/portais/situacao"); render(); }catch{}
+}
+
+// Pede o CEP de cada bairro aos Correios e preenche as fichas que estão sem.
+async function completarCep(){
+  const b = document.getElementById("b-cep");
+  if(b){ b.disabled = true; b.textContent = "Buscando nos Correios…"; }
+  try{
+    const r = await api("/portais/completar-cep", {method:"POST"});
+    await carregarPortais();
+    alert(`CEP preenchido em ${r.preenchidos} imóveis.` +
+      (r.semResposta ? `\n${r.semResposta} ficaram sem: os Correios não têm CEP próprio para esses bairros.` : "") +
+      (r.restam ? `\nAinda faltam ${r.restam}.` : ""));
+  }catch(e){ alert(e.message || "Não consegui falar com os Correios agora."); }
+  finally{ const x = document.getElementById("b-cep"); if(x){ x.disabled = false; x.textContent = "Buscar CEP pelo bairro"; } }
 }
 
 /* ===================== drawer ===================== */
@@ -388,6 +441,11 @@ function drawerLead(l){
       <div class="field"><label for="l-est">Estágio</label><select id="l-est">${ESTAGIOS.map(t=>`<option ${l.estagio===t?"selected":""}>${t}</option>`).join("")}</select></div>
     </div>
     <div class="field"><label for="l-imv">Imóveis apresentados (códigos)</label><input id="l-imv" class="num" value="${esc((l.imoveis||[]).join(", "))}" placeholder="${esc(codes.slice(0,3).join(", "))}"></div>
+    <div class="field"><label for="l-resp">Responsável</label>
+      <select id="l-resp"><option value="">— ninguém ainda —</option>${
+        (state.usuarios||[]).filter(u=>u.ativo).map(u=>`<option value="${u.id}" ${u.id===l.responsavel_id?"selected":""}>${esc(u.nome)}</option>`).join("")
+      }</select>
+      <div class="meta" style="margin-top:6px">Quem cuida deste lead. O gerente da equipe dessa pessoa passa a ver o lead e a conversa dele.</div></div>
     <div class="field"><label for="l-obs">Anotações</label><textarea id="l-obs">${esc(l.obs||"")}</textarea></div>
     <div style="display:flex;gap:9px;flex-wrap:wrap">
       <button class="btn primary" onclick="gravarLead()">Salvar</button>
@@ -455,7 +513,8 @@ async function gravarLead(){
   const d = state.sel.data;
   const corpo = {...d, nome:val("l-nome").trim(), telefone:val("l-tel").trim(), origem:val("l-origem").trim(),
     campanha:val("l-camp").trim(), interesse:val("l-int").trim(), temperatura:val("l-temp"), estagio:val("l-est"),
-    obs:val("l-obs"), imoveis: val("l-imv").split(",").map(s=>s.trim()).filter(Boolean)};
+    obs:val("l-obs"), responsavel_id: val("l-resp"),
+    imoveis: val("l-imv").split(",").map(s=>s.trim()).filter(Boolean)};
   if(!corpo.id) delete corpo.id;
   try{ await api("/leads",{method:"POST",body:JSON.stringify(corpo)}); fechar(); await carregar(); }
   catch(e){ alert(e.message); }
@@ -485,7 +544,11 @@ async function excluirImovel(id){
 }
 async function gravarCfg(){
   const corpo = {corretor:val("c-corretor"),creci:val("c-creci"),empresa:val("c-empresa"),
-    whats:val("c-whats").replace(/\D/g,""),estilo:val("c-estilo")};
+    whats:val("c-whats").replace(/\D/g,""),estilo:val("c-estilo"),
+    waNumeroId: val("c-wa-id").replace(/\D/g,""), waVerificacao: val("c-wa-verif")};
+  // só troca o token quando você digitou um novo
+  const token = val("c-wa-token");
+  if(token && !/^•+$/.test(token)) corpo.waToken = token;
   await api("/config",{method:"PUT",body:JSON.stringify(corpo)});
   await carregar();
   const m = document.getElementById("cfg-msg"); if(m) m.textContent = "Salvo.";
@@ -902,6 +965,7 @@ async function carregarUsuarios(){
     const v = await api("/versao").catch(()=>({}));
     if(!gu || gu.assinatura !== v.usuarios){ state.usuarios = await api("/usuarios"); guardar("usuarios", state.usuarios, v.usuarios); }
   }catch{ if(!gu) state.usuarios = []; }
+  try{ state.equipes = await api("/equipes"); }catch{ state.equipes = []; }
   render();
 }
 
@@ -911,15 +975,41 @@ async function sair(){
   location.href = "/login";
 }
 
+async function salvarEquipe(dados){
+  if(!dados.nome) return alert("Dê um nome para a equipe.");
+  try{ await api("/equipes", {method:"POST", body:JSON.stringify(dados)}); carregarUsuarios(); }
+  catch(e){ alert(e.message); }
+}
+
+async function apagarEquipe(id, nome){
+  if(!confirm(`Excluir a equipe "${nome}"? Os corretores ficam sem equipe, mas nada mais se perde.`)) return;
+  try{ await api("/equipes/"+id, {method:"DELETE"}); carregarUsuarios(); }
+  catch(e){ alert(e.message); }
+}
+
+async function porNaEquipe(usuarioId, equipeId){
+  try{ await api("/equipes/membro", {method:"POST", body:JSON.stringify({usuarioId, equipeId})}); carregarUsuarios(); }
+  catch(e){ alert(e.message); }
+}
+
+async function definirResponsavel(leadId, usuarioId){
+  try{ await api("/leads/"+leadId+"/responsavel", {method:"POST", body:JSON.stringify({usuarioId})}); await carregar(); }
+  catch(e){ alert(e.message); }
+}
+
 function vUsuarios(){
   if(!state.usuarios.length) carregarUsuarios();
   const opcoes = (sel) => Object.entries(state.papeis)
     .map(([k,v])=>`<option value="${k}" ${k===sel?"selected":""}>${esc(v)}</option>`).join("");
 
+  const eqOpcoes = (sel) => `<option value="">— sem equipe —</option>` + state.equipes
+    .map(e=>`<option value="${e.id}" ${e.id===sel?"selected":""}>${esc(e.nome)}</option>`).join("");
+
   const linhas = state.usuarios.map(u=>`
     <tr>
       <td><b>${esc(u.nome)}</b><div class="meta">${esc(u.email)}</div></td>
       <td><select class="sm" onchange="salvarUsuario('${u.id}',{papel:this.value})">${opcoes(u.papel)}</select></td>
+      <td><select class="sm" onchange="porNaEquipe('${u.id}',this.value)">${eqOpcoes(u.equipe_id)}</select></td>
       <td><span class="pill ${u.ativo?'quente':'frio'}"><i></i>${u.ativo?"ativo":"desativado"}</span></td>
       <td class="meta num">${esc((u.ultimo_acesso||"").slice(0,10)) || "nunca entrou"}</td>
       <td style="text-align:right;white-space:nowrap">
@@ -947,8 +1037,29 @@ function vUsuarios(){
 
   <div class="card" style="margin-top:18px">
     <h3>Pessoas com acesso</h3>
-    <table class="tab"><thead><tr><th>Pessoa</th><th>Perfil</th><th>Situação</th><th>Último acesso</th><th></th></tr></thead>
-    <tbody>${linhas || '<tr><td colspan="5" class="muted">Ninguém cadastrado ainda.</td></tr>'}</tbody></table>
+    <table class="tab"><thead><tr><th>Pessoa</th><th>Perfil</th><th>Equipe</th><th>Situação</th><th>Último acesso</th><th></th></tr></thead>
+    <tbody>${linhas || '<tr><td colspan="6" class="muted">Ninguém cadastrado ainda.</td></tr>'}</tbody></table>
+  </div>
+
+  <div class="card" style="margin-top:18px">
+    <h3>Equipes</h3>
+    <p class="meta" style="margin-top:0">Cada equipe tem um gerente. O gerente enxerga só os corretores da equipe dele, os leads que foram passados para eles e as conversas desses leads. O administrador continua vendo tudo.</p>
+    ${state.equipes.length ? `<table class="tab">
+      <thead><tr><th>Equipe</th><th>Gerente</th><th>Corretores</th><th></th></tr></thead>
+      <tbody>${state.equipes.map(e=>`<tr>
+        <td><b>${esc(e.nome)}</b></td>
+        <td><select class="sm" onchange="salvarEquipe({id:'${e.id}', nome:'${esc(e.nome)}', gerente_id:this.value})">
+          <option value="">— escolher —</option>
+          ${state.usuarios.filter(u=>["gerente","admin"].includes(u.papel))
+            .map(u=>`<option value="${u.id}" ${u.id===e.gerente_id?"selected":""}>${esc(u.nome)}</option>`).join("")}
+        </select></td>
+        <td class="meta">${(e.membros||[]).map(m=>esc(m.nome)).join(", ") || "ninguém ainda"}</td>
+        <td style="text-align:right"><button class="btn sm ghost" onclick="apagarEquipe('${e.id}','${esc(e.nome)}')">Excluir</button></td>
+      </tr>`).join("")}</tbody></table>` : `<div class="empty">Nenhuma equipe criada ainda.</div>`}
+    <div class="grid4" style="margin-top:14px">
+      <div><label for="eq-nome">Nome da nova equipe</label><input id="eq-nome" placeholder="Ex: Equipe Centro"></div>
+      <div style="align-self:end"><button class="btn primary" onclick="salvarEquipe({nome: val('eq-nome')})">Criar equipe</button></div>
+    </div>
   </div>
 
   <div class="card" style="margin-top:18px">
@@ -1023,7 +1134,8 @@ async function salvarRegras(){
 }
 
 async function alternarBotGeral(ligado){
-  state.cfg = await api("/config", {method:"PUT", body:JSON.stringify({...state.cfg, botLigado: ligado?"1":"0"})});
+  state.cfg = await api("/config", {method:"PUT", body:JSON.stringify({...state.cfg,
+    botLigado: ligado?"1":"0"})});
   carregarConversas();
 }
 
