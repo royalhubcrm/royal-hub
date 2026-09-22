@@ -8,6 +8,7 @@ import { ConfigService } from '../../core/services/config.service';
 import { ConversasService } from '../../core/services/conversas.service';
 import { EquipeService } from '../../core/services/equipe.service';
 import { AvisosService } from '../../core/ui/avisos.service';
+import { erroAmigavel } from '../../core/supabase/supabase.client';
 import { QuandoPipe, TelefonePipe } from '../../shared/pipes/formatos.pipe';
 import { linkWhats } from '../../shared/util/telefone';
 import { semAcento } from '../../shared/util/planilha';
@@ -36,6 +37,7 @@ export default class ConversasPage {
   protected readonly selId = signal<string | null>(null);
   protected readonly mensagens = signal<Mensagem[]>([]);
   protected readonly carregando = signal(true);
+  protected readonly erro = signal('');
   protected readonly busca = signal('');
   protected readonly soNaoLidas = signal(false);
   protected readonly enviando = signal(false);
@@ -58,9 +60,10 @@ export default class ConversasPage {
     inject(DestroyRef).onDestroy(parar);
   }
 
-  private async carregar(silencioso = false) {
+  protected async carregar(silencioso = false) {
     try {
       this.lista.set(await this.srv.listar());
+      this.erro.set('');
       const pedida = this.c();
       if (pedida && !silencioso && !this.selId()) {
         const alvo = this.lista().find((x) => x.id === pedida);
@@ -70,7 +73,7 @@ export default class ConversasPage {
       if (id) this.mensagens.set(await this.srv.mensagens(id));
       if (silencioso) this.rolarParaFim();
     } catch (e) {
-      if (!silencioso) this.avisos.erro(e);
+      if (!silencioso) { this.erro.set(erroAmigavel(e)); this.avisos.erro(e); }
     } finally {
       this.carregando.set(false);
     }

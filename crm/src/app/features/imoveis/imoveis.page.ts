@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { Imovel, STATUS_IMOVEL, pendenciasPortais, rotuloStatusImovel } from '../../core/models/imovel.model';
 import { ImoveisService } from '../../core/services/imoveis.service';
 import { AvisosService } from '../../core/ui/avisos.service';
+import { erroAmigavel } from '../../core/supabase/supabase.client';
 import { BrlPipe } from '../../shared/pipes/brl.pipe';
 import { semAcento } from '../../shared/util/planilha';
 import { ImovelGaveta } from './components/imovel-gaveta';
@@ -25,6 +26,7 @@ export default class ImoveisPage {
   protected readonly rotuloStatus = rotuloStatusImovel;
   protected readonly todos = signal<Imovel[]>([]);
   protected readonly carregando = signal(true);
+  protected readonly erro = signal('');
 
   protected readonly busca = signal('');
   protected readonly bairro = signal('');
@@ -66,8 +68,9 @@ export default class ImoveisPage {
   }
 
   protected async carregar() {
-    try { this.todos.set(await this.srv.listar()); }
-    catch (e) { this.avisos.erro(e); }
+    this.carregando.set(true);
+    try { this.todos.set(await this.srv.listar()); this.erro.set(''); }
+    catch (e) { this.erro.set(erroAmigavel(e)); this.avisos.erro(e); }
     finally { this.carregando.set(false); }
   }
 

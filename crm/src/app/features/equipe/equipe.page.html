@@ -42,7 +42,8 @@
 
 <section class="cartao" aria-labelledby="t-pessoas">
   <h2 id="t-pessoas">Pessoas com acesso</h2>
-  <div class="tabela-rolagem">
+  @if (carregando()) { <p class="mudo" role="status">Carregando…</p> }
+  <div class="tabela-rolagem" [attr.aria-busy]="carregando()">
     <table class="tabela">
       <caption class="sr-only">Pessoas com acesso ao sistema</caption>
       <thead>

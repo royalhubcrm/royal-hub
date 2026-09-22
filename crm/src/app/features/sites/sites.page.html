@@ -35,6 +35,8 @@
           </li>
         }
       </ul>
+    } @else if (carregando()) {
+      <p class="vazio" role="status">Carregando…</p>
     } @else {
       <p class="vazio">Nenhum site criado ainda.</p>
     }

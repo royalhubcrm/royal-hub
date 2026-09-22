@@ -45,7 +45,7 @@
 </form>
 
 @if (itens().length) {
-  <div class="tabela-rolagem" [class.esmaecida]="carregando()">
+  <div class="tabela-rolagem" [class.esmaecida]="carregando()" [attr.aria-busy]="carregando()">
     <table class="tabela">
       <caption class="sr-only">Leads, {{ faixa() }}. Os cabeçalhos com botão ordenam a tabela.</caption>
       <thead>
@@ -97,7 +97,9 @@
       <button type="button" class="btn pequeno" (click)="irPara(paginas())" [disabled]="filtro().pagina >= paginas()" aria-label="Última página">»</button>
     </div>
   </nav>
-} @else if (!carregando()) {
+} @else if (carregando()) {
+  <p class="vazio" role="status">Buscando leads…</p>
+} @else {
   <div class="vazio">
     @if (temFiltro()) {
       Nenhum lead com esses filtros. <button type="button" class="btn pequeno" (click)="limpar()">Limpar filtros</button>

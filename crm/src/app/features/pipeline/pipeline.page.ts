@@ -9,6 +9,7 @@ import { EquipeService } from '../../core/services/equipe.service';
 import { LeadsService } from '../../core/services/leads.service';
 import { PipelineService } from '../../core/services/pipeline.service';
 import { AvisosService } from '../../core/ui/avisos.service';
+import { erroAmigavel } from '../../core/supabase/supabase.client';
 import { BrlPipe } from '../../shared/pipes/brl.pipe';
 import { semAcento } from '../../shared/util/planilha';
 import { LeadGaveta } from '../leads/components/lead-gaveta';
@@ -39,6 +40,7 @@ export default class PipelinePage {
   protected readonly etapas = signal<EtapaPipeline[]>([]);
   protected readonly leads = signal<Lead[]>([]);
   protected readonly carregando = signal(true);
+  protected readonly erro = signal('');
   protected readonly busca = signal('');
   protected readonly soMeus = signal(false);
   protected readonly temperatura = signal('');
@@ -84,7 +86,9 @@ export default class PipelinePage {
       const [etapas, leads] = await Promise.all([this.pipeline.etapas(), this.leadsSrv.doKanban()]);
       this.etapas.set(etapas);
       this.leads.set(leads);
+      this.erro.set('');
     } catch (e) {
+      this.erro.set(erroAmigavel(e));
       this.avisos.erro(e);
     } finally {
       this.carregando.set(false);

@@ -32,6 +32,7 @@ export default class SitesPage {
   private rascunhoInicial = '';
   protected readonly salvando = signal(false);
   protected readonly desenhando = signal(false);
+  protected readonly carregando = signal(true);
   protected readonly tentouSalvar = signal(false);
   protected readonly tocados = signal<Set<string>>(new Set());
   protected descricao = '';
@@ -59,6 +60,8 @@ export default class SitesPage {
       this.carteira.set(c);
     } catch (e) {
       this.avisos.erro(e);
+    } finally {
+      this.carregando.set(false);
     }
   }
 
@@ -145,6 +148,7 @@ export default class SitesPage {
     if (!(await this.avisos.confirmar(`Excluir o site ${s.nome}?`, { texto: 'O endereço para de funcionar na hora.', confirmar: 'Excluir site' }))) return;
     try {
       await this.srv.remover(s.id);
+      this.avisos.ok('Site excluído.');
       await this.carregar();
     } catch (e) {
       this.avisos.erro(e);

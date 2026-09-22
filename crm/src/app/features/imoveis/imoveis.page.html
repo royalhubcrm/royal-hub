@@ -52,7 +52,7 @@
 </form>
 
 @if (lista().length) {
-  <ul class="grade-imoveis">
+  <ul class="grade-imoveis" [attr.aria-busy]="carregando()">
     @for (m of visiveis(); track m.id) {
       <li class="imovel" [class.marcado]="selecionados().has(m.id)">
         <div class="foto">
@@ -94,7 +94,11 @@
       <button type="button" class="btn" (click)="limite.set(limite() + passo)">Mostrar mais ({{ lista().length - visiveis().length }} restantes)</button>
     </div>
   }
-} @else if (!carregando()) {
+} @else if (carregando()) {
+  <p class="vazio" role="status">Carregando a carteira…</p>
+} @else if (erro()) {
+  <div class="vazio">{{ erro() }} <button type="button" class="btn pequeno" (click)="carregar()">Tentar de novo</button></div>
+} @else {
   <div class="vazio">
     @if (todos().length) { Nenhum imóvel com esses filtros. <button type="button" class="btn pequeno" (click)="limpar()">Limpar filtros</button> }
     @else { Carteira vazia. Use <b>Importar</b> para colar os imóveis de outra planilha ou cadastre um. }

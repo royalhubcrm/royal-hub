@@ -125,6 +125,7 @@ export default class EmpresasPage {
     if (e.ativa && !(await this.avisos.confirmar(`Bloquear ${e.nome}?`, { texto: 'Ninguém dela consegue entrar até você liberar. Os dados ficam guardados.', confirmar: 'Bloquear' }))) return;
     try {
       await this.srv.ativarEmpresa(e.id, !e.ativa);
+      this.avisos.ok(e.ativa ? `${e.nome} bloqueada.` : `${e.nome} liberada.`);
       await this.carregar();
     } catch (err) {
       this.avisos.erro(err);

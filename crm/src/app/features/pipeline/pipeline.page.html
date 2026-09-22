@@ -24,7 +24,13 @@
   <span class="contagem" role="status">{{ carregando() ? 'Carregando…' : visiveis().length + ' lead(s)' }}</span>
 </form>
 
-<div class="quadro" cdkDropListGroup>
+@if (erro()) {
+  <p class="aviso erro" role="alert">{{ erro() }} <button type="button" class="btn pequeno" (click)="carregar()">Tentar de novo</button></p>
+} @else if (carregando() && !etapas().length) {
+  <p class="vazio" role="status">Carregando o pipeline…</p>
+}
+
+<div class="quadro" cdkDropListGroup [attr.aria-busy]="carregando()">
   @for (col of colunas(); track col.etapa.slug) {
     <section class="coluna" [attr.aria-labelledby]="'col-' + col.etapa.slug" [style.--cor]="col.etapa.cor">
       <header>

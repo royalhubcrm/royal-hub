@@ -24,6 +24,7 @@ export default class EquipePage {
   protected readonly pessoas = signal<Perfil[]>([]);
   protected readonly equipes = signal<Equipe[]>([]);
   protected readonly ocupado = signal(false);
+  protected readonly carregando = signal(true);
 
   protected nova = { nome: '', email: '', senha: '', papel: 'corretor' as Papel };
   protected readonly tentouCriar = signal(false);
@@ -44,6 +45,8 @@ export default class EquipePage {
       this.equipes.set(e);
     } catch (e) {
       this.avisos.erro(e);
+    } finally {
+      this.carregando.set(false);
     }
   }
 
@@ -148,6 +151,7 @@ export default class EquipePage {
     if (!ok) return;
     try {
       await this.srv.removerEquipe(e.id);
+      this.avisos.ok('Equipe excluída.');
       await this.carregar();
     } catch (err) {
       this.avisos.erro(err);
