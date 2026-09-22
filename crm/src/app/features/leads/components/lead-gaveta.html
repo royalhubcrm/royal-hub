@@ -2,25 +2,25 @@
   <form id="form-lead" class="pilha" (ngSubmit)="salvar()" novalidate>
     <div class="grade-campos">
       <div class="campo">
-        <label for="l-nome">Nome *</label>
-        <input id="l-nome" name="nome" [(ngModel)]="f.nome" autocomplete="off" required autofocus
-               [attr.aria-invalid]="tentouSalvar() && !!erroNome" aria-describedby="l-nome-erro" />
-        @if (tentouSalvar() && erroNome) { <span class="erro" id="l-nome-erro">{{ erroNome }}</span> }
+        <label for="l-nome" class="obrigatorio">Nome</label>
+        <input id="l-nome" name="nome" [(ngModel)]="f.nome" autocomplete="off" required autofocus (blur)="tocar('nome')"
+               [attr.aria-invalid]="mostraErro('nome') && !!erroNome" aria-describedby="l-nome-erro" />
+        @if (mostraErro('nome') && erroNome) { <span class="erro" id="l-nome-erro">{{ erroNome }}</span> }
       </div>
       <div class="campo">
         <label for="l-tel">WhatsApp / telefone</label>
-        <input id="l-tel" name="telefone" [(ngModel)]="f.telefone" appMascara="telefone" placeholder="(34) 99999-0000"
-               [attr.aria-invalid]="tentouSalvar() && !!erroTelefone" aria-describedby="l-tel-erro" />
-        @if (tentouSalvar() && erroTelefone) { <span class="erro" id="l-tel-erro">{{ erroTelefone }}</span> }
+        <input id="l-tel" name="telefone" [(ngModel)]="f.telefone" appMascara="telefone" placeholder="(34) 99999-0000" (blur)="tocar('telefone')"
+               [attr.aria-invalid]="mostraErro('telefone') && !!erroTelefone" aria-describedby="l-tel-erro" />
+        @if (mostraErro('telefone') && erroTelefone) { <span class="erro" id="l-tel-erro">{{ erroTelefone }}</span> }
       </div>
     </div>
 
     <div class="grade-campos">
       <div class="campo">
         <label for="l-email">E-mail</label>
-        <input id="l-email" name="email" type="email" [(ngModel)]="f.email"
-               [attr.aria-invalid]="tentouSalvar() && !!erroEmail" aria-describedby="l-email-erro" />
-        @if (tentouSalvar() && erroEmail) { <span class="erro" id="l-email-erro">{{ erroEmail }}</span> }
+        <input id="l-email" name="email" type="email" [(ngModel)]="f.email" (blur)="tocar('email')"
+               [attr.aria-invalid]="mostraErro('email') && !!erroEmail" aria-describedby="l-email-erro" />
+        @if (mostraErro('email') && erroEmail) { <span class="erro" id="l-email-erro">{{ erroEmail }}</span> }
       </div>
       <div class="campo">
         <label for="l-empresa">Empresa do cliente</label>

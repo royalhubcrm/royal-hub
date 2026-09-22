@@ -7,6 +7,7 @@ import { AvisosService } from '../../../core/ui/avisos.service';
 import { Gaveta } from '../../../shared/ui/gaveta';
 import { MascaraDirective } from '../../../shared/ui/mascara.directive';
 import { soDigitos } from '../../../shared/util/telefone';
+import { cepValido, focarPrimeiroErro } from '../../../shared/util/validacao';
 
 @Component({
   selector: 'app-imovel-gaveta',
@@ -32,6 +33,7 @@ export class ImovelGaveta {
   protected f: ImovelEditavel = imovelVazio();
   protected readonly fotos = signal<string[]>([]);
   protected readonly tentou = signal(false);
+  protected readonly tocados = signal<Set<string>>(new Set());
   protected readonly salvando = signal(false);
   protected readonly enviando = signal(0);
   protected novaUrl = '';
@@ -46,12 +48,16 @@ export class ImovelGaveta {
       this.f = m ? { ...m } : imovelVazio(cidade);
       this.fotos.set(m ? [...m.fotos] : []);
       this.tentou.set(false);
+      this.tocados.set(new Set());
       this.novaUrl = '';
       if (!this.config.config()) void this.config.carregar().catch(() => null);
     });
   }
 
   protected get erroCodigo() { return this.f.codigo.trim() ? '' : 'Digite o código.'; }
+  protected get erroCep() { return cepValido(this.f.cep) ? '' : 'O CEP tem 8 dígitos.'; }
+  protected tocar(campo: string) { this.tocados.update((s) => new Set(s).add(campo)); }
+  protected mostraErro(campo: string) { return this.tentou() || this.tocados().has(campo); }
   protected get pendencias() { return pendenciasPortais({ ...this.f, fotos: this.fotos() } as Imovel); }
 
   protected async preencherCep() {
@@ -101,7 +107,7 @@ export class ImovelGaveta {
   // ---------------------------------------------------------------- gravar
   protected async salvar() {
     this.tentou.set(true);
-    if (this.erroCodigo) return this.avisos.erro('Confira os campos marcados.');
+    if (this.erroCodigo || this.erroCep) { focarPrimeiroErro(); return this.avisos.erro('Confira os campos marcados.'); }
     this.salvando.set(true);
     try {
       // o CEP vai para o banco só com os dígitos (é assim que o feed dos portais espera)

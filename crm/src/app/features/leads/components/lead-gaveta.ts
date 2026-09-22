@@ -12,6 +12,7 @@ import { QuandoPipe } from '../../../shared/pipes/formatos.pipe';
 import { Gaveta } from '../../../shared/ui/gaveta';
 import { MascaraDirective } from '../../../shared/ui/mascara.directive';
 import { formatarTelefone, linkWhats, soDigitos } from '../../../shared/util/telefone';
+import { emailValido, focarPrimeiroErro, telefoneValido } from '../../../shared/util/validacao';
 
 interface Rascunho {
   nome: string; telefone: string; email: string; empresa: string; origem: string; campanha: string;
@@ -51,6 +52,8 @@ export class LeadGaveta {
   protected readonly temperaturas = TEMPERATURAS;
   protected f: Rascunho = this.vazio();
   protected readonly tentouSalvar = signal(false);
+  /** Campos por onde a pessoa já passou: o erro aparece ao sair do campo, não enquanto digita. */
+  protected readonly tocados = signal<Set<string>>(new Set());
   protected readonly salvando = signal(false);
   protected readonly historico = signal<Historico[]>([]);
   protected readonly sugestao = signal('');
@@ -67,6 +70,7 @@ export class LeadGaveta {
       if (!this.aberta()) return;
       this.f = l ? this.deLead(l) : { ...this.vazio(), status: this.etapaInicial() };
       this.tentouSalvar.set(false);
+      this.tocados.set(new Set());
       this.sugestao.set('');
       this.nota = '';
       this.historico.set([]);
@@ -78,20 +82,17 @@ export class LeadGaveta {
 
   // ---------------------------------------------------------------- validação
   protected get erroNome() { return this.f.nome.trim() ? '' : 'Digite o nome.'; }
-  protected get erroTelefone() {
-    const d = soDigitos(this.f.telefone) ?? '';
-    return !d || (d.length >= 10 && d.length <= 13) ? '' : 'Use DDD + número (10 ou 11 dígitos).';
-  }
-  protected get erroEmail() {
-    const e = this.f.email.trim();
-    return !e || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e) ? '' : 'E-mail incompleto.';
-  }
+  protected get erroTelefone() { return telefoneValido(this.f.telefone) ? '' : 'Use DDD + número (10 ou 11 dígitos).'; }
+  protected get erroEmail() { return emailValido(this.f.email) ? '' : 'E-mail incompleto.'; }
+  protected tocar(campo: string) { this.tocados.update((s) => new Set(s).add(campo)); }
+  protected mostraErro(campo: string) { return this.tentouSalvar() || this.tocados().has(campo); }
   protected get whats() { return linkWhats(this.f.telefone); }
 
   protected async salvar() {
     this.tentouSalvar.set(true);
     if (this.erroNome || this.erroTelefone || this.erroEmail) {
       this.avisos.erro('Confira os campos marcados.');
+      focarPrimeiroErro();
       return;
     }
     this.salvando.set(true);

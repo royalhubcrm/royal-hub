@@ -42,16 +42,24 @@
 } @else {
   @let r = rascunho()!;
   <div class="editor">
-    <form class="cartao pilha" (ngSubmit)="salvar()" aria-label="Editar site">
+    <form class="cartao pilha" (ngSubmit)="salvar()" aria-label="Editar site" novalidate>
       <div class="linha">
         <h2>{{ r.id ? 'Editando ' + r.nome : 'Novo site' }}</h2>
         <button type="button" class="btn fantasma pequeno empurra" (click)="rascunho.set(null)">Descartar</button>
       </div>
 
-      <div class="campo"><label for="r-nome">Nome da imobiliária</label><input id="r-nome" [ngModel]="r.nome" name="nome" (ngModelChange)="mudar('nome', $event)" /></div>
       <div class="campo">
-        <label for="r-slug">Endereço</label>
-        <div class="endereco"><span class="mono mudo pequeno">/s/</span><input id="r-slug" class="mono" [ngModel]="r.slug" name="slug" (ngModelChange)="mudar('slug', $event)" /></div>
+        <label for="r-nome" class="obrigatorio">Nome da imobiliária</label>
+        <input id="r-nome" [ngModel]="r.nome" name="nome" (ngModelChange)="mudar('nome', $event)" required (blur)="tocar('nome')"
+               [attr.aria-invalid]="mostraErro('nome') && !r.nome.trim()" aria-describedby="r-nome-erro" />
+        @if (mostraErro('nome') && !r.nome.trim()) { <span class="erro" id="r-nome-erro">Dê um nome para o site.</span> }
+      </div>
+      <div class="campo">
+        <label for="r-slug" class="obrigatorio">Endereço</label>
+        <div class="endereco"><span class="mono mudo pequeno">/s/</span>
+          <input id="r-slug" class="mono" [ngModel]="r.slug" name="slug" (ngModelChange)="mudar('slug', $event)" required (blur)="tocar('slug')"
+                 [attr.aria-invalid]="mostraErro('slug') && !slugOk(r.slug)" aria-describedby="r-slug-erro" /></div>
+        @if (mostraErro('slug') && !slugOk(r.slug)) { <span class="erro" id="r-slug-erro">Só letras minúsculas, números e hífen (2 a 40).</span> }
       </div>
       <div class="campo"><label for="r-titulo">Chamada principal</label><input id="r-titulo" [ngModel]="r.titulo" name="titulo" (ngModelChange)="mudar('titulo', $event)" /></div>
       <div class="campo"><label for="r-sub">Linha de apoio</label><input id="r-sub" [ngModel]="r.subtitulo" name="subtitulo" (ngModelChange)="mudar('subtitulo', $event)" /></div>

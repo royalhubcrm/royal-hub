@@ -6,6 +6,7 @@ import { EquipeService } from '../../core/services/equipe.service';
 import { AvisosService } from '../../core/ui/avisos.service';
 import { QuandoPipe } from '../../shared/pipes/formatos.pipe';
 import { Gaveta } from '../../shared/ui/gaveta';
+import { emailValido, focarPrimeiroErro } from '../../shared/util/validacao';
 
 @Component({
   selector: 'app-equipe',
@@ -26,6 +27,7 @@ export default class EquipePage {
 
   protected nova = { nome: '', email: '', senha: '', papel: 'corretor' as Papel };
   protected readonly tentouCriar = signal(false);
+  protected readonly tocados = signal<Set<string>>(new Set());
   protected nomeEquipe = '';
 
   protected readonly trocandoSenha = signal<Perfil | null>(null);
@@ -48,7 +50,9 @@ export default class EquipePage {
   protected membros(e: Equipe) { return this.pessoas().filter((p) => p.equipe_id === e.id).map((p) => p.nome).join(', '); }
 
   // ---------------------------------------------------------------- pessoas
-  protected get erroEmail() { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.nova.email.trim()) ? '' : 'E-mail inválido.'; }
+  protected get erroEmail() { return this.nova.email.trim() && emailValido(this.nova.email) ? '' : 'E-mail inválido.'; }
+  protected tocar(campo: string) { this.tocados.update((s) => new Set(s).add(campo)); }
+  protected mostraErro(campo: string) { return this.tentouCriar() || this.tocados().has(campo); }
   protected get erroSenha() { return this.nova.senha.length >= 8 ? '' : 'Pelo menos 8 caracteres.'; }
 
   protected sugerirSenha() {
@@ -58,13 +62,14 @@ export default class EquipePage {
 
   protected async criar() {
     this.tentouCriar.set(true);
-    if (!this.nova.nome.trim() || this.erroEmail || this.erroSenha) return this.avisos.erro('Confira os campos marcados.');
+    if (!this.nova.nome.trim() || this.erroEmail || this.erroSenha) { focarPrimeiroErro(); return this.avisos.erro('Confira os campos marcados.'); }
     this.ocupado.set(true);
     try {
       await this.srv.criarPessoa({ ...this.nova, nome: this.nova.nome.trim(), email: this.nova.email.trim() });
       this.avisos.ok(`${this.nova.nome} pode entrar. Passe o e-mail e a senha provisória para a pessoa.`);
       this.nova = { nome: '', email: '', senha: '', papel: 'corretor' };
       this.tentouCriar.set(false);
+      this.tocados.set(new Set());
       await this.carregar();
     } catch (e) {
       this.avisos.erro(e);

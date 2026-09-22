@@ -5,6 +5,7 @@ import { EmpresaPublica, SitesService } from '../../core/services/sites.service'
 import { erroAmigavel } from '../../core/supabase/supabase.client';
 import { MascaraDirective } from '../../shared/ui/mascara.directive';
 import { linkWhats, soDigitos } from '../../shared/util/telefone';
+import { emailValido, focarPrimeiroErro } from '../../shared/util/validacao';
 
 /** /captar/:empresa?c=campanha — o formulário que vai no anúncio ou na bio. */
 @Component({
@@ -20,20 +21,22 @@ import { linkWhats, soDigitos } from '../../shared/util/telefone';
           <p class="apoio">Um corretor te chama no WhatsApp com opções que encaixam no que você pediu.</p>
           <form class="pilha" (ngSubmit)="enviar()" novalidate>
             <div class="campo">
-              <label for="c-nome">Seu nome</label>
-              <input id="c-nome" name="nome" autocomplete="name" [(ngModel)]="f.nome" required
-                     [attr.aria-invalid]="tentou() && f.nome.trim().length < 2" aria-describedby="c-nome-erro" />
-              @if (tentou() && f.nome.trim().length < 2) { <span class="erro" id="c-nome-erro">Digite o seu nome.</span> }
+              <label for="c-nome" class="obrigatorio">Seu nome</label>
+              <input id="c-nome" name="nome" autocomplete="name" [(ngModel)]="f.nome" required (blur)="tocar('nome')"
+                     [attr.aria-invalid]="mostraErro('nome') && f.nome.trim().length < 2" aria-describedby="c-nome-erro" />
+              @if (mostraErro('nome') && f.nome.trim().length < 2) { <span class="erro" id="c-nome-erro">Digite o seu nome.</span> }
             </div>
             <div class="campo">
-              <label for="c-tel">WhatsApp com DDD</label>
-              <input id="c-tel" name="tel" appMascara="telefone" [(ngModel)]="f.telefone" required
-                     placeholder="(34) 99999-0000" [attr.aria-invalid]="tentou() && !telOk()" aria-describedby="c-tel-erro" />
-              @if (tentou() && !telOk()) { <span class="erro" id="c-tel-erro">Confira o número com DDD.</span> }
+              <label for="c-tel" class="obrigatorio">WhatsApp com DDD</label>
+              <input id="c-tel" name="tel" appMascara="telefone" [(ngModel)]="f.telefone" required (blur)="tocar('telefone')"
+                     placeholder="(34) 99999-0000" [attr.aria-invalid]="mostraErro('telefone') && !telOk()" aria-describedby="c-tel-erro" />
+              @if (mostraErro('telefone') && !telOk()) { <span class="erro" id="c-tel-erro">Confira o número com DDD.</span> }
             </div>
             <div class="campo">
               <label for="c-email">E-mail <span class="opcional">(opcional)</span></label>
-              <input id="c-email" name="email" type="email" autocomplete="email" [(ngModel)]="f.email" />
+              <input id="c-email" name="email" type="email" autocomplete="email" [(ngModel)]="f.email" (blur)="tocar('email')"
+                     [attr.aria-invalid]="mostraErro('email') && !emailOk()" aria-describedby="c-email-erro" />
+              @if (mostraErro('email') && !emailOk()) { <span class="erro" id="c-email-erro">E-mail incompleto.</span> }
             </div>
             <div class="campo">
               <label for="c-int">O que você procura?</label>
@@ -84,6 +87,7 @@ export default class CaptarPage {
   protected readonly enviado = signal(false);
   protected readonly enviando = signal(false);
   protected readonly tentou = signal(false);
+  protected readonly tocados = signal<Set<string>>(new Set());
   protected readonly erro = signal('');
   protected f = { nome: '', telefone: '', email: '', interesse: '' };
 
@@ -104,10 +108,13 @@ export default class CaptarPage {
   }
 
   protected telOk() { return (soDigitos(this.f.telefone) ?? '').length >= 10; }
+  protected emailOk() { return emailValido(this.f.email); }
+  protected tocar(campo: string) { this.tocados.update((s) => new Set(s).add(campo)); }
+  protected mostraErro(campo: string) { return this.tentou() || this.tocados().has(campo); }
 
   protected async enviar() {
     this.tentou.set(true);
-    if (this.f.nome.trim().length < 2 || !this.telOk()) return;
+    if (this.f.nome.trim().length < 2 || !this.telOk() || !this.emailOk()) return focarPrimeiroErro();
     this.enviando.set(true);
     this.erro.set('');
     try {

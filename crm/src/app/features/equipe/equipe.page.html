@@ -10,23 +10,25 @@
   <h2 id="t-nova">Adicionar pessoa</h2>
   <form class="nova" (ngSubmit)="criar()" novalidate>
     <div class="campo">
-      <label for="n-nome">Nome</label>
-      <input id="n-nome" name="nome" [(ngModel)]="nova.nome" autocomplete="off" [attr.aria-invalid]="tentouCriar() && !nova.nome.trim()" />
+      <label for="n-nome" class="obrigatorio">Nome</label>
+      <input id="n-nome" name="nome" [(ngModel)]="nova.nome" autocomplete="off" required (blur)="tocar('nome')"
+             [attr.aria-invalid]="mostraErro('nome') && !nova.nome.trim()" aria-describedby="n-nome-erro" />
+      @if (mostraErro('nome') && !nova.nome.trim()) { <span class="erro" id="n-nome-erro">Digite o nome.</span> }
     </div>
     <div class="campo">
-      <label for="n-email">E-mail</label>
-      <input id="n-email" name="email" type="email" [(ngModel)]="nova.email" autocomplete="off"
-             [attr.aria-invalid]="tentouCriar() && !!erroEmail" aria-describedby="n-email-erro" />
-      @if (tentouCriar() && erroEmail) { <span class="erro" id="n-email-erro">{{ erroEmail }}</span> }
+      <label for="n-email" class="obrigatorio">E-mail</label>
+      <input id="n-email" name="email" type="email" [(ngModel)]="nova.email" autocomplete="off" required (blur)="tocar('email')"
+             [attr.aria-invalid]="mostraErro('email') && !!erroEmail" aria-describedby="n-email-erro" />
+      @if (mostraErro('email') && erroEmail) { <span class="erro" id="n-email-erro">{{ erroEmail }}</span> }
     </div>
     <div class="campo">
-      <label for="n-senha">Senha provisória</label>
+      <label for="n-senha" class="obrigatorio">Senha provisória</label>
       <div class="linha sem-quebra">
-        <input id="n-senha" name="senha" class="mono" [(ngModel)]="nova.senha" autocomplete="new-password"
-               [attr.aria-invalid]="tentouCriar() && !!erroSenha" aria-describedby="n-senha-erro" />
+        <input id="n-senha" name="senha" class="mono" [(ngModel)]="nova.senha" autocomplete="new-password" required (blur)="tocar('senha')"
+               [attr.aria-invalid]="mostraErro('senha') && !!erroSenha" aria-describedby="n-senha-erro" />
         <button type="button" class="btn pequeno" (click)="sugerirSenha()">Gerar</button>
       </div>
-      @if (tentouCriar() && erroSenha) { <span class="erro" id="n-senha-erro">{{ erroSenha }}</span> }
+      @if (mostraErro('senha') && erroSenha) { <span class="erro" id="n-senha-erro">{{ erroSenha }}</span> }
     </div>
     <div class="campo">
       <label for="n-papel">Perfil</label>
@@ -111,7 +113,7 @@
   }
   <form class="linha nova-equipe" (ngSubmit)="criarEquipe()">
     <div class="campo">
-      <label for="eq-nome">Nova equipe</label>
+      <label for="eq-nome" class="obrigatorio">Nova equipe</label>
       <input id="eq-nome" name="eq" [(ngModel)]="nomeEquipe" placeholder="Ex.: Equipe Centro" />
     </div>
     <button class="btn" type="submit">Criar equipe</button>
@@ -128,8 +130,9 @@
 <app-gaveta [titulo]="'Nova senha para ' + (trocandoSenha()?.nome ?? '')" [aberta]="!!trocandoSenha()" (fechar)="trocandoSenha.set(null)">
   <form id="form-senha" class="pilha" (ngSubmit)="trocarSenha()">
     <div class="campo">
-      <label for="s-nova">Senha nova</label>
-      <input id="s-nova" name="nova" class="mono" [(ngModel)]="senhaNova" autocomplete="new-password" aria-describedby="s-nova-ajuda" />
+      <label for="s-nova" class="obrigatorio">Senha nova</label>
+      <input id="s-nova" name="nova" class="mono" [(ngModel)]="senhaNova" autocomplete="new-password" required minlength="8"
+             [attr.aria-invalid]="senhaNova.length > 0 && senhaNova.length < 8" aria-describedby="s-nova-ajuda" autofocus />
       <span class="ajuda" id="s-nova-ajuda">Pelo menos 8 caracteres. Passe para a pessoa; ela pode trocar depois em "Esqueci minha senha".</span>
     </div>
   </form>

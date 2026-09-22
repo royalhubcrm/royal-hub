@@ -9,6 +9,7 @@ import { AvisosService } from '../../core/ui/avisos.service';
 import { slugDe } from '../../shared/util/texto';
 import { Vitrine } from '../publico/vitrine';
 import { MascaraDirective } from '../../shared/ui/mascara.directive';
+import { focarPrimeiroErro } from '../../shared/util/validacao';
 
 @Component({
   selector: 'app-sites',
@@ -30,6 +31,8 @@ export default class SitesPage {
   protected readonly rascunho = signal<SiteEditavel | null>(null);
   protected readonly salvando = signal(false);
   protected readonly desenhando = signal(false);
+  protected readonly tentouSalvar = signal(false);
+  protected readonly tocados = signal<Set<string>>(new Set());
   protected descricao = '';
   protected readonly origem = location.origin;
 
@@ -64,6 +67,10 @@ export default class SitesPage {
   }
 
   protected editar(s: Site) { this.rascunho.set(structuredClone(s)); }
+
+  protected slugOk(slug: string) { return /^[a-z0-9-]{2,40}$/.test(slug); }
+  protected tocar(campo: string) { this.tocados.update((s) => new Set(s).add(campo)); }
+  protected mostraErro(campo: string) { return this.tentouSalvar() || this.tocados().has(campo); }
 
   /** Atualiza um campo do rascunho (a prévia acompanha na hora). */
   protected mudar<K extends keyof SiteEditavel>(campo: K, valor: SiteEditavel[K]) {
@@ -109,13 +116,15 @@ export default class SitesPage {
   protected async salvar() {
     const r = this.rascunho();
     if (!r) return;
-    if (!r.nome.trim()) return this.avisos.erro('Dê um nome para o site.');
-    if (!/^[a-z0-9-]{2,40}$/.test(r.slug)) return this.avisos.erro('O endereço só pode ter letras minúsculas, números e hífen.');
+    this.tentouSalvar.set(true);
+    if (!r.nome.trim() || !this.slugOk(r.slug)) { focarPrimeiroErro(); return this.avisos.erro('Confira os campos marcados.'); }
     this.salvando.set(true);
     try {
       const salvo = await this.srv.salvar({ ...r, whats: r.whats.replace(/\D/g, '') });
       this.avisos.ok(`Site no ar: ${this.origem}/s/${salvo.slug}`);
       this.rascunho.set(null);
+      this.tentouSalvar.set(false);
+      this.tocados.set(new Set());
       await this.carregar();
     } catch (e) {
       this.avisos.erro(e);

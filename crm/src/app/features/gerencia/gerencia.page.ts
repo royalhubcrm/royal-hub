@@ -10,6 +10,7 @@ import { DiaSemanaPipe, QuandoPipe, TelefonePipe } from '../../shared/pipes/form
 import { Gaveta } from '../../shared/ui/gaveta';
 import { MascaraDirective } from '../../shared/ui/mascara.directive';
 import { soDigitos } from '../../shared/util/telefone';
+import { focarPrimeiroErro, telefoneValido } from '../../shared/util/validacao';
 
 const DIAS_PARADA = 2;
 
@@ -38,9 +39,11 @@ export default class GerenciaPage {
 
   protected readonly marcando = signal(false);
   protected nova = { nome: '', telefone: '', data: '', hora: '', imovel: '', local: '' };
+  protected readonly tentouMarcar = signal(false);
+  protected readonly tocados = signal<Set<string>>(new Set());
 
   protected readonly diasParada = DIAS_PARADA;
-  private readonly hoje = new Date().toLocaleDateString('sv-SE'); // AAAA-MM-DD no fuso do navegador
+  protected readonly hoje = new Date().toLocaleDateString('sv-SE'); // AAAA-MM-DD no fuso do navegador
 
   protected readonly proximos = computed(() =>
     this.agenda().filter((a) => a.status !== 'cancelado' && (!a.data || a.data >= this.hoje)));
@@ -140,9 +143,14 @@ export default class GerenciaPage {
 
   protected copiar(t: string) { void navigator.clipboard?.writeText(t).then(() => this.avisos.ok('Copiado.')); }
 
+  protected tocar(campo: string) { this.tocados.update((s) => new Set(s).add(campo)); }
+  protected mostraErro(campo: string) { return this.tentouMarcar() || this.tocados().has(campo); }
+  protected telefoneOk() { return telefoneValido(this.nova.telefone); }
+
   protected async marcar() {
     const n = this.nova;
-    if (!n.nome.trim() || !n.data) return this.avisos.erro('Preencha pelo menos o nome e o dia.');
+    this.tentouMarcar.set(true);
+    if (!n.nome.trim() || !n.data || !this.telefoneOk()) { focarPrimeiroErro(); return this.avisos.erro('Preencha pelo menos o nome e o dia.'); }
     try {
       await this.srv.marcar({
         nome: n.nome.trim(), telefone: soDigitos(n.telefone) ?? '', data: n.data, hora: n.hora || null,
@@ -150,6 +158,8 @@ export default class GerenciaPage {
         como: 'Marcado no painel',
       });
       this.nova = { nome: '', telefone: '', data: '', hora: '', imovel: '', local: '' };
+      this.tentouMarcar.set(false);
+      this.tocados.set(new Set());
       this.marcando.set(false);
       this.avisos.ok('Atendimento marcado.');
       void this.carregar();

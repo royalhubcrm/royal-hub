@@ -162,11 +162,26 @@
 </app-gaveta>
 
 <app-gaveta titulo="Marcar visita" [aberta]="marcando()" (fechar)="marcando.set(false)">
-  <form id="form-visita" class="pilha" (ngSubmit)="marcar()">
-    <div class="campo"><label for="v-nome">Cliente *</label><input id="v-nome" name="nome" [(ngModel)]="nova.nome" required /></div>
-    <div class="campo"><label for="v-tel">WhatsApp</label><input id="v-tel" name="tel" appMascara="telefone" [(ngModel)]="nova.telefone" placeholder="(34) 99999-0000" /></div>
+  <form id="form-visita" class="pilha" (ngSubmit)="marcar()" novalidate>
+    <div class="campo">
+      <label for="v-nome" class="obrigatorio">Cliente</label>
+      <input id="v-nome" name="nome" [(ngModel)]="nova.nome" required autofocus (blur)="tocar('nome')"
+             [attr.aria-invalid]="mostraErro('nome') && !nova.nome.trim()" aria-describedby="v-nome-erro" />
+      @if (mostraErro('nome') && !nova.nome.trim()) { <span class="erro" id="v-nome-erro">Quem vai visitar?</span> }
+    </div>
+    <div class="campo">
+      <label for="v-tel">WhatsApp</label>
+      <input id="v-tel" name="tel" appMascara="telefone" [(ngModel)]="nova.telefone" placeholder="(34) 99999-0000" (blur)="tocar('telefone')"
+             [attr.aria-invalid]="mostraErro('telefone') && !telefoneOk()" aria-describedby="v-tel-erro" />
+      @if (mostraErro('telefone') && !telefoneOk()) { <span class="erro" id="v-tel-erro">Use DDD + número.</span> }
+    </div>
     <div class="grade-campos">
-      <div class="campo"><label for="v-data">Dia *</label><input id="v-data" name="data" type="date" [(ngModel)]="nova.data" required /></div>
+      <div class="campo">
+        <label for="v-data" class="obrigatorio">Dia</label>
+        <input id="v-data" name="data" type="date" [(ngModel)]="nova.data" required [min]="hoje" (blur)="tocar('data')"
+               [attr.aria-invalid]="mostraErro('data') && !nova.data" aria-describedby="v-data-erro" />
+        @if (mostraErro('data') && !nova.data) { <span class="erro" id="v-data-erro">Escolha o dia.</span> }
+      </div>
       <div class="campo"><label for="v-hora">Hora</label><input id="v-hora" name="hora" type="time" [(ngModel)]="nova.hora" /></div>
     </div>
     <div class="campo"><label for="v-imv">Imóvel (código)</label><input id="v-imv" name="imovel" class="mono" [(ngModel)]="nova.imovel" /></div>

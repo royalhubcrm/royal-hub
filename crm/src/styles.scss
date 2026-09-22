@@ -121,6 +121,8 @@ img { max-width: 100%; }
 .campo {
   display: flex; flex-direction: column; gap: 5px; min-width: 0;
   label, .rotulo { font-size: 12px; font-weight: 500; color: var(--slate-700); }
+  /* campo obrigatório: asterisco depois do rótulo (o leitor de tela recebe o "required" do input) */
+  label.obrigatorio::after, legend.obrigatorio::after { content: ' *'; color: var(--perda); font-weight: 600; }
   .ajuda { font-size: 12px; color: var(--slate-500); }
   .erro { font-size: 12px; color: var(--perda); }
 }

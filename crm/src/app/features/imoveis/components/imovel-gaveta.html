@@ -4,9 +4,10 @@
       <legend>O imóvel</legend>
       <div class="grade-campos">
         <div class="campo">
-          <label for="m-cod">Código *</label>
-          <input id="m-cod" name="codigo" class="mono" [(ngModel)]="f.codigo" [attr.aria-invalid]="tentou() && !!erroCodigo" aria-describedby="m-cod-erro" />
-          @if (tentou() && erroCodigo) { <span class="erro" id="m-cod-erro">{{ erroCodigo }}</span> }
+          <label for="m-cod" class="obrigatorio">Código</label>
+          <input id="m-cod" name="codigo" class="mono" [(ngModel)]="f.codigo" required autofocus (blur)="tocar('codigo')"
+                 [attr.aria-invalid]="mostraErro('codigo') && !!erroCodigo" aria-describedby="m-cod-erro" />
+          @if (mostraErro('codigo') && erroCodigo) { <span class="erro" id="m-cod-erro">{{ erroCodigo }}</span> }
         </div>
         <div class="campo">
           <label for="m-tipo">Tipo</label>
@@ -50,7 +51,9 @@
       <div class="grade-campos">
         <div class="campo">
           <label for="m-cep">CEP</label>
-          <input id="m-cep" name="cep" class="mono" appMascara="cep" [(ngModel)]="f.cep" (blur)="preencherCep()" placeholder="38400-100" aria-describedby="m-cep-ajuda" />
+          <input id="m-cep" name="cep" class="mono" appMascara="cep" [(ngModel)]="f.cep" (blur)="tocar('cep'); preencherCep()" placeholder="38400-100"
+                 [attr.aria-invalid]="mostraErro('cep') && !!erroCep" aria-describedby="m-cep-erro m-cep-ajuda" />
+          @if (mostraErro('cep') && erroCep) { <span class="erro" id="m-cep-erro">{{ erroCep }}</span> }
           <span class="ajuda" id="m-cep-ajuda">Ao sair do campo, rua e bairro se preenchem.</span>
         </div>
         <div class="campo"><label for="m-rua">Rua</label><input id="m-rua" name="rua" [(ngModel)]="f.rua" /></div>
