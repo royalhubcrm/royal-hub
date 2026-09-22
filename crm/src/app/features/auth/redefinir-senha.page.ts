@@ -13,7 +13,7 @@ import { Marca } from '../../shared/ui/marca';
   styleUrl: './auth.scss',
   template: `
     <div class="auth">
-      <aside class="auth-marca"><app-marca [escuro]="true" [altura]="64" /></aside>
+      <aside class="auth-marca"><img class="auth-foto" src="/login-lado.webp" srcset="/login-lado-p.webp 480w, /login-lado.webp 900w" sizes="(max-width: 760px) 0px, 42vw" alt="" fetchpriority="high" decoding="async" /><app-marca [escuro]="true" [altura]="64" /></aside>
       <main class="auth-caixa">
         <h1>Escolha uma senha nova</h1>
         @if (!auth.logado()) {
