@@ -37,36 +37,74 @@
 
   <section class="cartao" aria-labelledby="t-wa">
     <header>
-      <h2 id="t-wa">WhatsApp oficial</h2>
-      <span class="etiqueta" [class.ok]="f.wa_configurado" [class.frio]="!f.wa_configurado">{{ f.wa_configurado ? 'Ligado' : 'Desligado' }}</span>
+      <h2 id="t-wa">WhatsApp</h2>
+      <span class="etiqueta" [class.ok]="waLigado()" [class.frio]="!waLigado()">{{ estadoWa() }}</span>
     </header>
-    <form class="pilha" (ngSubmit)="salvarWhatsapp()">
-      <div class="campo"><label for="w-num">Phone Number ID</label><input id="w-num" name="numero" class="mono" inputmode="numeric" [(ngModel)]="wa.numero" /></div>
+    <div class="campo">
+      <label for="w-canal">Como está ligado</label>
+      <select id="w-canal" name="canal" [ngModel]="f.wa_canal" (ngModelChange)="mudarCanal($event)" aria-describedby="w-canal-ajuda">
+        <option value="ponte">QR code (ponte num computador ligado)</option>
+        <option value="oficial">Oficial (API da Meta)</option>
+      </select>
+      <span class="ajuda" id="w-canal-ajuda">
+        @if (f.wa_canal === 'ponte') { Igual ao sistema antigo: escaneia o QR uma vez num computador que fica ligado. }
+        @else { Número da Meta: sem computador ligado e sem risco de bloqueio. }
+      </span>
+    </div>
+
+    @if (f.wa_canal === 'ponte') {
       <div class="campo">
-        <label for="w-token">Token permanente</label>
-        <input id="w-token" name="token" type="password" autocomplete="off" [(ngModel)]="wa.token"
-               [placeholder]="f.wa_configurado ? 'Já salvo — deixe em branco para manter' : 'Cole o token do app'" aria-describedby="w-token-ajuda" />
-        <span class="ajuda" id="w-token-ajuda">Guardado num cofre que só o servidor lê.</span>
-      </div>
-      <div class="campo"><label for="w-verif">Palavra de verificação</label><input id="w-verif" name="verif" class="mono" [(ngModel)]="wa.verificacao" /></div>
-      <div class="campo">
-        <label for="w-url">Endereço do webhook (cole na Meta)</label>
+        <span class="rotulo">Token da ponte</span>
         <div class="linha sem-quebra">
-          <input id="w-url" class="mono" readonly [value]="linkWhatsapp()" />
-          <button type="button" class="btn" (click)="copiar(linkWhatsapp())">Copiar</button>
+          <input class="mono" readonly [value]="token() || '••••••••••••••••'" aria-label="Token da ponte" />
+          <button type="button" class="btn" (click)="token() ? copiar(token()) : verToken()">{{ token() ? 'Copiar' : 'Mostrar' }}</button>
         </div>
+        <span class="ajuda">Vai no arquivo .env da ponte, junto com EMPRESA = <span class="mono">{{ slug() }}</span>.</span>
       </div>
-      <div><button class="btn primario" type="submit" [disabled]="salvando()">Salvar</button></div>
-    </form>
-    <details class="como">
-      <summary>Como ligar</summary>
-      <ol class="passos">
-        <li>No <b>Meta for Developers</b>, crie um app do tipo Empresa e adicione o produto <b>WhatsApp</b>.</li>
-        <li>Copie o <b>Phone Number ID</b> e gere um <b>token permanente</b> (usuário do sistema). Cole os dois acima e salve.</li>
-        <li>Em WhatsApp → Configuração → Webhook, cole o endereço e a palavra de verificação. Assine o campo <b>messages</b>.</li>
-      </ol>
-      <p class="mudo pequeno">Número oficial da Meta (Cloud API): sem risco de banimento e sem computador ligado.</p>
-    </details>
+      <p class="aviso" [class.info]="ponteViva()" role="status">
+        @if (ponteViva()) { Ponte conectada: passou por aqui {{ f.ponte_visto_em! | quando }}. }
+        @else if (f.ponte_visto_em) { A ponte não aparece desde {{ f.ponte_visto_em | quando }}. Confira o computador onde ela roda. }
+        @else { A ponte ainda não se conectou. Siga o passo a passo abaixo. }
+      </p>
+      <details class="como">
+        <summary>Como ligar a ponte</summary>
+        <ol class="passos">
+          <li>Copie a pasta <span class="mono">ponte-whatsapp</span> do projeto para o computador que vai ficar ligado.</li>
+          <li>Copie <span class="mono">.env.exemplo</span> para <span class="mono">.env</span> e preencha EMPRESA = <span class="mono">{{ slug() }}</span> e PONTE_TOKEN com o token acima.</li>
+          <li>No terminal, dentro da pasta: <span class="mono">npm install</span> e depois <span class="mono">npm start</span>.</li>
+          <li>No celular: WhatsApp → Aparelhos conectados → Conectar aparelho → aponte para o QR do terminal.</li>
+        </ol>
+        <p class="mudo pequeno">Se você escrever pelo celular, a assistente recua por 6 horas naquela conversa. Fechou o computador, a ponte para; ao abrir, reconecta sozinha.</p>
+      </details>
+    } @else {
+      <form class="pilha" (ngSubmit)="salvarWhatsapp()">
+        <div class="campo"><label for="w-num">Phone Number ID</label><input id="w-num" name="numero" class="mono" inputmode="numeric" [(ngModel)]="wa.numero" /></div>
+        <div class="campo">
+          <label for="w-token">Token permanente</label>
+          <input id="w-token" name="token" type="password" autocomplete="off" [(ngModel)]="wa.token"
+                 [placeholder]="f.wa_configurado ? 'Já salvo — deixe em branco para manter' : 'Cole o token do app'" aria-describedby="w-token-ajuda" />
+          <span class="ajuda" id="w-token-ajuda">Guardado num cofre que só o servidor lê.</span>
+        </div>
+        <div class="campo"><label for="w-verif">Palavra de verificação</label><input id="w-verif" name="verif" class="mono" [(ngModel)]="wa.verificacao" /></div>
+        <div class="campo">
+          <label for="w-url">Endereço do webhook (cole na Meta)</label>
+          <div class="linha sem-quebra">
+            <input id="w-url" class="mono" readonly [value]="linkWhatsapp()" />
+            <button type="button" class="btn" (click)="copiar(linkWhatsapp())">Copiar</button>
+          </div>
+        </div>
+        <div><button class="btn primario" type="submit" [disabled]="salvando()">Salvar</button></div>
+      </form>
+      <details class="como">
+        <summary>Como ligar</summary>
+        <ol class="passos">
+          <li>No <b>Meta for Developers</b>, crie um app do tipo Empresa e adicione o produto <b>WhatsApp</b>.</li>
+          <li>Copie o <b>Phone Number ID</b> e gere um <b>token permanente</b> (usuário do sistema). Cole os dois acima e salve.</li>
+          <li>Em WhatsApp → Configuração → Webhook, cole o endereço e a palavra de verificação. Assine o campo <b>messages</b>.</li>
+        </ol>
+        <p class="mudo pequeno">Número oficial da Meta (Cloud API): sem risco de banimento e sem computador ligado.</p>
+      </details>
+    }
   </section>
 </div>
 

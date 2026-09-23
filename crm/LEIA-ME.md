@@ -42,6 +42,10 @@ npx supabase secrets set GROQ_API_KEY=sua-chave SITE_URL=https://endereco-do-app
 - `SITE_URL`: o endereço público do app. Entra nos links que a assistente manda no WhatsApp e no feed dos portais.
 - Opcional: `META_APP_SECRET` (a função confere a assinatura das mensagens da Meta) e `CRON_SECRET` (retomada automática, ver `supabase/agendador-retomadas.sql`).
 
+### 4. WhatsApp por QR code (sem a API da Meta)
+
+Em Ajustes → WhatsApp escolha **QR code** e siga o passo a passo da tela: a pasta `ponte-whatsapp/` roda num computador ligado (`npm install`, `npm start`), você escaneia o QR uma vez e pronto. A ponte fala com a função `whatsapp` usando o token do webhook da empresa; o painel e as retomadas deixam as mensagens numa fila (`crm.fila_whatsapp`) que a ponte entrega. Detalhes em `ponte-whatsapp/LEIA-ME.md`.
+
 ### 4. Publicar o app
 `npm run build` gera a pasta `dist/crm/browser`. Na Cloudflare (Workers & Pages → conectar o repositório, raiz `crm`, build `npm run build`, deploy `npx wrangler deploy`) o `wrangler.jsonc` já cuida das rotas do app ao recarregar a página. Em outra hospedagem (Netlify, Vercel), configure "toda rota → index.html".
 
@@ -58,7 +62,7 @@ npx supabase secrets set GROQ_API_KEY=sua-chave SITE_URL=https://endereco-do-app
 | Agenda | Visitas marcadas, perguntas que a assistente deixou, clientes parados, interesses | admin, gerente |
 | Sites | Sites dos clientes com prévia ao vivo e rascunho por IA | admin |
 | Equipe | Pessoas, papéis, equipes | admin |
-| Ajustes | Imobiliária, WhatsApp oficial, captação (formulário e webhook), portais | admin |
+| Ajustes | Imobiliária, WhatsApp (QR code ou oficial), captação (formulário e webhook), portais | admin |
 | Empresas | Criar e bloquear imobiliárias | dono da plataforma |
 
 Páginas públicas, sem login: `/captar/<empresa>` (formulário do anúncio), `/imovel/<id>` e `/s/<site>`.

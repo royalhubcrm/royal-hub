@@ -8,12 +8,13 @@ import { ConfigService } from '../../core/services/config.service';
 import { ImoveisService } from '../../core/services/imoveis.service';
 import { SUPABASE } from '../../core/supabase/supabase.client';
 import { AvisosService } from '../../core/ui/avisos.service';
+import { QuandoPipe } from '../../shared/pipes/formatos.pipe';
 import { MascaraDirective } from '../../shared/ui/mascara.directive';
 
 /** Ajustes da imobiliária numa página só: dados, WhatsApp oficial, captação e portais. */
 @Component({
   selector: 'app-ajustes',
-  imports: [FormsModule, RouterLink, MascaraDirective],
+  imports: [FormsModule, RouterLink, MascaraDirective, QuandoPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './ajustes.page.html',
   styleUrl: './ajustes.page.scss',
@@ -49,6 +50,21 @@ export default class AjustesPage {
       for (const f of falta) { const k = f.replace(/^\d+ /, ''); cont[k] = (cont[k] ?? 0) + 1; }
     return Object.entries(cont).map(([k, n]) => `${n} sem ${k}`).join(', ');
   });
+
+  /** A ponte avisa a cada 45 s que está viva; 3 min sem sinal = caiu. */
+  protected ponteViva() { const v = this.f.ponte_visto_em; return !!v && Date.now() - new Date(v).getTime() < 3 * 60000; }
+  protected waLigado() { return this.f.wa_canal === 'ponte' ? this.ponteViva() : !!this.f.wa_configurado; }
+  protected estadoWa() { return this.f.wa_canal === 'ponte' ? (this.ponteViva() ? 'Ligado' : 'Esperando a ponte') : this.f.wa_configurado ? 'Ligado' : 'Desligado'; }
+
+  protected async mudarCanal(canal: Config['wa_canal']) {
+    this.f.wa_canal = canal;
+    try {
+      await this.cfgSrv.salvar({ wa_canal: canal });
+      this.avisos.ok(canal === 'ponte' ? 'WhatsApp por QR code. Ligue a ponte no computador.' : 'WhatsApp pela API oficial da Meta.');
+    } catch (e) {
+      this.avisos.erro(e);
+    }
+  }
 
   constructor() { void this.carregar(); }
 

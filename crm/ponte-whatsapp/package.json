@@ -1,0 +1,18 @@
+{
+  "name": "royal-ponte-whatsapp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Ponte do WhatsApp por QR code para o Royal CRM",
+  "scripts": {
+    "start": "node ponte.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "7.0.0-rc14",
+    "pino": "^9.0.0",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "engines": {
+    "node": ">=20.12"
+  }
+}
