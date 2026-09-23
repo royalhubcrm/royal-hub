@@ -1,7 +1,7 @@
 // IA para o painel: simulador da assistente, sugestão de primeira mensagem,
 // mensagem de retomada e rascunho de site.
 import { ErroTela, admin, comoUsuario, configDa, json, quemChamou, responder } from '../_shared/comum.ts';
-import { Msg, PROMPT_PADRAO, PROVEDORES, Provedor, VARIAVEIS_PROMPT, carteira, descreverMarcadores, iaConfigurada, imoveisQueServem, instrucoes, lerMarcadores, limparPerfil, modeloDe, pedirIA, pedirIADetalhado, preferenciaIA, provedoresDisponiveis } from '../_shared/ia.ts';
+import { Msg, PROMPT_PADRAO, PROVEDORES, Provedor, VARIAVEIS_PROMPT, carteira, descreverMarcadores, iaConfigurada, imoveisQueServem, instrucoes, lerMarcadores, limparPerfil, listarModelos, modeloDe, pedirIA, pedirIADetalhado, preferenciaIA, provedoresDisponiveis } from '../_shared/ia.ts';
 
 Deno.serve(responder(async (req) => {
   const db = admin();
@@ -17,7 +17,11 @@ Deno.serve(responder(async (req) => {
   switch (b.acao) {
     // ------------------------------------------------ quais IAs estão ligadas (para a tela de teste)
     case 'provedores':
-      return json({ provedores: provedoresDisponiveis() });
+      return json({
+        provedores: provedoresDisponiveis(),
+        padrao: { groq: modeloDe('groq'), gemini: modeloDe('gemini'), anthropic: modeloDe('anthropic') },
+        listas: await listarModelos(),
+      });
 
     // ------------------------------------------------ o prompt: padrão, atual e uma prévia montada (aba Assistente)
     case 'prompt': {
@@ -30,12 +34,14 @@ Deno.serve(responder(async (req) => {
         previa: instrucoes({ ...cfg, prompt_base: rascunho ?? cfg.prompt_base }, empresa, exemplo),
         provedores: provedoresDisponiveis(),
         modelos: { groq: modeloDe('groq'), gemini: modeloDe('gemini'), anthropic: modeloDe('anthropic') },
+        listas: await listarModelos(),
       });
     }
 
     // ------------------------------------------------ simulador (não grava nada)
     case 'chat': {
       const provedor = PROVEDORES.includes(b.provedor) ? (b.provedor as Provedor) : undefined;
+      const modelo = typeof b.modelo === 'string' && /^[\w./:-]{2,80}$/.test(b.modelo) ? b.modelo : undefined;
       const cru = (Array.isArray(b.mensagens) ? b.mensagens : []).filter((m: any) => m?.texto).slice(-16);
       if (!cru.length) throw new ErroTela('Escreva uma mensagem.');
       const msgs: Msg[] = cru.map((m: any) => ({ role: m.papel === 'bot' ? 'assistant' : 'user', content: String(m.texto).slice(0, 2000) }));
@@ -43,7 +49,7 @@ Deno.serve(responder(async (req) => {
       const todos = await carteira(db, eu.empresa_id);
       const lista = imoveisQueServem(todos, procura);
       const inicio = Date.now();
-      const r = await pedirIADetalhado(instrucoes(cfg, empresa, lista), msgs, 600, provedor ? { provedor, estrito: true } : pref);
+      const r = await pedirIADetalhado(instrucoes(cfg, empresa, lista), msgs, 600, provedor ? { provedor, modelo, estrito: true } : pref);
       const m = lerMarcadores(r.texto);
       const acoes = descreverMarcadores(m);
       const opcoes = m.opcoes ? imoveisQueServem(todos, procura, 3) : [];

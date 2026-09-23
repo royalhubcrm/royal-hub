@@ -104,6 +104,36 @@ const CHAMAR: Record<Provedor, Chamada> = {
 
 export const iaConfigurada = () => provedoresDisponiveis().length > 0;
 
+/**
+ * Os modelos de conversa que cada provedor oferece hoje (a lista muda com o
+ * tempo: modelos saem do ar). Pergunta às APIs; se uma falhar, devolve só o padrão.
+ */
+export async function listarModelos(): Promise<Record<Provedor, string[]>> {
+  const saida = { groq: [] as string[], anthropic: [] as string[], gemini: [] as string[] };
+  const groq = Deno.env.get('GROQ_API_KEY');
+  if (groq) {
+    try {
+      const j = await (await fetch('https://api.groq.com/openai/v1/models', { headers: { authorization: 'Bearer ' + groq } })).json();
+      saida.groq = (j.data ?? []).map((m: { id: string; active?: boolean }) => (m.active === false ? '' : m.id))
+        .filter((id: string) => id && !/whisper|tts|guard|orpheus|playai|embed|safeguard|allam/i.test(id)).sort();
+    } catch { /* fica só o padrão */ }
+  }
+  const gemini = Deno.env.get('GEMINI_API_KEY');
+  if (gemini) {
+    try {
+      const j = await (await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { headers: { 'x-goog-api-key': gemini } })).json();
+      saida.gemini = (j.models ?? [])
+        .filter((m: { name: string; supportedGenerationMethods?: string[] }) => (m.supportedGenerationMethods ?? []).includes('generateContent'))
+        .map((m: { name: string }) => m.name.replace(/^models\//, ''))
+        .filter((n: string) => /^(gemini|gemma)/.test(n) && !/image|tts|audio|embedding|robotics|computer-use|transcribe|omni|live|native|nano|antigravity|customtools/i.test(n))
+        .sort().reverse();
+    } catch { /* fica só o padrão */ }
+  }
+  if (Deno.env.get('ANTHROPIC_API_KEY')) saida.anthropic = ['claude-opus-5-5', 'claude-sonnet-5', 'claude-haiku-4-5-20251001'];
+  for (const p of PROVEDORES) { const d = modeloDe(p); if (Deno.env.get(CHAVE[p]) && !saida[p].includes(d)) saida[p].unshift(d); }
+  return saida;
+}
+
 /** Anthropic e Gemini exigem papéis alternados: junta mensagens seguidas do mesmo lado. */
 function juntarSeguidas(msgs: Msg[]): Msg[] {
   const saida: Msg[] = [];

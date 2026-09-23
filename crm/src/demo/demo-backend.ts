@@ -26,6 +26,16 @@ try {
   }
 } catch { /* navegador sem localStorage: fica na tela de login */ }
 
+// modelos de exemplo para a tela da demonstração
+const MODELOS_DEMO = {
+  padrao: { groq: 'openai/gpt-oss-120b', gemini: 'gemini-3.6-flash', anthropic: 'claude-sonnet-5' },
+  listas: {
+    groq: ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.8-27b'],
+    gemini: ['gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-3.1-pro-preview', 'gemini-2.5-flash', 'gemini-2.5-pro'],
+    anthropic: [] as string[],
+  },
+};
+
 // texto padrão do prompt, só para a tela da demonstração (o real fica em supabase/functions/_shared/ia.ts)
 const PROMPT_DEMO = `[AGORA — data e hora reais do sistema; nunca calcule nem presuma]
 Hoje é {{agora}}, em {{cidade}}. Amanhã é {{amanha}}. O cumprimento certo agora é "{{saudacao}}".{{aviso_fim_de_semana}}
@@ -408,7 +418,7 @@ function rpc(nome: string, a: any) {
 async function funcao(nome: string, b: any) {
   await new Promise((r) => setTimeout(r, 700)); // parece a IA pensando
   if (nome === 'assistente') {
-    if (b.acao === 'provedores') return resposta({ provedores: ['groq', 'gemini'] });
+    if (b.acao === 'provedores') return resposta({ provedores: ['groq', 'gemini'], padrao: MODELOS_DEMO.padrao, listas: MODELOS_DEMO.listas });
     if (b.acao === 'prompt') {
       const cfg = db.config[0];
       const padrao = PROMPT_DEMO;
@@ -421,7 +431,7 @@ async function funcao(nome: string, b: any) {
       } as Record<string, string>)[k] ?? '');
       return resposta({
         padrao, atual: cfg.prompt_base || '', previa, provedores: ['groq', 'gemini'],
-        modelos: { groq: 'openai/gpt-oss-120b', gemini: 'gemini-3.6-flash', anthropic: 'claude-sonnet-5' },
+        modelos: MODELOS_DEMO.padrao, listas: MODELOS_DEMO.listas,
         variaveis: ['agora', 'amanha', 'saudacao', 'aviso_fim_de_semana', 'assistente', 'corretor', 'CORRETOR', 'empresa', 'EMPRESA', 'cidade', 'endereco', 'fatos', 'estilo', 'imoveis']
           .map((nome) => ({ nome, descricao: 'Preenchido na hora pelo sistema' })),
       });
@@ -441,7 +451,7 @@ async function funcao(nome: string, b: any) {
       const mN = ultima.match(/(?:meu nome e|me chamo|sou o|sou a)\s+([a-z]+)/); if (mN) perfil['nome'] = mN[1][0].toUpperCase() + mN[1].slice(1);
       const marc = { perfil, duvidas: [] as string[], agendamento: null as null | Record<string, string>, imoveis: [] as Record<string, unknown>[] };
       if (/oi|ola|bom dia|boa tarde|boa noite/.test(ultima) && (b.mensagens?.length ?? 0) <= 1)
-        return resposta({ texto: 'Boa tarde! Aqui é a Camila, da Royal Negócios Imobiliários. Me conta, o que você tá procurando?', acoes: [], marcadores: marc, provedor: b.provedor || 'groq', ms: 700 });
+        return resposta({ texto: 'Boa tarde! Aqui é a Camila, da Royal Negócios Imobiliários. Me conta, o que você tá procurando?', acoes: [], marcadores: marc, provedor: b.provedor || 'groq', modelo: b.modelo || '', ms: 700 });
       if (/fgts|pet|permuta/.test(ultima))
         return resposta({ texto: 'Essa eu confirmo com o Ricardo pra não te passar errado, já te aviso.', acoes: ['Deixaria a pergunta para você: "Cliente quer saber sobre ' + ultima.slice(0, 40) + '"'],
           marcadores: { ...marc, duvidas: ['Cliente quer saber sobre ' + ultima.slice(0, 40)] }, provedor: b.provedor || 'groq', ms: 700 });

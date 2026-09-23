@@ -7,7 +7,7 @@ import { AvisosService } from '../../core/ui/avisos.service';
 interface Variavel { nome: string; descricao: string }
 interface RespostaPrompt {
   padrao: string; atual: string; previa: string; variaveis: Variavel[];
-  modelos: Record<ProvedorIA, string>; provedores: ProvedorIA[];
+  modelos: Record<ProvedorIA, string>; provedores: ProvedorIA[]; listas: Record<ProvedorIA, string[]>;
 }
 
 const NOMES: Record<ProvedorIA, string> = { groq: 'Groq', gemini: 'Gemini', anthropic: 'Claude' };
@@ -39,11 +39,18 @@ const NOMES: Record<ProvedorIA, string> = { groq: 'Groq', gemini: 'Gemini', anth
             </div>
             <div class="campo">
               <label for="ac-modelo">Modelo</label>
-              <input id="ac-modelo" name="modelo" class="mono" [ngModel]="modelo()" (ngModelChange)="modelo.set($event)"
-                     [placeholder]="provedor() === 'auto' ? 'padrão de cada provedor' : 'padrão: ' + (modelos()[provedor()] || '')"
-                     [disabled]="provedor() === 'auto'" aria-describedby="ac-modelo-ajuda" />
-              <span class="ajuda" id="ac-modelo-ajuda">Em branco usa o padrão. Padrões atuais:
-                @for (p of provedores(); track p) { <span class="mono">{{ nome(p) }} = {{ modelos()[p] }}</span>{{ $last ? '' : ' · ' }} }
+              <select id="ac-modelo" name="modelo" class="mono" [ngModel]="escolhaModelo()" (ngModelChange)="escolherModelo($event)"
+                      [disabled]="provedor() === 'auto'" aria-describedby="ac-modelo-ajuda">
+                <option value="">Padrão{{ provedor() !== 'auto' && modelos()[provedor()] ? ' (' + modelos()[provedor()] + ')' : '' }}</option>
+                @for (m of listaDoProvedor(); track m) { <option [value]="m">{{ m }}</option> }
+                <option value="__outro">Outro (digitar)…</option>
+              </select>
+              @if (escolhaModelo() === '__outro') {
+                <input name="modelo-outro" class="mono" [ngModel]="modelo()" (ngModelChange)="modelo.set($event)" placeholder="nome exato do modelo" aria-label="Nome do modelo" />
+              }
+              <span class="ajuda" id="ac-modelo-ajuda">
+                @if (provedor() === 'auto') { No automático cada provedor usa o seu padrão: @for (p of provedores(); track p) { <span class="mono">{{ nome(p) }} = {{ modelos()[p] }}</span>{{ $last ? '' : ' · ' }} } }
+                @else { Lista viva, direto da API do {{ nome(provedor()) }}. Modelos que saem do ar somem daqui. }
               </span>
             </div>
           </div>
@@ -110,6 +117,10 @@ export class AssistenteConfig {
   protected readonly variaveis = signal<Variavel[]>([]);
   protected readonly provedores = signal<ProvedorIA[]>([]);
   protected readonly modelos = signal<Record<string, string>>({});
+  protected readonly listas = signal<Record<string, string[]>>({});
+  /** O que está escolhido na lista: '' = padrão, '__outro' = digitado à mão, ou o nome do modelo. */
+  protected readonly escolhaModelo = signal('');
+  protected readonly listaDoProvedor = computed(() => (this.provedor() === 'auto' ? [] : this.listas()[this.provedor()] ?? []));
   protected readonly provedor = signal<Config['ia_provedor']>('auto');
   protected readonly modelo = signal('');
 
@@ -125,15 +136,22 @@ export class AssistenteConfig {
       this.variaveis.set(r.variaveis);
       this.provedores.set(r.provedores);
       this.modelos.set(r.modelos);
+      this.listas.set(r.listas ?? {});
       this.provedor.set(c.ia_provedor || 'auto');
       this.modelo.set(c.ia_modelo || '');
+      const lista = this.listas()[c.ia_provedor] ?? [];
+      this.escolhaModelo.set(!c.ia_modelo ? '' : lista.includes(c.ia_modelo) ? c.ia_modelo : '__outro');
       this.carregado.set(true);
     } catch (e) {
       this.avisos.erro(e);
     }
   }
 
-  protected nome(p: ProvedorIA) { return NOMES[p] ?? p; }
+  protected nome(p: string) { return NOMES[p as ProvedorIA] ?? p; }
+  protected escolherModelo(v: string) {
+    this.escolhaModelo.set(v);
+    if (v !== '__outro') this.modelo.set(v);
+  }
   protected ligadas() { return this.provedores().map((p) => this.nome(p)).join(', '); }
 
   /** Insere {{variavel}} onde o cursor está. */

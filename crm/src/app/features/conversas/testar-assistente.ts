@@ -32,7 +32,7 @@ interface ImovelCitado { codigo: string; tipo?: string; bairro?: string; preco?:
 interface Agendamento { nome?: string; data?: string; hora?: string; codigo?: string }
 /** O que a IA pediu ao sistema nesta resposta (o mesmo que grava no banco na conversa real). */
 interface Marcadores { perfil: Record<string, unknown>; duvidas: string[]; agendamento: Agendamento | null; imoveis: ImovelCitado[] }
-interface Fala { papel: 'cliente' | 'bot'; texto: string; acoes?: string[]; provedor?: Provedor; ms?: number; marcadores?: Marcadores }
+interface Fala { papel: 'cliente' | 'bot'; texto: string; acoes?: string[]; provedor?: Provedor; modelo?: string; ms?: number; marcadores?: Marcadores }
 
 /**
  * Simulador: você escreve como se fosse o cliente e vê o que a assistente
@@ -55,15 +55,22 @@ interface Fala { papel: 'cliente' | 'bot'; texto: string; acoes?: string[]; prov
             <option value="">Automático (o configurado em "Assistente: prompt e modelo")</option>
             @for (p of disponiveis(); track p) { <option [value]="p">{{ nome(p) }}</option> }
           </select>
+          @if (provedor()) {
+            <label for="t-versao" class="sr-only">Modelo</label>
+            <select id="t-versao" class="mono" [ngModel]="modelo()" name="versao" (ngModelChange)="modelo.set($event)" title="Modelo do provedor">
+              <option value="">padrão ({{ padrao()[provedor()] || '…' }})</option>
+              @for (m of listas()[provedor()] ?? []; track m) { <option [value]="m">{{ m }}</option> }
+            </select>
+          }
           <span class="ajuda" id="t-modelo-ajuda">
-            @if (disponiveis().length) { Ligadas: {{ ligadas() }}. Mande a mesma pergunta em cada uma para comparar. }
+            @if (disponiveis().length) { Ligadas: {{ ligadas() }}. Mande a mesma pergunta em cada modelo para comparar; a resposta mostra qual respondeu. }
             @else { Nenhuma chave de IA configurada nas funções (GROQ_API_KEY ou GEMINI_API_KEY). }
           </span>
         </div>
         <ol class="falas" #caixa aria-live="polite" aria-label="Mensagens">
           @for (f of falas(); track $index) {
             <li class="fala" [class.bot]="f.papel === 'bot'">
-              <span class="autor">{{ f.papel === 'bot' ? 'Assistente' : 'Cliente (você)' }}@if (f.provedor) { <span class="quem">· {{ nome(f.provedor) }}@if (f.ms) { · {{ (f.ms / 1000).toFixed(1) }}s }</span> }</span>
+              <span class="autor">{{ f.papel === 'bot' ? 'Assistente' : 'Cliente (você)' }}@if (f.provedor) { <span class="quem">· {{ nome(f.provedor) }}@if (f.modelo) { <span class="mono"> {{ f.modelo }}</span> }@if (f.ms) { · {{ (f.ms / 1000).toFixed(1) }}s }</span> }</span>
               <p>{{ f.texto }}</p>
               @if (f.acoes?.length) {
                 <ul class="acoes">@for (a of f.acoes; track a) { <li>{{ a }}</li> }</ul>
@@ -273,7 +280,10 @@ export class TestarAssistente {
   protected readonly falas = signal<Fala[]>([]);
   protected readonly pensando = signal(false);
   protected readonly provedor = signal<Provedor | ''>('');
+  protected readonly modelo = signal('');
   protected readonly disponiveis = signal<Provedor[]>([]);
+  protected readonly listas = signal<Record<string, string[]>>({});
+  protected readonly padrao = signal<Record<string, string>>({});
   /** Campos do perfil que a última resposta mudou (ficam destacados). */
   protected readonly mudouAgora = signal<Set<string>>(new Set());
   protected texto = '';
@@ -295,8 +305,9 @@ export class TestarAssistente {
 
   constructor() {
     // na demonstração não há função no servidor: mostra as duas para o layout
-    if (DEMO) this.disponiveis.set(['groq', 'gemini']);
-    else void this.cfg.ia<{ provedores: Provedor[] }>({ acao: 'provedores' }).then((r) => this.disponiveis.set(r.provedores)).catch(() => null);
+    void this.cfg.ia<{ provedores: Provedor[]; listas?: Record<string, string[]>; padrao?: Record<string, string> }>({ acao: 'provedores' })
+      .then((r) => { this.disponiveis.set(r.provedores); this.listas.set(r.listas ?? {}); this.padrao.set(r.padrao ?? {}); })
+      .catch(() => { if (DEMO) this.disponiveis.set(['groq', 'gemini']); });
     void this.carregarSalvos();
     void this.equipe.garantirPessoas().catch(() => null);
   }
@@ -331,10 +342,10 @@ export class TestarAssistente {
         id: this.an.id, titulo: this.an.titulo.trim(), nota: this.an.nota,
         pros: this.an.pros.trim(), contras: this.an.contras.trim(), melhoria: this.an.melhoria.trim(),
         provedor: this.provedor() || (this.falas().find((f) => f.provedor)?.provedor ?? ''),
-        modelo: this.falas().length ? '' : editando?.modelo ?? '',
+        modelo: this.falas().length ? (this.modelo() || [...this.falas()].reverse().find((f) => f.modelo)?.modelo || '') : editando?.modelo ?? '',
         prompt_base: cfg?.prompt_base ?? editando?.prompt_base ?? '',
         // os marcadores vão junto: ao continuar o diálogo, a ficha se refaz
-        falas: falasAtuais.map((f) => ({ papel: f.papel, texto: f.texto, provedor: f.provedor, ms: f.ms, acoes: f.acoes, marcadores: f.marcadores })),
+        falas: falasAtuais.map((f) => ({ papel: f.papel, texto: f.texto, provedor: f.provedor, modelo: f.modelo, ms: f.ms, acoes: f.acoes, marcadores: f.marcadores })),
         ficha: this.falas().length
           ? { perfil: this.perfil(), imoveis: this.imoveis(), duvidas: this.duvidas(), agendamento: this.agendamento() }
           : editando?.ficha ?? {},
@@ -354,9 +365,9 @@ export class TestarAssistente {
   /** Recoloca um diálogo salvo no chat para seguir testando a partir dele. */
   protected continuar(t: TesteAssistente) {
     this.aberto.set(t);
-    this.falas.set(t.falas.map((f) => ({ papel: f.papel, texto: f.texto, provedor: f.provedor as Provedor | undefined, ms: f.ms, acoes: f.acoes, marcadores: f.marcadores as Marcadores | undefined })));
+    this.falas.set(t.falas.map((f) => ({ papel: f.papel, texto: f.texto, provedor: f.provedor as Provedor | undefined, modelo: f.modelo, ms: f.ms, acoes: f.acoes, marcadores: f.marcadores as Marcadores | undefined })));
     this.mudouAgora.set(new Set());
-    if (t.provedor && (['groq', 'gemini', 'anthropic'] as string[]).includes(t.provedor)) this.provedor.set(t.provedor as Provedor);
+    if (t.provedor && (['groq', 'gemini', 'anthropic'] as string[]).includes(t.provedor)) { this.provedor.set(t.provedor as Provedor); this.modelo.set(t.modelo || ''); }
     this.rolar();
     document.getElementById('t-msg')?.focus();
   }
@@ -387,12 +398,13 @@ export class TestarAssistente {
     this.rolar();
     try {
       const antes = this.perfil();
-      const r = await this.cfg.ia<{ texto: string; acoes?: string[]; provedor?: Provedor; ms?: number; marcadores?: Marcadores }>({
+      const r = await this.cfg.ia<{ texto: string; acoes?: string[]; provedor?: Provedor; modelo?: string; ms?: number; marcadores?: Marcadores }>({
         acao: 'chat',
         provedor: this.provedor() || undefined,
+        modelo: (this.provedor() && this.modelo()) || undefined,
         mensagens: this.falas().map((f) => ({ papel: f.papel, texto: f.texto })),
       });
-      this.falas.update((l) => [...l, { papel: 'bot', texto: r.texto, acoes: r.acoes, provedor: r.provedor, ms: r.ms, marcadores: r.marcadores }]);
+      this.falas.update((l) => [...l, { papel: 'bot', texto: r.texto, acoes: r.acoes, provedor: r.provedor, modelo: r.modelo, ms: r.ms, marcadores: r.marcadores }]);
       const depois = this.perfil();
       this.mudouAgora.set(new Set(Object.keys(depois).filter((k) => depois[k] !== antes[k])));
     } catch (e) {
