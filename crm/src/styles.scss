@@ -110,6 +110,8 @@
 :root[data-tema="escuro"] { @include tema-escuro; }
 /* páginas para o cliente final (site, formulário, folha impressa): sempre claras */
 .tema-claro { @include tema-claro; }
+/* o fundo da página inteira acompanha a página pública, não o tema do usuário */
+body:has(> app-root > .tema-claro) { background: #F5F7FA; color: #0F172A; color-scheme: light; }
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; }
