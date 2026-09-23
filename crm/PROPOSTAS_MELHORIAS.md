@@ -4,6 +4,8 @@ Tudo o que muda fluxo, regra de negócio, banco ou cria tela nova ficou **fora**
 
 Legenda de esforço: **Baixo** = só tela (1 a 2 dias) · **Médio** = tela + banco/função (3 a 5 dias) · **Alto** = mais de uma semana ou integração externa.
 
+> **Feito em 23/09/2026 (rodada "compactar"):** modo escuro; tela Assistente única (Testar | Configurar) no lugar das abas de Conversas e da aba de Ajustes; Ajustes sem abas; cabeçalhos de uma linha e nomes diretos (Funil, Agenda); cadastros de Equipe e Empresas em gaveta; ficha do lead com "Mais campos" fechado. As duas propostas marcadas ✅ abaixo saíram daí.
+
 ---
 
 ### [NOVA] — Aviso de lead repetido ao digitar o telefone
@@ -66,7 +68,7 @@ Legenda de esforço: **Baixo** = só tela (1 a 2 dias) · **Médio** = tela + ba
 **Por quê:** Relatório para o dono, backup, envio para o contador ou para outra ferramenta. Já existe importação; falta o caminho de volta.
 **Impacto/Esforço:** Médio — Baixo
 
-### [ALTERAR] — Ficha do lead em abas (Dados · Atividades · Conversa)
+### [ALTERAR] — Ficha do lead em abas (Dados · Atividades · Conversa) — ✅ parcial: "Mais campos" já está fechado
 **O quê:** Dividir o painel lateral: "Dados" com o formulário, "Atividades" com histórico e anotações, "Conversa" com o WhatsApp. Campos raros (empresa, campanha, e-mail) atrás de "Mais campos".
 **Por quê:** A gaveta hoje empilha 12 campos + sugestão de IA + histórico; em tela pequena é rolagem longa. Abas deixam o essencial visível e preparam o terreno para a linha do tempo.
 **Impacto/Esforço:** Médio — Baixo
@@ -76,7 +78,7 @@ Legenda de esforço: **Baixo** = só tela (1 a 2 dias) · **Médio** = tela + ba
 **Por quê:** O cadastro rápido de um imóvel novo hoje passa por 20 campos. A maioria só importa para os portais, que já avisam o que falta.
 **Impacto/Esforço:** Médio — Baixo
 
-### [REMOVER] — Campo "Empresa do cliente" na ficha do lead
+### [REMOVER] — Campo "Empresa do cliente" na ficha do lead — ✅ movido para "Mais campos"
 **O quê:** Tirar o campo do formulário (mantendo a coluna no banco) ou movê-lo para "Mais campos".
 **Por quê:** Imobiliária residencial quase nunca usa; é um campo a mais para pular em todo cadastro. Se houver clientes pessoa jurídica, o campo volta como opcional escondido.
 **Impacto/Esforço:** Baixo — Baixo
