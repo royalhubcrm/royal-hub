@@ -1,8 +1,8 @@
 export type Papel = 'admin' | 'gerente' | 'corretor' | 'assistente';
 
 export const PAPEIS: { valor: Papel; rotulo: string; pode: string }[] = [
-  { valor: 'admin', rotulo: 'Administrador', pode: 'Tudo, inclusive pessoas, sites e ajustes' },
-  { valor: 'gerente', rotulo: 'Gerente', pode: 'Leads e conversas da equipe dele, e a Gerência' },
+  { valor: 'admin', rotulo: 'Administrador', pode: 'Tudo' },
+  { valor: 'gerente', rotulo: 'Gerente', pode: 'Leads e conversas da equipe dele, mais a Agenda' },
   { valor: 'corretor', rotulo: 'Corretor', pode: 'Os leads dele, imóveis e conversas' },
   { valor: 'assistente', rotulo: 'Assistente', pode: 'Os leads dele e as conversas do WhatsApp' },
 ];

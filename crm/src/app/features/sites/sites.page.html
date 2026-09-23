@@ -1,16 +1,15 @@
 <header class="cabecalho-pagina">
   <div>
-    <p class="sobretitulo">Gestão</p>
     <h1>Sites</h1>
-    <p>Cada cliente (ou cada linha de produto) ganha um site próprio, alimentado pela carteira: imóvel vendido some sozinho.</p>
+    <p>Sites alimentados pela carteira: imóvel vendido some sozinho.</p>
   </div>
   @if (!rascunho()) { <div class="acoes"><button type="button" class="btn primario" (click)="novo()">+ Novo site</button></div> }
 </header>
 
 @if (!rascunho()) {
   <section class="cartao" aria-labelledby="t-ia">
-    <h2 id="t-ia">Criar descrevendo com suas palavras</h2>
-    <p class="mudo pequeno">A IA monta o rascunho (nome, chamada, cores, quais imóveis mostrar) e você ajusta antes de publicar.</p>
+    <h2 id="t-ia">Criar com IA</h2>
+    <p class="mudo pequeno">Descreva o site; a IA monta o rascunho e você ajusta antes de publicar.</p>
     <div class="campo">
       <label for="s-desc" class="sr-only">Como o site deve ser</label>
       <textarea id="s-desc" rows="3" [(ngModel)]="descricao"

@@ -1,8 +1,7 @@
 <header class="cabecalho-pagina">
   <div>
-    <p class="sobretitulo">Supervisão</p>
-    <h1>Agenda e gerência</h1>
-    <p>As visitas marcadas (pela assistente ou por você), as perguntas que ela deixou para você e os clientes que ficaram sem resposta.</p>
+    <h1>Agenda</h1>
+    <p>Visitas, perguntas que a assistente deixou e clientes sem resposta.</p>
   </div>
   <div class="acoes">
     <button type="button" class="btn" (click)="carregar()" [disabled]="carregando()">Atualizar</button>
@@ -33,7 +32,7 @@
             <p class="mudo pequeno mono">{{ a.telefone | telefone }}@if (a.imovel) { · imóvel {{ a.imovel }} }</p>
             @if (a.como) { <p class="como">“{{ a.como }}”</p> }
             <p class="mudo pequeno">
-              <span class="etiqueta" [class.ok]="a.marcado_por === 'assistente'">{{ a.marcado_por === 'assistente' ? 'Marcado pela assistente' : 'Marcado por ' + a.marcado_por }}</span>
+              <span class="etiqueta sem-ponto" [class.ok]="a.marcado_por === 'assistente'">{{ a.marcado_por === 'assistente' ? 'pela assistente' : 'por ' + a.marcado_por }}</span>
               @if (a.status !== 'marcado') { <span class="etiqueta">{{ rotuloStatus(a.status) }}</span> }
             </p>
           </div>
@@ -41,7 +40,7 @@
             <button type="button" class="btn pequeno" (click)="status(a, 'compareceu')" [attr.aria-pressed]="a.status === 'compareceu'">Compareceu</button>
             <button type="button" class="btn pequeno" (click)="status(a, 'faltou')" [attr.aria-pressed]="a.status === 'faltou'">Faltou</button>
             <button type="button" class="btn pequeno fantasma" (click)="status(a, 'cancelado')">Cancelar</button>
-            @if (a.conversa_id) { <a class="btn pequeno fantasma" routerLink="/conversas" [queryParams]="{ c: a.conversa_id }">Ver a conversa</a> }
+            @if (a.conversa_id) { <a class="btn pequeno fantasma" routerLink="/conversas" [queryParams]="{ c: a.conversa_id }">Conversa</a> }
           </div>
         </li>
       }
@@ -53,7 +52,7 @@
 
 <section class="cartao bloco" aria-labelledby="t-duvidas">
   <header><h2 id="t-duvidas">Perguntas esperando você</h2></header>
-  <p class="mudo pequeno">Quando a assistente não sabe, ela não inventa: avisa o cliente que vai confirmar e deixa a pergunta aqui.</p>
+  <p class="mudo pequeno">O que a assistente não soube responder. Ela avisou o cliente que ia confirmar.</p>
   @if (duvidas().length) {
     <ul class="lista">
       @for (d of duvidas(); track d.id) {
@@ -72,14 +71,14 @@
       }
     </ul>
   } @else {
-    <p class="vazio">Nenhuma pergunta parada. A assistente deu conta de tudo.</p>
+    <p class="vazio">Nenhuma pergunta parada.</p>
   }
 </section>
 
 <div class="duas">
   <section class="cartao" aria-labelledby="t-paradas">
     <header><h2 id="t-paradas">Clientes esperando resposta</h2></header>
-    <p class="mudo pequeno">Falaram por último há mais de {{ diasParada }} dias. A IA escreve uma retomada que continua de onde parou.</p>
+    <p class="mudo pequeno">Falaram por último há mais de {{ diasParada }} dias. "Retomar" escreve a mensagem para você revisar.</p>
     @if (paradas().length) {
       <ul class="lista">
         @for (c of paradas(); track c.id) {
@@ -93,7 +92,7 @@
         }
       </ul>
     } @else {
-      <p class="vazio">Ninguém esperando resposta. Bom sinal.</p>
+      <p class="vazio">Ninguém esperando resposta.</p>
     }
   </section>
 
@@ -112,14 +111,14 @@
         }
       </ul>
     } @else {
-      <p class="vazio">Ninguém pediu imóvel pela conversa ainda.</p>
+      <p class="vazio">Nenhum pedido pela conversa ainda.</p>
     }
   </section>
 </div>
 
 @if (passados().length) {
   <details class="cartao bloco">
-    <summary>Visitas passadas ({{ passados().length }})</summary>
+    <summary>Visitas anteriores ({{ passados().length }})</summary>
     <div class="tabela-rolagem">
       <table class="tabela">
         <caption class="sr-only">Visitas passadas</caption>

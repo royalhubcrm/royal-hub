@@ -65,7 +65,7 @@
             @if (p.ativo || p.id === f.responsavel_id) { <option [value]="p.id">{{ p.nome }}</option> }
           }
         </select>
-        <span class="ajuda" id="l-resp-ajuda">O gerente da equipe dessa pessoa também vê o lead.</span>
+        <span class="ajuda" id="l-resp-ajuda">O gerente da equipe também vê.</span>
       </div>
     </div>
 
@@ -96,7 +96,7 @@
   @if (lead()) {
     <section class="bloco" aria-labelledby="t-mensagem">
       <h3 id="t-mensagem">Primeira mensagem</h3>
-      <p class="mudo pequeno">A IA escreve uma sugestão com base no que o cliente procura. Você revisa antes de mandar.</p>
+      <p class="mudo pequeno">A IA sugere; você revisa antes de mandar.</p>
       <div class="linha">
         <button type="button" class="btn pequeno" (click)="sugerir()" [disabled]="pensando()">
           {{ pensando() ? 'Escrevendo…' : sugestao() ? 'Sugerir outra' : 'Sugerir mensagem' }}

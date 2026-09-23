@@ -1,8 +1,7 @@
 <header class="cabecalho-pagina">
   <div>
-    <p class="sobretitulo">Painel</p>
     <h1>{{ saudacao() }}</h1>
-    <p>Os números da {{ auth.empresa()?.nome }} agora. Clique em um cartão para ver a lista.</p>
+    <p>{{ auth.empresa()?.nome }} · clique num cartão para ver a lista.</p>
   </div>
   <div class="acoes">
     <a class="btn primario" routerLink="/leads" [queryParams]="{ novo: 1 }">+ Novo lead</a>
@@ -39,7 +38,7 @@
     <section class="cartao" aria-labelledby="t-funil">
       <header>
         <h2 id="t-funil">Funil</h2>
-        <a class="pequeno" routerLink="/pipeline">Abrir o pipeline</a>
+        <a class="pequeno" routerLink="/pipeline">Abrir o funil</a>
       </header>
       <ul class="funil">
         @for (f of funil(); track f.slug) {
@@ -73,7 +72,7 @@
           }
         </ul>
       } @else {
-        <p class="vazio">Nenhum lead ainda. Ligue o formulário de captação (Ajustes) ou cadastre um manualmente.</p>
+        <p class="vazio">Nenhum lead ainda. Cadastre um ou ligue a captação em Ajustes.</p>
       }
     </section>
 
@@ -90,7 +89,7 @@
           }
         </ol>
       } @else {
-        <p class="vazio">Aparece aqui quando imóveis forem ligados aos leads ou pedidos no WhatsApp.</p>
+        <p class="vazio">Aparece quando um imóvel for ligado a um lead ou pedido no WhatsApp.</p>
       }
     </section>
   </div>

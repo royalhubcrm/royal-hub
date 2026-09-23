@@ -15,9 +15,8 @@ import { emailValido, focarPrimeiroErro } from '../../shared/util/validacao';
   template: `
     <header class="cabecalho-pagina">
       <div>
-        <p class="sobretitulo">Plataforma</p>
         <h1>Empresas</h1>
-        <p>As imobiliárias que usam o sistema. Cada uma só enxerga os próprios dados. Bloquear tira o acesso de todos dela na hora (nada é apagado).</p>
+        <p>Cada imobiliária só enxerga os próprios dados. Bloquear tira o acesso na hora, sem apagar nada.</p>
       </div>
     </header>
 

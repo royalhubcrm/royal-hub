@@ -20,7 +20,7 @@ import { semAcento } from '../../shared/util/planilha';
   styleUrl: './conversas.page.scss',
 })
 export default class ConversasPage {
-  /** /conversas?c=<id> abre direto essa conversa (links da Gerência). */
+  /** /conversas?c=<id> abre direto essa conversa (links da Agenda). */
   readonly c = input<string>();
 
   private readonly srv = inject(ConversasService);

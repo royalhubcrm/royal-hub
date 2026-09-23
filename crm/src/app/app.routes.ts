@@ -21,7 +21,7 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'painel' },
       { path: 'painel', title: t('Painel'), loadComponent: () => import('./features/dashboard/dashboard.page') },
-      { path: 'pipeline', title: t('Pipeline'), loadComponent: () => import('./features/pipeline/pipeline.page') },
+      { path: 'pipeline', title: t('Funil'), loadComponent: () => import('./features/pipeline/pipeline.page') },
       { path: 'leads', title: t('Leads'), loadComponent: () => import('./features/leads/leads.page') },
       { path: 'conversas', title: t('Conversas'), loadComponent: () => import('./features/conversas/conversas.page') },
       { path: 'assistente', title: t('Assistente'), loadComponent: () => import('./features/assistente/assistente.page') },
@@ -29,7 +29,7 @@ export const routes: Routes = [
         loadComponent: () => import('./features/imoveis/imoveis.page') },
       { path: 'imoveis/folha', title: t('Folha de imóveis'), data: { papeis: ['admin', 'gerente', 'corretor'] },
         loadComponent: () => import('./features/imoveis/folha.page') },
-      { path: 'gerencia', title: t('Agenda e gerência'), data: { papeis: ['admin', 'gerente'] },
+      { path: 'gerencia', title: t('Agenda'), data: { papeis: ['admin', 'gerente'] },
         loadComponent: () => import('./features/gerencia/gerencia.page') },
       { path: 'sites', title: t('Sites'), data: { papeis: ['admin'] }, loadComponent: () => import('./features/sites/sites.page') },
       { path: 'equipe', title: t('Equipe'), data: { papeis: ['admin'] }, loadComponent: () => import('./features/equipe/equipe.page') },

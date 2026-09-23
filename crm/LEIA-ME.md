@@ -1,6 +1,6 @@
 # Royal CRM
 
-O Royal Hub refeito em Angular + Supabase. Leads, pipeline, imóveis, WhatsApp com assistente de IA, agenda, sites e portais — sem servidor próprio para manter ligado.
+O Royal Hub refeito em Angular + Supabase. Leads, funil, imóveis, WhatsApp com assistente de IA, agenda, sites e portais — sem servidor próprio para manter ligado.
 
 ## Ver funcionando agora (sem configurar nada)
 
@@ -50,12 +50,12 @@ npx supabase secrets set GROQ_API_KEY=sua-chave SITE_URL=https://endereco-do-app
 | Tela | Para quê | Quem vê |
 |---|---|---|
 | Painel | Números do mês, 14 dias, funil, últimos leads, imóveis mais pedidos | todos |
-| Pipeline | Kanban de vendas: arrastar ou usar as setas (teclado) | todos |
+| Funil | Kanban de vendas: arrastar ou usar as setas (teclado) | todos |
 | Leads | Tabela com busca, filtros, ordenação e páginas; ficha com histórico; importar planilha | todos |
 | Conversas | WhatsApp: ler, responder, ligar/desligar a assistente por conversa | todos |
 | Assistente | Testar a assistente com a ficha do cliente ao lado e diálogos salvos com anotações; aba Configurar (admin): quando responde, personalidade, qual IA/modelo e as instruções completas | todos (configurar: admin) |
 | Imóveis | Carteira com fotos, CEP automático, situação, portais; folha para o cliente (imprimir/PDF) | admin, gerente, corretor |
-| Agenda e gerência | Visitas marcadas, perguntas que a assistente deixou, clientes parados, interesses | admin, gerente |
+| Agenda | Visitas marcadas, perguntas que a assistente deixou, clientes parados, interesses | admin, gerente |
 | Sites | Sites dos clientes com prévia ao vivo e rascunho por IA | admin |
 | Equipe | Pessoas, papéis, equipes | admin |
 | Ajustes | Imobiliária, WhatsApp oficial, captação (formulário e webhook), portais | admin |
@@ -65,8 +65,9 @@ Páginas públicas, sem login: `/captar/<empresa>` (formulário do anúncio), `/
 
 ## Atalhos e detalhes de uso
 
-- **/** leva o foco para a busca da tela (Leads, Pipeline, Imóveis, Conversas). **Esc** fecha a ficha aberta — se houver alteração não salva, ele pergunta antes.
+- **/** leva o foco para a busca da tela (Leads, Funil, Imóveis, Conversas). **Esc** fecha a ficha aberta — se houver alteração não salva, ele pergunta antes.
 - Nas abas (Assistente) as **setas** trocam de aba; no Kanban, as setas do card movem o lead de etapa sem arrastar.
+- **Modo escuro**: botão no rodapé do menu (e na tela de login). Começa pelo tema do sistema; a escolha fica guardada no navegador.
 - Telefone, CEP e valores em R$ ganham máscara enquanto você digita; o erro de um campo aparece ao sair dele.
 - Na tabela de leads, clicar em qualquer ponto da linha abre a ficha, e cada contato tem um link direto para o WhatsApp.
 

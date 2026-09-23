@@ -1,14 +1,12 @@
 <header class="cabecalho-pagina">
   <div>
-    <p class="sobretitulo">Vendas</p>
-    <h1>Pipeline de vendas</h1>
-    <p>Arraste o card para mudar a etapa — ou use as setas do card, pelo teclado.
-      Em negociação: <b class="mono">{{ totalAberto() | brl }}</b> · ponderado pela chance de fechar: <b class="mono">{{ totalPonderado() | brl }}</b>.</p>
+    <h1>Funil</h1>
+    <p>Em negociação: <b class="mono">{{ totalAberto() | brl }}</b> · ponderado: <b class="mono">{{ totalPonderado() | brl }}</b>. Arraste o card ou use as setas.</p>
   </div>
   <div class="acoes"><button type="button" class="btn primario" (click)="novo('novo')">+ Novo lead</button></div>
 </header>
 
-<form class="filtros" role="search" aria-label="Filtrar o pipeline" (submit)="$event.preventDefault()">
+<form class="filtros" role="search" aria-label="Filtrar o funil" (submit)="$event.preventDefault()">
   <div class="campo busca">
     <label for="k-busca">Buscar</label>
     <input id="k-busca" type="search" title="Atalho: tecla /" placeholder="Nome, telefone ou o que procura" [ngModel]="busca()" name="busca" (ngModelChange)="busca.set($event)" />
@@ -27,7 +25,7 @@
 @if (erro()) {
   <p class="aviso erro" role="alert">{{ erro() }} <button type="button" class="btn pequeno" (click)="carregar()">Tentar de novo</button></p>
 } @else if (carregando() && !etapas().length) {
-  <p class="vazio" role="status">Carregando o pipeline…</p>
+  <p class="vazio" role="status">Carregando o funil…</p>
 }
 
 <div class="quadro" cdkDropListGroup [attr.aria-busy]="carregando()">

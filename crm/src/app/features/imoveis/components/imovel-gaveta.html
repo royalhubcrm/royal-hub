@@ -25,7 +25,7 @@
           <select id="m-status" name="status" [(ngModel)]="f.status" aria-describedby="m-status-ajuda">
             @for (s of statusLista; track s.valor) { <option [value]="s.valor">{{ s.rotulo }}</option> }
           </select>
-          <span class="ajuda" id="m-status-ajuda">Só "Disponível" aparece para clientes, sites e portais.</span>
+          <span class="ajuda" id="m-status-ajuda">Só "Disponível" aparece para clientes e portais.</span>
         </div>
       </div>
     </fieldset>
@@ -68,7 +68,7 @@
     <div class="campo">
       <label for="m-desc">Descrição</label>
       <textarea id="m-desc" name="descricao" rows="5" [(ngModel)]="f.descricao" aria-describedby="m-desc-ajuda"></textarea>
-      <span class="ajuda" id="m-desc-ajuda">{{ f.descricao.length }} caracteres. Se ficar curta, o feed dos portais completa com os dados do imóvel.</span>
+      <span class="ajuda" id="m-desc-ajuda">{{ f.descricao.length }} caracteres. Curta demais, os portais completam com os dados.</span>
     </div>
 
     <fieldset>
@@ -88,11 +88,11 @@
         </ul>
       }
       <div class="linha">
-        <label class="btn" for="m-arquivos">{{ enviando() ? 'Enviando ' + enviando() + '…' : 'Enviar fotos do computador' }}</label>
+        <label class="btn" for="m-arquivos">{{ enviando() ? 'Enviando ' + enviando() + '…' : 'Enviar fotos' }}</label>
         <input id="m-arquivos" class="sr-only" type="file" accept="image/*" multiple (change)="enviarFotos($event)" />
       </div>
       <div class="campo url">
-        <label for="m-url">Ou cole o endereço de uma foto</label>
+        <label for="m-url">Ou cole o link de uma foto</label>
         <div class="linha">
           <input id="m-url" name="novaUrl" [(ngModel)]="novaUrl" placeholder="https://…" />
           <button type="button" class="btn" (click)="adicionarUrl()">Adicionar</button>

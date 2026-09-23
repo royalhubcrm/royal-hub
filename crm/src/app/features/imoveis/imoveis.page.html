@@ -1,12 +1,11 @@
 <header class="cabecalho-pagina">
   <div>
-    <p class="sobretitulo">Carteira</p>
     <h1>Imóveis</h1>
-    <p>A base que a assistente do WhatsApp, os sites e os portais usam. {{ prontosPortal() }} prontos para os portais.</p>
+    <p>{{ prontosPortal() }} prontos para os portais.</p>
   </div>
   <div class="acoes">
-    <button type="button" class="btn" (click)="folha()">
-      Folha para o cliente{{ selecionados().size ? ' (' + selecionados().size + ')' : '' }}
+    <button type="button" class="btn" (click)="folha()" title="Folha para imprimir ou salvar em PDF com os imóveis marcados">
+      Folha{{ selecionados().size ? ' (' + selecionados().size + ')' : '' }}
     </button>
     <button type="button" class="btn" (click)="importando.set(true)">Importar</button>
     <button type="button" class="btn primario" (click)="novo()">+ Imóvel</button>
@@ -75,14 +74,14 @@
           </p>
           <p class="situacao">
             @if (m.status !== 'disponivel') { <span class="etiqueta">{{ rotuloStatus(m.status) }}</span> }
-            @if (pendencias(m).length) { <span class="etiqueta morno sem-ponto" [title]="'Falta para os portais: ' + pendencias(m).join(', ')">Portais: falta {{ pendencias(m).join(', ') }}</span> }
-            @else { <span class="etiqueta ok sem-ponto">Pronto para os portais</span> }
+            @if (pendencias(m).length) { <span class="etiqueta morno sem-ponto" [title]="'Falta para os portais: ' + pendencias(m).join(', ')">Falta {{ pendencias(m).join(', ') }}</span> }
+            @else { <span class="etiqueta ok sem-ponto">Portais OK</span> }
           </p>
         </div>
         <div class="acoes-card">
           <button type="button" class="btn pequeno" (click)="editar(m)">Editar <span class="sr-only">{{ m.codigo }}</span></button>
           @if (m.status === 'disponivel') {
-            <a class="btn pequeno fantasma" [href]="linkPublico(m)" target="_blank" rel="noopener" title="Abre a página pública em nova aba">Página <span class="sr-only">do {{ m.codigo }} (abre em nova aba)</span></a>
+            <a class="btn pequeno fantasma" [href]="linkPublico(m)" target="_blank" rel="noopener" title="Abre a página pública em nova aba">Ver página <span class="sr-only">do {{ m.codigo }} (abre em nova aba)</span></a>
             <button type="button" class="btn pequeno fantasma" (click)="copiar(m)">Copiar link</button>
           }
         </div>
@@ -101,7 +100,7 @@
 } @else {
   <div class="vazio">
     @if (todos().length) { Nenhum imóvel com esses filtros. <button type="button" class="btn pequeno" (click)="limpar()">Limpar filtros</button> }
-    @else { Carteira vazia. Use <b>Importar</b> para colar os imóveis de outra planilha ou cadastre um. }
+    @else { Carteira vazia. Importe de uma planilha ou cadastre um imóvel. }
   </div>
 }
 

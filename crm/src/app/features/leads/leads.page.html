@@ -1,11 +1,9 @@
 <header class="cabecalho-pagina">
   <div>
-    <p class="sobretitulo">CRM</p>
     <h1>Leads</h1>
-    <p>Todo cliente que chega (anúncio, formulário, WhatsApp, planilha) entra aqui. Clique no nome para abrir a ficha.</p>
   </div>
   <div class="acoes">
-    <button type="button" class="btn" (click)="importando.set(true)">Importar planilha</button>
+    <button type="button" class="btn" (click)="importando.set(true)">Importar</button>
     <button type="button" class="btn primario" (click)="novoLead()">+ Novo lead</button>
   </div>
 </header>
@@ -13,7 +11,7 @@
 <form class="filtros" role="search" aria-label="Filtrar leads" (submit)="$event.preventDefault()">
   <div class="campo busca">
     <label for="f-busca">Buscar</label>
-    <input id="f-busca" type="search" title="Atalho: tecla /" placeholder="Nome, telefone, e-mail, interesse ou campanha"
+    <input id="f-busca" type="search" title="Atalho: tecla /" placeholder="Nome, telefone, e-mail ou interesse"
            [value]="filtro().busca ?? ''" (input)="digitar($any($event.target).value)" />
   </div>
   <div class="campo">
@@ -106,7 +104,7 @@
     } @else if (erro()) {
       {{ erro() }}
     } @else {
-      Nenhum lead ainda. Cadastre o primeiro, importe uma planilha ou ligue o formulário de captação em Ajustes.
+      Nenhum lead ainda. Cadastre o primeiro, importe uma planilha ou ligue a captação em Ajustes.
     }
   </div>
 }

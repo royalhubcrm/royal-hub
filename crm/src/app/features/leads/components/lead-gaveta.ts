@@ -21,7 +21,7 @@ interface Rascunho {
 }
 
 /**
- * A ficha do lead, num painel lateral. É a mesma na tela de Leads e no Pipeline:
+ * A ficha do lead, num painel lateral. É a mesma na tela de Leads e no Funil:
  * editar, ver o histórico, anotar, chamar no WhatsApp e pedir uma sugestão de mensagem.
  */
 @Component({
