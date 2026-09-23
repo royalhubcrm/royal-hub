@@ -8,84 +8,101 @@ export interface Msg { role: 'user' | 'assistant'; content: string }
 // ---------------------------------------------------------------- chamar a IA
 export type Provedor = 'groq' | 'anthropic' | 'gemini';
 export const PROVEDORES: Provedor[] = ['groq', 'anthropic', 'gemini'];
+const NOME: Record<Provedor, string> = { groq: 'Groq', anthropic: 'Claude', gemini: 'Gemini' };
+const CHAVE: Record<Provedor, string> = { groq: 'GROQ_API_KEY', anthropic: 'ANTHROPIC_API_KEY', gemini: 'GEMINI_API_KEY' };
+const VAR_MODELO: Record<Provedor, string> = { groq: 'GROQ_MODEL', anthropic: 'ANTHROPIC_MODEL', gemini: 'GEMINI_MODEL' };
+const MODELO_PADRAO: Record<Provedor, string> = { groq: 'openai/gpt-oss-120b', anthropic: 'claude-sonnet-5', gemini: 'gemini-3.6-flash' };
 
-/** Os provedores com chave configurada, na ordem de preferência. */
-export const provedoresDisponiveis = (): Provedor[] =>
-  PROVEDORES.filter((p) => !!Deno.env.get({ groq: 'GROQ_API_KEY', anthropic: 'ANTHROPIC_API_KEY', gemini: 'GEMINI_API_KEY' }[p]));
+export interface OpcoesIA {
+  /** Provedor preferido (vem da tela Conversas → Assistente). */
+  provedor?: Provedor;
+  /** Modelo do provedor preferido; vazio = padrão. */
+  modelo?: string;
+  /** true = só esse provedor, sem cair para os outros (o simulador usa para comparar). */
+  estrito?: boolean;
+}
 
-/** Groq (gratuito) primeiro; depois Anthropic ou Gemini, se tiver a chave. */
-export async function pedirIA(sistema: string, mensagens: Msg[], maxTokens = 600, provedor?: Provedor): Promise<string> {
-  return (await pedirIADetalhado(sistema, mensagens, maxTokens, provedor)).texto;
+/** Os provedores com chave configurada, na ordem padrão. */
+export const provedoresDisponiveis = (): Provedor[] => PROVEDORES.filter((p) => !!Deno.env.get(CHAVE[p]));
+export const modeloDe = (p: Provedor, escolhido?: string) => escolhido || Deno.env.get(VAR_MODELO[p]) || MODELO_PADRAO[p];
+
+/** O que a config da empresa pede (ia_provedor/ia_modelo) no formato das opções. */
+export function preferenciaIA(c: Record<string, any>): OpcoesIA {
+  const p = c?.ia_provedor;
+  return PROVEDORES.includes(p) ? { provedor: p, modelo: String(c.ia_modelo || '') || undefined } : {};
+}
+
+export async function pedirIA(sistema: string, mensagens: Msg[], maxTokens = 600, o: OpcoesIA = {}): Promise<string> {
+  return (await pedirIADetalhado(sistema, mensagens, maxTokens, o)).texto;
 }
 
 /**
- * Igual a pedirIA, mas diz qual provedor respondeu. Com `provedor` informado,
- * usa só ele (é o que a tela "Testar a assistente" faz para comparar os dois).
+ * Tenta o provedor preferido e, se ele falhar, os outros que tiverem chave
+ * (ordem padrão: Groq, gratuito → Claude → Gemini). Diz quem respondeu.
  */
-export async function pedirIADetalhado(sistema: string, mensagens: Msg[], maxTokens = 600, provedor?: Provedor): Promise<{ texto: string; provedor: Provedor }> {
+export async function pedirIADetalhado(sistema: string, mensagens: Msg[], maxTokens = 600, o: OpcoesIA = {}): Promise<{ texto: string; provedor: Provedor; modelo: string }> {
+  const ordem: Provedor[] = o.provedor ? (o.estrito ? [o.provedor] : [o.provedor, ...PROVEDORES.filter((p) => p !== o.provedor)]) : PROVEDORES;
   const erros: string[] = [];
-  const quer = (p: Provedor) => !provedor || provedor === p;
-  const groq = Deno.env.get('GROQ_API_KEY');
-  if (groq && quer('groq')) {
+  for (const p of ordem) {
+    const chave = Deno.env.get(CHAVE[p]);
+    if (!chave) { if (o.provedor === p) erros.push(`${NOME[p]}: falta a chave ${CHAVE[p]}.`); continue; }
+    const modelo = modeloDe(p, o.provedor === p ? o.modelo : undefined);
     try {
-      const model = Deno.env.get('GROQ_MODEL') || 'openai/gpt-oss-120b';
-      const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { authorization: 'Bearer ' + groq, 'content-type': 'application/json' },
-        body: JSON.stringify({
-          model, max_tokens: maxTokens, temperature: 0.6,
-          // modelos que "pensam" (gpt-oss, qwen) gastariam os tokens todos raciocinando
-          ...(/gpt-oss|qwen|deepseek/.test(model) ? { reasoning_effort: 'low' } : {}),
-          messages: [{ role: 'system', content: sistema }, ...mensagens],
-        }),
-      });
-      const j = await r.json();
-      if (r.ok) return { texto: String(j.choices?.[0]?.message?.content ?? ''), provedor: 'groq' };
-      erros.push('Groq ' + r.status + ': ' + (j.error?.message ?? ''));
-    } catch (e) { erros.push('Groq: ' + (e as Error).message); }
-  } else if (provedor === 'groq') erros.push('Groq: falta a chave GROQ_API_KEY.');
-  const anthropic = Deno.env.get('ANTHROPIC_API_KEY');
-  if (anthropic && quer('anthropic')) {
-    try {
-      const r = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'x-api-key': anthropic, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({
-          model: Deno.env.get('ANTHROPIC_MODEL') || 'claude-sonnet-5',
-          max_tokens: maxTokens, system: sistema, messages: juntarSeguidas(mensagens),
-        }),
-      });
-      const j = await r.json();
-      if (r.ok) return { texto: (j.content ?? []).map((b: { text?: string }) => b.text ?? '').join(''), provedor: 'anthropic' };
-      erros.push('Anthropic ' + r.status + ': ' + (j.error?.message ?? ''));
-    } catch (e) { erros.push('Anthropic: ' + (e as Error).message); }
-  } else if (provedor === 'anthropic') erros.push('Anthropic: falta a chave ANTHROPIC_API_KEY.');
-  const gemini = Deno.env.get('GEMINI_API_KEY');
-  if (gemini && quer('gemini')) {
-    try {
-      const model = Deno.env.get('GEMINI_MODEL') || 'gemini-3.6-flash';
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-        method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': gemini },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: sistema }] },
-          contents: juntarSeguidas(mensagens).map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
-          // o Gemini 2.5+ "pensa" antes de responder; sem limitar, o pensamento come o maxOutputTokens
-          generationConfig: { maxOutputTokens: maxTokens, thinkingConfig: { thinkingBudget: 0 } },
-        }),
-      });
-      const j = await r.json();
-      if (r.ok) {
-        const texto = (j.candidates?.[0]?.content?.parts ?? []).filter((p: { thought?: boolean }) => !p.thought).map((p: { text?: string }) => p.text ?? '').join('');
-        if (texto) return { texto, provedor: 'gemini' };
-        erros.push('Gemini: resposta vazia (' + (j.candidates?.[0]?.finishReason ?? j.promptFeedback?.blockReason ?? '?') + ')');
-      } else erros.push('Gemini ' + r.status + ': ' + (j.error?.message ?? ''));
-    } catch (e) { erros.push('Gemini: ' + (e as Error).message); }
-  } else if (provedor === 'gemini') erros.push('Gemini: falta a chave GEMINI_API_KEY.');
-  throw new Error(erros.length ? erros.join(' | ') : 'Nenhuma chave de IA configurada (GROQ_API_KEY).');
+      const texto = await CHAMAR[p](chave, modelo, sistema, mensagens, maxTokens);
+      if (texto.trim()) return { texto, provedor: p, modelo };
+      erros.push(`${NOME[p]} (${modelo}): resposta vazia`);
+    } catch (e) { erros.push(`${NOME[p]} (${modelo}): ${(e as Error).message}`); }
+  }
+  throw new Error(erros.length ? erros.join(' | ') : 'Nenhuma chave de IA configurada (GROQ_API_KEY ou GEMINI_API_KEY).');
 }
 
-export const iaConfigurada = () =>
-  !!(Deno.env.get('GROQ_API_KEY') || Deno.env.get('ANTHROPIC_API_KEY') || Deno.env.get('GEMINI_API_KEY'));
+type Chamada = (chave: string, modelo: string, sistema: string, mensagens: Msg[], maxTokens: number) => Promise<string>;
+
+const CHAMAR: Record<Provedor, Chamada> = {
+  async groq(chave, modelo, sistema, mensagens, maxTokens) {
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { authorization: 'Bearer ' + chave, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: modelo, max_tokens: maxTokens, temperature: 0.6,
+        // modelos que "pensam" (gpt-oss, qwen) gastariam os tokens todos raciocinando
+        ...(/gpt-oss|qwen|deepseek/.test(modelo) ? { reasoning_effort: 'low' } : {}),
+        messages: [{ role: 'system', content: sistema }, ...mensagens],
+      }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(r.status + ' ' + (j.error?.message ?? ''));
+    return String(j.choices?.[0]?.message?.content ?? '');
+  },
+  async anthropic(chave, modelo, sistema, mensagens, maxTokens) {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': chave, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model: modelo, max_tokens: maxTokens, system: sistema, messages: juntarSeguidas(mensagens) }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(r.status + ' ' + (j.error?.message ?? ''));
+    return (j.content ?? []).map((b: { text?: string }) => b.text ?? '').join('');
+  },
+  async gemini(chave, modelo, sistema, mensagens, maxTokens) {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, {
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': chave },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: sistema }] },
+        contents: juntarSeguidas(mensagens).map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
+        // o Gemini 2.5+ "pensa" antes de responder; sem desligar, o pensamento come o maxOutputTokens
+        generationConfig: { maxOutputTokens: maxTokens, thinkingConfig: { thinkingBudget: 0 } },
+      }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(r.status + ' ' + (j.error?.message ?? ''));
+    const texto = (j.candidates?.[0]?.content?.parts ?? []).filter((p: { thought?: boolean }) => !p.thought).map((p: { text?: string }) => p.text ?? '').join('');
+    if (!texto) throw new Error('resposta vazia (' + (j.candidates?.[0]?.finishReason ?? j.promptFeedback?.blockReason ?? '?') + ')');
+    return texto;
+  },
+};
+
+export const iaConfigurada = () => provedoresDisponiveis().length > 0;
 
 /** Anthropic e Gemini exigem papéis alternados: junta mensagens seguidas do mesmo lado. */
 function juntarSeguidas(msgs: Msg[]): Msg[] {
@@ -153,26 +170,30 @@ function saudacao() {
   return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
 }
 
-/** O "manual" da assistente, montado a cada mensagem com a data real e a carteira filtrada. */
-export function instrucoes(c: Record<string, any>, empresa: string, lista: ImovelIA[]): string {
-  const assistente = c.assistente || 'Camila';
-  const corretor = c.corretor || 'o corretor';
-  const cidade = c.cidade || 'Uberlândia';
-  const endereco = c.endereco || 'o escritório';
-  const ficha = (m: ImovelIA) =>
-    `${m.codigo} | ${m.tipo} | ${m.bairro}${m.cidade ? ', ' + m.cidade : ''} | ` +
-    `${m.preco ? 'R$ ' + Number(m.preco).toLocaleString('pt-BR') : 'sob consulta'} | ` +
-    `${m.quartos} qto, ${m.suites} suíte, ${m.vagas} vaga, ${m.area} m²` +
-    `${m.descricao ? ' | ' + m.descricao.slice(0, 120) : ''}`;
-  const semana = emSP({ weekday: 'short' }).toLowerCase();
-  const fimDeSemana = semana.startsWith('sáb') || semana.startsWith('sab') || semana.startsWith('dom');
-  const amanha = new Date(Date.now() + 864e5).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: '2-digit', month: '2-digit' });
+/** As variáveis que o texto do prompt aceita (a tela lista estas para o administrador). */
+export const VARIAVEIS_PROMPT = [
+  { nome: 'agora', descricao: 'Data e hora reais em São Paulo, com o dia da semana' },
+  { nome: 'amanha', descricao: 'A data de amanhã por extenso' },
+  { nome: 'saudacao', descricao: '"Bom dia", "Boa tarde" ou "Boa noite", conforme a hora' },
+  { nome: 'aviso_fim_de_semana', descricao: 'Aviso de escritório fechado (só aparece sábado e domingo)' },
+  { nome: 'assistente', descricao: 'Nome da assistente (Ajustes → Assistente)' },
+  { nome: 'corretor', descricao: 'Corretor responsável (Ajustes → Imobiliária)' },
+  { nome: 'CORRETOR', descricao: 'O mesmo, em maiúsculas' },
+  { nome: 'empresa', descricao: 'Nome da imobiliária' },
+  { nome: 'EMPRESA', descricao: 'O mesmo, em maiúsculas' },
+  { nome: 'cidade', descricao: 'Cidade padrão' },
+  { nome: 'endereco', descricao: 'Endereço do escritório' },
+  { nome: 'fatos', descricao: 'O campo "O que ela pode afirmar com segurança"' },
+  { nome: 'estilo', descricao: 'O campo "Como ela deve falar"' },
+  { nome: 'imoveis', descricao: 'A carteira filtrada para o que o cliente pediu (uma linha por imóvel)' },
+];
 
-  return `[AGORA — data real do sistema; nunca calcule nem presuma]
-Hoje é ${emSP({ weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}, ${emSP({ hour: '2-digit', minute: '2-digit' })} em ${cidade}. Amanhã é ${amanha}.
-O cumprimento certo agora é "${saudacao()}".${fimDeSemana ? '\nHoje é fim de semana: o escritório está fechado; não marque atendimento para hoje.' : ''}
+/** O texto padrão. A empresa pode trocar em Conversas → Assistente; vazio lá = este. */
+export const PROMPT_PADRAO = `[AGORA — data real do sistema; nunca calcule nem presuma]
+Hoje é {{agora}} em {{cidade}}. Amanhã é {{amanha}}.
+O cumprimento certo agora é "{{saudacao}}".{{aviso_fim_de_semana}}
 
-Você é a ${assistente}, assistente do ${corretor} na ${empresa}, em ${cidade}, no WhatsApp. Fala no feminino. Seu objetivo é levar a conversa até um ATENDIMENTO PRESENCIAL no escritório, com dia e hora marcados. Puxe pra lá com leveza, sem pressão: quem dá o ritmo é o cliente.
+Você é a {{assistente}}, assistente do {{corretor}} na {{empresa}}, em {{cidade}}, no WhatsApp. Fala no feminino. Seu objetivo é levar a conversa até um ATENDIMENTO PRESENCIAL no escritório, com dia e hora marcados. Puxe pra lá com leveza, sem pressão: quem dá o ritmo é o cliente.
 
 1. O CLIENTE CONDUZ
 - Responda o que ele trouxe e PARE. Uma mensagem faz UMA coisa: nunca duas perguntas juntas.
@@ -184,23 +205,23 @@ Você é a ${assistente}, assistente do ${corretor} na ${empresa}, em ${cidade},
 2. COMO VOCÊ FALA
 - Como gente: contrações (pra, tá), frases curtas. PROIBIDO tom de call center ("Como posso ajudá-lo?", "Prezado").
 - Emoji raramente, no máximo 1. Nunca comece duas mensagens igual.
-- Na PRIMEIRA mensagem: "${saudacao()}! Aqui é a ${assistente}, da ${empresa}". Depois, nunca mais se apresente. Se já sabe o nome dele, use.
-- Se perguntarem se é robô: "Sou a assistente virtual da ${empresa}, mas pode falar comigo normal".
-- Se ele pedir uma pessoa: "Claro, já passo pro ${corretor} continuar com você" e pare.
+- Na PRIMEIRA mensagem: "{{saudacao}}! Aqui é a {{assistente}}, da {{empresa}}". Depois, nunca mais se apresente. Se já sabe o nome dele, use.
+- Se perguntarem se é robô: "Sou a assistente virtual da {{empresa}}, mas pode falar comigo normal".
+- Se ele pedir uma pessoa: "Claro, já passo pro {{corretor}} continuar com você" e pare.
 
 3. FORMATO WHATSAPP
 Negrito *assim* (um asterisco). Nunca use #, **, listas com "-" ou "•". Linha em branco separa MENSAGENS: use só quando os assuntos forem distintos.
 
-4. FATOS DA ${empresa.toUpperCase()}
-Escritório: ${endereco}. Atendimento presencial só com hora marcada, de segunda a sexta.
+4. FATOS DA {{EMPRESA}}
+Escritório: {{endereco}}. Atendimento presencial só com hora marcada, de segunda a sexta.
 Pode afirmar com segurança (e só isto):
-${c.fatos || '(nenhum fato cadastrado)'}
+{{fatos}}
 Entrada, parcela, prazo e custas: não responda por mensagem; leve para o presencial.
 
 5. CARTEIRA — os ÚNICOS imóveis que existem (tempo real):
-${lista.map(ficha).join('\n') || '(carteira vazia)'}
+{{imoveis}}
 - NUNCA invente imóvel, bairro, metragem ou preço. Copie os dados da linha acima. Sempre cite o código. No máximo DOIS imóveis por mensagem.
-- A ${empresa} atende TODAS as regiões de ${cidade}. Nunca diga que não atende um bairro.
+- A {{empresa}} atende TODAS as regiões de {{cidade}}. Nunca diga que não atende um bairro.
 
 6. DESCOBRIR ANTES DE OFERECER
 Primeiro descubra a REGIÃO (ou a faixa de preço). Quem só disse "oi" ou "vi o anúncio" ainda não disse nada: não ofereça imóvel.
@@ -208,7 +229,7 @@ Com a região ou o valor na mão, mostre até dois que batem — e emita [ENVIAR
 [ENVIAR_FOTO_IMOVEL_CODIGO] quando ele pedir a foto de UM imóvel. Nunca descreva em palavras que enviou algo.
 
 7. NUNCA INVENTE
-Pergunta que não está aqui (condomínio de um imóvel, FGTS, permuta, pet…): diga que confirma com o ${corretor} e emita [DUVIDA]{"pergunta":"<resumo curto>"}.
+Pergunta que não está aqui (condomínio de um imóvel, FGTS, permuta, pet…): diga que confirma com o {{corretor}} e emita [DUVIDA]{"pergunta":"<resumo curto>"}.
 
 8. MARCAR O ATENDIMENTO
 Colete só o que falta, uma coisa por vez. Se ele já disse o dia, pergunte só o horário (e vice-versa). Só de segunda a sexta: confira no bloco [AGORA] o dia da semana antes de aceitar. Proponha horário concreto. Datas em DD/MM.
@@ -217,7 +238,7 @@ Confirmação (mensagem separada):
 *Data:* DD/MM
 *Horário:* ...
 *Imóvel de interesse:* tipo no bairro — cód. X
-*Local:* ${endereco}
+*Local:* {{endereco}}
 Só DEPOIS que ele confirmar, acrescente [AGENDAMENTO_CONFIRMADO]{"nome":"...","data":"AAAA-MM-DD","hora":"HH:MM","codigo":"X"}.
 
 9. MEMÓRIA
@@ -225,7 +246,43 @@ Ao descobrir um dado durável, acrescente no FINAL, em linha própria: [PERFIL]{
 
 10. CÓDIGOS INTERNOS
 O cliente NUNCA vê: o sistema apaga antes de enviar. Nunca dois iguais no mesmo texto.
-${c.estilo ? `\n11. O JEITO DO ${String(corretor).toUpperCase()} (siga fielmente)\n${c.estilo}` : ''}`;
+
+11. O JEITO DO {{CORRETOR}} (siga fielmente)
+{{estilo}}`;
+
+/** Troca {{variavel}} pelo valor; variável desconhecida vira vazio. */
+export function renderizarPrompt(modelo: string, vars: Record<string, string>): string {
+  return modelo.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, k: string) => vars[k] ?? vars[k.toLowerCase()] ?? '');
+}
+
+/** O "manual" da assistente, montado a cada mensagem com a data real e a carteira filtrada. */
+export function instrucoes(c: Record<string, any>, empresa: string, lista: ImovelIA[]): string {
+  const corretor = c.corretor || 'o corretor';
+  const cidade = c.cidade || 'Uberlândia';
+  const ficha = (m: ImovelIA) =>
+    `${m.codigo} | ${m.tipo} | ${m.bairro}${m.cidade ? ', ' + m.cidade : ''} | ` +
+    `${m.preco ? 'R$ ' + Number(m.preco).toLocaleString('pt-BR') : 'sob consulta'} | ` +
+    `${m.quartos} qto, ${m.suites} suíte, ${m.vagas} vaga, ${m.area} m²` +
+    `${m.descricao ? ' | ' + m.descricao.slice(0, 120) : ''}`;
+  const semana = emSP({ weekday: 'short' }).toLowerCase();
+  const fimDeSemana = semana.startsWith('sáb') || semana.startsWith('sab') || semana.startsWith('dom');
+
+  const vars: Record<string, string> = {
+    agora: `${emSP({ weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}, ${emSP({ hour: '2-digit', minute: '2-digit' })}`,
+    amanha: new Date(Date.now() + 864e5).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: '2-digit', month: '2-digit' }),
+    saudacao: saudacao(),
+    aviso_fim_de_semana: fimDeSemana ? '\nHoje é fim de semana: o escritório está fechado; não marque atendimento para hoje.' : '',
+    assistente: c.assistente || 'Camila',
+    corretor, CORRETOR: String(corretor).toUpperCase(),
+    empresa, EMPRESA: empresa.toUpperCase(),
+    cidade,
+    endereco: c.endereco || 'o escritório',
+    fatos: c.fatos || '(nenhum fato cadastrado)',
+    estilo: c.estilo || '(sem exemplos cadastrados: siga o tom da seção 2)',
+    imoveis: lista.map(ficha).join('\n') || '(carteira vazia)',
+  };
+  const modelo = String(c.prompt_base || '').trim() || PROMPT_PADRAO;
+  return renderizarPrompt(modelo, vars);
 }
 
 // ---------------------------------------------------------------- marcadores

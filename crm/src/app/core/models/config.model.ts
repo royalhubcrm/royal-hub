@@ -1,4 +1,5 @@
 export type ModoBot = 'anuncio' | 'novos' | 'todos';
+export type ProvedorIA = 'groq' | 'gemini' | 'anthropic';
 
 export interface Config {
   empresa_id: string;
@@ -18,4 +19,8 @@ export interface Config {
   wa_numero_id: string;
   wa_verificacao: string;
   wa_configurado: boolean;
+  /** Conversas → Assistente: o texto do prompt (vazio = padrão) e quem responde. */
+  prompt_base: string;
+  ia_provedor: 'auto' | ProvedorIA;
+  ia_modelo: string;
 }

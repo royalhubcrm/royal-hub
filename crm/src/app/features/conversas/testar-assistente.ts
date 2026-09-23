@@ -24,7 +24,7 @@ interface Fala { papel: 'cliente' | 'bot'; texto: string; acoes?: string[]; prov
       <div class="linha modelo">
         <label for="t-modelo">Responder com</label>
         <select id="t-modelo" [ngModel]="provedor()" name="modelo" (ngModelChange)="provedor.set($event)" aria-describedby="t-modelo-ajuda">
-          <option value="">Automático (a ordem do WhatsApp)</option>
+          <option value="">Automático (o configurado em "Assistente: prompt e modelo")</option>
           @for (p of disponiveis(); track p) { <option [value]="p">{{ nome(p) }}</option> }
         </select>
         <span class="ajuda" id="t-modelo-ajuda">

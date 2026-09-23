@@ -14,7 +14,7 @@ Abra http://localhost:4331. É o **modo demonstração**: dados de exemplo que v
 ## Ligar de verdade — passo a passo
 
 ### 1. Banco (uma vez)
-1. No Supabase, abra **SQL Editor**, cole todo o arquivo `supabase/migrations/20260922120000_crm_inicial.sql` e rode.
+1. No Supabase, abra **SQL Editor** e rode, em ordem, cada arquivo de `supabase/migrations/` (cole o conteúdo inteiro e clique em Run).
 2. **Project Settings → Data API → Exposed schemas**: adicione `crm`.
 3. **Authentication → Sign In / Providers**: desligue *Allow new users to sign up* (quem cria contas é o administrador, na tela Equipe).
 4. **Authentication → Users → Add user**: crie o seu login (e-mail e senha).
@@ -52,7 +52,7 @@ npx supabase secrets set GROQ_API_KEY=sua-chave SITE_URL=https://endereco-do-app
 | Painel | Números do mês, 14 dias, funil, últimos leads, imóveis mais pedidos | todos |
 | Pipeline | Kanban de vendas: arrastar ou usar as setas (teclado) | todos |
 | Leads | Tabela com busca, filtros, ordenação e páginas; ficha com histórico; importar planilha | todos |
-| Conversas | WhatsApp: ler, responder, ligar/desligar a assistente; testar a assistente | todos |
+| Conversas | WhatsApp: ler, responder, ligar/desligar a assistente; testar a assistente; aba "Assistente" (admin) com o system prompt editável e a escolha de Groq/Gemini/Claude | todos |
 | Imóveis | Carteira com fotos, CEP automático, situação, portais; folha para o cliente (imprimir/PDF) | admin, gerente, corretor |
 | Agenda e gerência | Visitas marcadas, perguntas que a assistente deixou, clientes parados, interesses | admin, gerente |
 | Sites | Sites dos clientes com prévia ao vivo e rascunho por IA | admin |

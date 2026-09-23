@@ -13,11 +13,12 @@ import { QuandoPipe, TelefonePipe } from '../../shared/pipes/formatos.pipe';
 import { linkWhats } from '../../shared/util/telefone';
 import { semAcento } from '../../shared/util/planilha';
 import { TestarAssistente } from './testar-assistente';
+import { AssistenteConfig } from './assistente-config';
 import { AbasDirective } from '../../shared/ui/abas.directive';
 
 @Component({
   selector: 'app-conversas',
-  imports: [FormsModule, RouterLink, QuandoPipe, TelefonePipe, TestarAssistente, AbasDirective],
+  imports: [FormsModule, RouterLink, QuandoPipe, TelefonePipe, TestarAssistente, AssistenteConfig, AbasDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './conversas.page.html',
   styleUrl: './conversas.page.scss',
@@ -33,7 +34,7 @@ export default class ConversasPage {
   protected readonly auth = inject(AuthService);
   private readonly caixa = viewChild<ElementRef<HTMLElement>>('caixa');
 
-  protected readonly aba = signal<'conversas' | 'testar'>('conversas');
+  protected readonly aba = signal<'conversas' | 'testar' | 'assistente'>('conversas');
   protected readonly lista = signal<Conversa[]>([]);
   protected readonly selId = signal<string | null>(null);
   protected readonly mensagens = signal<Mensagem[]>([]);

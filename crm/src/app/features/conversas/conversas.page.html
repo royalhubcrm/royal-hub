@@ -23,6 +23,10 @@
           [attr.tabindex]="aba() === 'conversas' ? 0 : -1" (click)="aba.set('conversas')">Conversas</button>
   <button type="button" role="tab" id="aba-testar" aria-controls="painel-testar" [attr.aria-selected]="aba() === 'testar'"
           [attr.tabindex]="aba() === 'testar' ? 0 : -1" (click)="aba.set('testar')">Testar a assistente</button>
+  @if (auth.pode('admin')) {
+    <button type="button" role="tab" id="aba-assistente" aria-controls="painel-assistente" [attr.aria-selected]="aba() === 'assistente'"
+            [attr.tabindex]="aba() === 'assistente' ? 0 : -1" (click)="aba.set('assistente')">Assistente: prompt e modelo</button>
+  }
 </div>
 
 @if (aba() === 'conversas') {
@@ -154,8 +158,12 @@
       </section>
     </div>
   </div>
-} @else {
+} @else if (aba() === 'testar') {
   <div id="painel-testar" role="tabpanel" aria-labelledby="aba-testar">
     <app-testar-assistente />
+  </div>
+} @else {
+  <div id="painel-assistente" role="tabpanel" aria-labelledby="aba-assistente">
+    <app-assistente-config />
   </div>
 }

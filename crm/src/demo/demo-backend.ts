@@ -26,6 +26,29 @@ try {
   }
 } catch { /* navegador sem localStorage: fica na tela de login */ }
 
+// texto padrão do prompt, só para a tela da demonstração (o real fica em supabase/functions/_shared/ia.ts)
+const PROMPT_DEMO = `[AGORA — data real do sistema; nunca calcule nem presuma]
+Hoje é {{agora}} em {{cidade}}. Amanhã é {{amanha}}.
+O cumprimento certo agora é "{{saudacao}}".{{aviso_fim_de_semana}}
+
+Você é a {{assistente}}, assistente do {{corretor}} na {{empresa}}, em {{cidade}}, no WhatsApp. Fala no feminino. Seu objetivo é levar a conversa até um ATENDIMENTO PRESENCIAL no escritório, com dia e hora marcados.
+
+1. O CLIENTE CONDUZ
+- Responda o que ele trouxe e PARE. Uma mensagem faz UMA coisa: nunca duas perguntas juntas.
+
+2. COMO VOCÊ FALA
+- Como gente: contrações (pra, tá), frases curtas. Na PRIMEIRA mensagem: "{{saudacao}}! Aqui é a {{assistente}}, da {{empresa}}".
+
+4. FATOS DA {{EMPRESA}}
+Escritório: {{endereco}}. Pode afirmar com segurança (e só isto):
+{{fatos}}
+
+5. CARTEIRA — os ÚNICOS imóveis que existem (tempo real):
+{{imoveis}}
+
+11. O JEITO DO {{CORRETOR}} (siga fielmente)
+{{estilo}}`;
+
 // ------------------------------------------------------------------ utilidades
 const agora = () => new Date().toISOString();
 const uuid = () => crypto.randomUUID();
@@ -328,15 +351,34 @@ function rpc(nome: string, a: any) {
 async function funcao(nome: string, b: any) {
   await new Promise((r) => setTimeout(r, 700)); // parece a IA pensando
   if (nome === 'assistente') {
+    if (b.acao === 'provedores') return resposta({ provedores: ['groq', 'gemini'] });
+    if (b.acao === 'prompt') {
+      const cfg = db.config[0];
+      const padrao = PROMPT_DEMO;
+      const texto = typeof b.texto === 'string' ? b.texto : (cfg.prompt_base || padrao);
+      const previa = texto.replace(/\{\{\s*(\w+)\s*\}\}/g, (_: string, k: string) => ({
+        agora: 'terça-feira, 23/09/2026, 14:05', amanha: 'quarta-feira, 24/09', saudacao: 'Boa tarde', aviso_fim_de_semana: '',
+        assistente: cfg.assistente, corretor: cfg.corretor, CORRETOR: String(cfg.corretor).toUpperCase(), empresa: 'Royal Negócios Imobiliários',
+        EMPRESA: 'ROYAL NEGÓCIOS IMOBILIÁRIOS', cidade: cfg.cidade, endereco: cfg.endereco, fatos: cfg.fatos, estilo: cfg.estilo || '(sem exemplos cadastrados: siga o tom da seção 2)',
+        imoveis: '8685 | Casa | Jardim Karaíba | R$ 890.000 | 3 qto, 1 suíte, 2 vaga, 180 m²\n9001 | Casa | Santa Mônica | R$ 650.000 | 3 qto, 1 suíte, 2 vaga, 150 m²',
+      } as Record<string, string>)[k] ?? '');
+      return resposta({
+        padrao, atual: cfg.prompt_base || '', previa, provedores: ['groq', 'gemini'],
+        modelos: { groq: 'openai/gpt-oss-120b', gemini: 'gemini-3.6-flash', anthropic: 'claude-sonnet-5' },
+        variaveis: ['agora', 'amanha', 'saudacao', 'aviso_fim_de_semana', 'assistente', 'corretor', 'CORRETOR', 'empresa', 'EMPRESA', 'cidade', 'endereco', 'fatos', 'estilo', 'imoveis']
+          .map((nome) => ({ nome, descricao: 'Preenchido na hora pelo sistema' })),
+      });
+    }
     if (b.acao === 'chat') {
       const ultima = semAcento(b.mensagens?.at(-1)?.texto ?? '');
       if (/oi|ola|bom dia|boa tarde|boa noite/.test(ultima) && (b.mensagens?.length ?? 0) <= 1)
-        return resposta({ texto: 'Boa tarde! Aqui é a Camila, da Royal Negócios Imobiliários. Você procura em qual região de Uberlândia?', acoes: [] });
+        return resposta({ texto: 'Boa tarde! Aqui é a Camila, da Royal Negócios Imobiliários. Você procura em qual região de Uberlândia?', acoes: [], provedor: b.provedor || 'groq', ms: 700 });
       if (/fgts|pet|permuta/.test(ultima))
-        return resposta({ texto: 'Essa eu confirmo com o Ricardo pra não te passar errado, já te aviso.', acoes: ['Deixaria a pergunta para você: "Cliente quer saber sobre ' + ultima.slice(0, 40) + '"'] });
+        return resposta({ texto: 'Essa eu confirmo com o Ricardo pra não te passar errado, já te aviso.', acoes: ['Deixaria a pergunta para você: "Cliente quer saber sobre ' + ultima.slice(0, 40) + '"'], provedor: b.provedor || 'groq', ms: 700 });
       return resposta({
         texto: 'Ótimo, temos ótimas oportunidades por lá! Separei três que encaixam, dá uma olhada.',
         acoes: ['Mandaria fotos e links de até 3 opções da carteira', 'Opções escolhidas: 8685, 9001, 8574', 'Anotaria no lead: região: ' + ultima.slice(0, 30)],
+        provedor: b.provedor || 'groq', ms: 700,
       });
     }
     if (b.acao === 'sugestao') {

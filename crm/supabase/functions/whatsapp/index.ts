@@ -6,7 +6,7 @@
 //   POST {acao:'retomadas'}→ o agendador (pg_cron) pede as cutucadas do dia; exige o header x-cron-secret
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { ErroTela, admin, agoraSP, comoUsuario, configDa, empresaPorSlug, json, quemChamou, responder, telefoneChave, telefoneNormal } from '../_shared/comum.ts';
-import { Msg, aplicarMarcadores, carteira, iaConfigurada, imoveisQueServem, instrucoes, leadDoTelefone, lerMarcadores, pedirIA } from '../_shared/ia.ts';
+import { Msg, aplicarMarcadores, carteira, iaConfigurada, imoveisQueServem, instrucoes, leadDoTelefone, lerMarcadores, pedirIA, preferenciaIA } from '../_shared/ia.ts';
 
 type DB = SupabaseClient<any, 'crm'>;
 const API = 'https://graph.facebook.com/v21.0';
@@ -129,7 +129,7 @@ async function responderComIA(db: DB, empresa: { id: string; nome: string }, cfg
   const procura = (hist ?? []).filter((m: any) => m.de === 'cliente').map((m: any) => m.texto).join(' ').slice(-1200);
   const todos = await carteira(db, empresa.id);
 
-  const m = lerMarcadores(await pedirIA(instrucoes(cfg, empresa.nome, imoveisQueServem(todos, procura)), msgs));
+  const m = lerMarcadores(await pedirIA(instrucoes(cfg, empresa.nome, imoveisQueServem(todos, procura)), msgs, 600, preferenciaIA(cfg)));
   const tel = conversa.telefone;
 
   if (m.texto) {
@@ -178,7 +178,7 @@ async function retomadas(db: DB) {
       try {
         texto = lerMarcadores(await pedirIA(instrucoes(cfg, emp.nome, []), [{ role: 'user', content:
           'Esta conversa parou e o cliente ficou sem responder. Escreva APENAS a mensagem curta de retomada, retomando de onde parou ' +
-          'e propondo um horário concreto. Uma ou duas linhas, sem cobrar o cliente, sem código interno.\n\n' + conversa }], 200)).texto || texto;
+          'e propondo um horário concreto. Uma ou duas linhas, sem cobrar o cliente, sem código interno.\n\n' + conversa }], 200, preferenciaIA(cfg))).texto || texto;
       } catch { /* usa o texto padrão */ }
       try {
         await enviarTexto(cfg, c.telefone, texto);

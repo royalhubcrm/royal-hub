@@ -1,7 +1,7 @@
 // IA para o painel: simulador da assistente, sugestão de primeira mensagem,
 // mensagem de retomada e rascunho de site.
 import { ErroTela, admin, comoUsuario, configDa, json, quemChamou, responder } from '../_shared/comum.ts';
-import { Msg, PROVEDORES, Provedor, carteira, descreverMarcadores, iaConfigurada, imoveisQueServem, instrucoes, lerMarcadores, pedirIA, pedirIADetalhado, provedoresDisponiveis } from '../_shared/ia.ts';
+import { Msg, PROMPT_PADRAO, PROVEDORES, Provedor, VARIAVEIS_PROMPT, carteira, descreverMarcadores, iaConfigurada, imoveisQueServem, instrucoes, lerMarcadores, modeloDe, pedirIA, pedirIADetalhado, preferenciaIA, provedoresDisponiveis } from '../_shared/ia.ts';
 
 Deno.serve(responder(async (req) => {
   const db = admin();
@@ -12,11 +12,26 @@ Deno.serve(responder(async (req) => {
   const { data: emp } = await db.from('empresas').select('nome').eq('id', eu.empresa_id).single();
   const cfg = await configDa(db, eu.empresa_id);
   const empresa = emp?.nome ?? 'Imobiliária';
+  const pref = preferenciaIA(cfg);
 
   switch (b.acao) {
     // ------------------------------------------------ quais IAs estão ligadas (para a tela de teste)
     case 'provedores':
       return json({ provedores: provedoresDisponiveis() });
+
+    // ------------------------------------------------ o prompt: padrão, atual e uma prévia montada (aba Assistente)
+    case 'prompt': {
+      if (eu.papel !== 'admin') throw new ErroTela('Só o administrador mexe na assistente.', 403);
+      const todos = await carteira(db, eu.empresa_id);
+      const exemplo = imoveisQueServem(todos, 'casa 3 quartos', 2);
+      const rascunho = typeof b.texto === 'string' ? b.texto : undefined;
+      return json({
+        padrao: PROMPT_PADRAO, atual: cfg.prompt_base || '', variaveis: VARIAVEIS_PROMPT,
+        previa: instrucoes({ ...cfg, prompt_base: rascunho ?? cfg.prompt_base }, empresa, exemplo),
+        provedores: provedoresDisponiveis(),
+        modelos: { groq: modeloDe('groq'), gemini: modeloDe('gemini'), anthropic: modeloDe('anthropic') },
+      });
+    }
 
     // ------------------------------------------------ simulador (não grava nada)
     case 'chat': {
@@ -28,11 +43,11 @@ Deno.serve(responder(async (req) => {
       const todos = await carteira(db, eu.empresa_id);
       const lista = imoveisQueServem(todos, procura);
       const inicio = Date.now();
-      const r = await pedirIADetalhado(instrucoes(cfg, empresa, lista), msgs, 600, provedor);
+      const r = await pedirIADetalhado(instrucoes(cfg, empresa, lista), msgs, 600, provedor ? { provedor, estrito: true } : pref);
       const m = lerMarcadores(r.texto);
       const acoes = descreverMarcadores(m);
       if (m.opcoes) acoes.push('Opções escolhidas: ' + imoveisQueServem(todos, procura, 3).map((x) => x.codigo).join(', '));
-      return json({ texto: m.texto || '(a assistente só executaria as ações abaixo)', acoes, provedor: r.provedor, ms: Date.now() - inicio });
+      return json({ texto: m.texto || '(a assistente só executaria as ações abaixo)', acoes, provedor: r.provedor, modelo: r.modelo, ms: Date.now() - inicio });
     }
 
     // ------------------------------------------------ primeira mensagem para um lead
@@ -44,7 +59,7 @@ Deno.serve(responder(async (req) => {
         `Use o primeiro nome dele, máximo 4 linhas, sem emoji, sem saudação formal. Termine com UMA pergunta simples.\n` +
         `Nome: ${l.nome}\nO que procura: ${l.interesse || 'não informado'}\nOrigem: ${l.origem} ${l.campanha}\nAnotações: ${l.obs || '—'}` +
         (cfg.estilo ? `\n\nJeito de escrever do corretor:\n${cfg.estilo}` : '');
-      const texto = await pedirIA('Você escreve mensagens curtas de WhatsApp em português do Brasil, naturais, sem tom de robô.', [{ role: 'user', content: pedido }], 300);
+      const texto = await pedirIA('Você escreve mensagens curtas de WhatsApp em português do Brasil, naturais, sem tom de robô.', [{ role: 'user', content: pedido }], 300, pref);
       return json({ texto: lerMarcadores(texto).texto });
     }
 
@@ -60,7 +75,7 @@ Deno.serve(responder(async (req) => {
           role: 'user',
           content: `Esta conversa parou há ${dias} dia(s). Escreva APENAS a mensagem curta de retomada, continuando de onde parou ` +
             `e propondo um horário concreto de atendimento. Uma ou duas linhas, sem cobrar o cliente e sem código interno.\n\n${conversa}`,
-        }], 250);
+        }], 250, pref);
         return json({ texto: lerMarcadores(texto).texto, dias });
       } catch {
         const nome = String(c.nome || '').split(' ')[0];
@@ -80,7 +95,7 @@ Deno.serve(responder(async (req) => {
           `{"nome":"nome da imobiliária","titulo":"chamada principal curta e forte","subtitulo":"linha de apoio","sobre":"2 a 4 frases sobre a imobiliária",` +
           `"cor":"#RRGGBB (cor principal pedida; escura o bastante para texto branco)","fundo":"claro|escuro","fonte":"moderna|classica",` +
           `"filtro":{"tipos":["Casa","Apartamento"...] ou [] para todos,"cidade":"" ou a cidade,"precoMax":0 ou o teto em reais}}` }],
-        700);
+        700, pref);
       const achado = bruto.match(/\{[\s\S]*\}/);
       let site: any = {};
       try { site = JSON.parse(achado?.[0] ?? '{}'); } catch { throw new ErroTela('A IA respondeu num formato inesperado. Tente de novo.'); }
