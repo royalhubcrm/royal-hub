@@ -1,3 +1,8 @@
-.estreito { max-width: 720px; display: flex; flex-direction: column; gap: 14px; }
-.duas .cartao, section > .cartao { display: flex; flex-direction: column; gap: 10px; }
-ul.lista { max-height: 360px; overflow-y: auto; }
+.cartao { display: flex; flex-direction: column; gap: 12px; }
+.cartao > h2, .cartao > header { margin-bottom: 0; }
+ul.lista { max-height: 300px; overflow-y: auto; }
+/* instruções ficam fechadas: quem já configurou não precisa ler de novo */
+.como { border-top: 1px solid var(--slate-200); padding-top: 10px; margin-top: auto;
+  summary { cursor: pointer; font-size: 13px; font-weight: 500; color: var(--slate-700); }
+  &[open] summary { margin-bottom: 8px; } }
+.bloco-codigo { margin: 4px 0; }

@@ -8,14 +8,12 @@ import { ConfigService } from '../../core/services/config.service';
 import { ImoveisService } from '../../core/services/imoveis.service';
 import { SUPABASE } from '../../core/supabase/supabase.client';
 import { AvisosService } from '../../core/ui/avisos.service';
-import { AbasDirective } from '../../shared/ui/abas.directive';
 import { MascaraDirective } from '../../shared/ui/mascara.directive';
 
-type Aba = 'imobiliaria' | 'whatsapp' | 'captacao' | 'portais';
-
+/** Ajustes da imobiliária numa página só: dados, WhatsApp oficial, captação e portais. */
 @Component({
   selector: 'app-ajustes',
-  imports: [FormsModule, RouterLink, MascaraDirective, AbasDirective],
+  imports: [FormsModule, RouterLink, MascaraDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './ajustes.page.html',
   styleUrl: './ajustes.page.scss',
@@ -26,14 +24,6 @@ export default class AjustesPage {
   private readonly avisos = inject(AvisosService);
   private readonly db = inject(SUPABASE);
   protected readonly auth = inject(AuthService);
-
-  protected readonly abas: { id: Aba; rotulo: string }[] = [
-    { id: 'imobiliaria', rotulo: 'Imobiliária' },
-    { id: 'whatsapp', rotulo: 'WhatsApp' },
-    { id: 'captacao', rotulo: 'Captação de leads' },
-    { id: 'portais', rotulo: 'Portais' },
-  ];
-  protected readonly aba = signal<Aba>('imobiliaria');
 
   protected f: Partial<Config> = {};
   protected nomeEmpresa = '';
@@ -69,23 +59,20 @@ export default class AjustesPage {
       this.nomeEmpresa = this.auth.empresa()?.nome ?? '';
       this.wa = { numero: c.wa_numero_id, token: '', verificacao: c.wa_verificacao };
       this.carregado.set(true);
+      void this.imoveisSrv.listar().then((l) => this.imoveis.set(l)).catch((e) => this.avisos.erro(e));
     } catch (e) {
       this.avisos.erro(e);
     }
   }
 
-  protected escolher(a: Aba) {
-    this.aba.set(a);
-    if (a === 'portais' && !this.imoveis().length) void this.imoveisSrv.listar().then((l) => this.imoveis.set(l)).catch((e) => this.avisos.erro(e));
-  }
-
-  protected async salvar(campos: (keyof Config)[]) {
+  protected async salvarImobiliaria() {
     this.salvando.set(true);
     try {
+      const campos: (keyof Config)[] = ['corretor', 'creci', 'whats', 'endereco', 'cidade'];
       const parcial = Object.fromEntries(campos.map((k) => [k, this.f[k]])) as Partial<Config>;
       if (parcial.whats) parcial.whats = String(parcial.whats).replace(/\D/g, '');
       await this.cfgSrv.salvar(parcial);
-      if (this.aba() === 'imobiliaria' && this.nomeEmpresa.trim() && this.nomeEmpresa !== this.auth.empresa()?.nome) {
+      if (this.nomeEmpresa.trim() && this.nomeEmpresa !== this.auth.empresa()?.nome) {
         const { error } = await this.db.from('empresas').update({ nome: this.nomeEmpresa.trim() }).eq('id', this.auth.empresa()!.id);
         if (error) throw error;
         await this.auth.carregarPerfil();

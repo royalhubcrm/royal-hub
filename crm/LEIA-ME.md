@@ -66,7 +66,7 @@ Páginas públicas, sem login: `/captar/<empresa>` (formulário do anúncio), `/
 ## Atalhos e detalhes de uso
 
 - **/** leva o foco para a busca da tela (Leads, Pipeline, Imóveis, Conversas). **Esc** fecha a ficha aberta — se houver alteração não salva, ele pergunta antes.
-- Nas abas (Ajustes, Conversas) as **setas** trocam de aba; no Kanban, as setas do card movem o lead de etapa sem arrastar.
+- Nas abas (Assistente) as **setas** trocam de aba; no Kanban, as setas do card movem o lead de etapa sem arrastar.
 - Telefone, CEP e valores em R$ ganham máscara enquanto você digita; o erro de um campo aparece ao sair dele.
 - Na tabela de leads, clicar em qualquer ponto da linha abre a ficha, e cada contato tem um link direto para o WhatsApp.
 

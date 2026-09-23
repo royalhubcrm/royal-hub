@@ -1,142 +1,138 @@
 <header class="cabecalho-pagina">
   <div>
-    <p class="sobretitulo">Gestão</p>
     <h1>Ajustes</h1>
-    <p>Os dados da imobiliária, o jeito da assistente falar e as ligações com WhatsApp, anúncios e portais.</p>
+    <p>Dados da imobiliária e as ligações com WhatsApp, anúncios e portais.</p>
   </div>
 </header>
 
-<div class="abas" role="tablist" aria-label="Ajustes" appAbas>
-  @for (a of abas; track a.id) {
-    <button type="button" role="tab" [id]="'aba-' + a.id" [attr.aria-controls]="'painel-' + a.id"
-            [attr.aria-selected]="aba() === a.id" [attr.tabindex]="aba() === a.id ? 0 : -1"
-            (click)="escolher(a.id)">{{ a.rotulo }}</button>
-  }
-</div>
-
 @if (!carregado()) { <p class="mudo" role="status">Carregando…</p> } @else {
-@switch (aba()) {
-  @case ('imobiliaria') {
-    <section id="painel-imobiliaria" role="tabpanel" aria-labelledby="aba-imobiliaria" class="cartao estreito">
-      <form class="pilha" (ngSubmit)="salvar(['corretor', 'creci', 'whats', 'endereco', 'cidade'])">
+<div class="duas">
+  <section class="cartao" aria-labelledby="t-imob">
+    <h2 id="t-imob">Imobiliária</h2>
+    <form class="pilha" (ngSubmit)="salvarImobiliaria()">
+      <div class="campo">
+        <label for="a-empresa">Nome</label>
+        <input id="a-empresa" name="empresa" [(ngModel)]="nomeEmpresa" />
+      </div>
+      <div class="grade-campos">
+        <div class="campo"><label for="a-corretor">Corretor responsável</label><input id="a-corretor" name="corretor" [(ngModel)]="f.corretor" /></div>
+        <div class="campo"><label for="a-creci">CRECI</label><input id="a-creci" name="creci" [(ngModel)]="f.creci" /></div>
+      </div>
+      <div class="grade-campos">
         <div class="campo">
-          <label for="a-empresa">Nome da imobiliária</label>
-          <input id="a-empresa" name="empresa" [(ngModel)]="nomeEmpresa" />
+          <label for="a-whats">WhatsApp</label>
+          <input id="a-whats" name="whats" appMascara="telefone" [(ngModel)]="f.whats" placeholder="(34) 99999-0000" aria-describedby="a-whats-ajuda" />
+          <span class="ajuda" id="a-whats-ajuda">Aparece nas páginas públicas e na folha.</span>
         </div>
-        <div class="grade-campos">
-          <div class="campo"><label for="a-corretor">Corretor responsável</label><input id="a-corretor" name="corretor" [(ngModel)]="f.corretor" /></div>
-          <div class="campo"><label for="a-creci">CRECI</label><input id="a-creci" name="creci" [(ngModel)]="f.creci" /></div>
+        <div class="campo">
+          <label for="a-cidade">Cidade</label>
+          <input id="a-cidade" name="cidade" [(ngModel)]="f.cidade" aria-describedby="a-cidade-ajuda" />
+          <span class="ajuda" id="a-cidade-ajuda">Vem preenchida no cadastro de imóvel.</span>
         </div>
-        <div class="grade-campos">
-          <div class="campo">
-            <label for="a-whats">WhatsApp da imobiliária</label>
-            <input id="a-whats" name="whats" appMascara="telefone" [(ngModel)]="f.whats" placeholder="(34) 99999-0000" aria-describedby="a-whats-ajuda" />
-            <span class="ajuda" id="a-whats-ajuda">Aparece nas páginas públicas e na folha de imóveis.</span>
-          </div>
-          <div class="campo">
-            <label for="a-cidade">Cidade padrão</label>
-            <input id="a-cidade" name="cidade" [(ngModel)]="f.cidade" aria-describedby="a-cidade-ajuda" />
-            <span class="ajuda" id="a-cidade-ajuda">Vem preenchida no cadastro de imóvel.</span>
-          </div>
-        </div>
-        <div class="campo"><label for="a-end">Endereço do escritório</label><input id="a-end" name="endereco" [(ngModel)]="f.endereco" /></div>
-        <div><button class="btn primario" type="submit" [disabled]="salvando()">Salvar</button></div>
-      </form>
-    </section>
-  }
+      </div>
+      <div class="campo"><label for="a-end">Endereço do escritório</label><input id="a-end" name="endereco" [(ngModel)]="f.endereco" /></div>
+      <div><button class="btn primario" type="submit" [disabled]="salvando()">Salvar</button></div>
+    </form>
+  </section>
 
-  @case ('whatsapp') {
-    <section id="painel-whatsapp" role="tabpanel" aria-labelledby="aba-whatsapp" class="cartao estreito">
-      <p class="linha">
-        <span class="etiqueta" [class.ok]="f.wa_configurado">{{ f.wa_configurado ? 'Ligado' : 'Desligado' }}</span>
-        <span class="mudo">Número oficial da Meta (Cloud API): sem risco de banimento e sem computador ligado.</span>
-      </p>
+  <section class="cartao" aria-labelledby="t-wa">
+    <header>
+      <h2 id="t-wa">WhatsApp oficial</h2>
+      <span class="etiqueta" [class.ok]="f.wa_configurado" [class.frio]="!f.wa_configurado">{{ f.wa_configurado ? 'Ligado' : 'Desligado' }}</span>
+    </header>
+    <form class="pilha" (ngSubmit)="salvarWhatsapp()">
+      <div class="campo"><label for="w-num">Phone Number ID</label><input id="w-num" name="numero" class="mono" inputmode="numeric" [(ngModel)]="wa.numero" /></div>
+      <div class="campo">
+        <label for="w-token">Token permanente</label>
+        <input id="w-token" name="token" type="password" autocomplete="off" [(ngModel)]="wa.token"
+               [placeholder]="f.wa_configurado ? 'Já salvo — deixe em branco para manter' : 'Cole o token do app'" aria-describedby="w-token-ajuda" />
+        <span class="ajuda" id="w-token-ajuda">Guardado num cofre que só o servidor lê.</span>
+      </div>
+      <div class="campo"><label for="w-verif">Palavra de verificação</label><input id="w-verif" name="verif" class="mono" [(ngModel)]="wa.verificacao" /></div>
+      <div class="campo">
+        <label for="w-url">Endereço do webhook (cole na Meta)</label>
+        <div class="linha sem-quebra">
+          <input id="w-url" class="mono" readonly [value]="linkWhatsapp()" />
+          <button type="button" class="btn" (click)="copiar(linkWhatsapp())">Copiar</button>
+        </div>
+      </div>
+      <div><button class="btn primario" type="submit" [disabled]="salvando()">Salvar</button></div>
+    </form>
+    <details class="como">
+      <summary>Como ligar</summary>
       <ol class="passos">
         <li>No <b>Meta for Developers</b>, crie um app do tipo Empresa e adicione o produto <b>WhatsApp</b>.</li>
-        <li>Copie o <b>Phone Number ID</b> e gere um <b>token permanente</b> (usuário do sistema). Cole os dois abaixo e salve.</li>
-        <li>Em WhatsApp → Configuração → Webhook, cole o endereço e a palavra de verificação daqui. Assine o campo <b>messages</b>.</li>
+        <li>Copie o <b>Phone Number ID</b> e gere um <b>token permanente</b> (usuário do sistema). Cole os dois acima e salve.</li>
+        <li>Em WhatsApp → Configuração → Webhook, cole o endereço e a palavra de verificação. Assine o campo <b>messages</b>.</li>
       </ol>
-      <form class="pilha" (ngSubmit)="salvarWhatsapp()">
-        <div class="campo"><label for="w-num">Phone Number ID</label><input id="w-num" name="numero" class="mono" inputmode="numeric" [(ngModel)]="wa.numero" /></div>
-        <div class="campo">
-          <label for="w-token">Token permanente</label>
-          <input id="w-token" name="token" type="password" autocomplete="off" [(ngModel)]="wa.token"
-                 [placeholder]="f.wa_configurado ? 'Já salvo — deixe em branco para manter' : 'Cole o token do app'" aria-describedby="w-token-ajuda" />
-          <span class="ajuda" id="w-token-ajuda">Fica guardado num cofre que só o servidor lê. Nem o administrador consegue ver de novo.</span>
-        </div>
-        <div class="campo"><label for="w-verif">Palavra de verificação</label><input id="w-verif" name="verif" class="mono" [(ngModel)]="wa.verificacao" /></div>
-        <div class="campo">
-          <label for="w-url">Endereço do webhook (cole na Meta)</label>
-          <div class="linha sem-quebra">
-            <input id="w-url" class="mono" readonly [value]="linkWhatsapp()" />
-            <button type="button" class="btn" (click)="copiar(linkWhatsapp())">Copiar</button>
-          </div>
-        </div>
-        <div><button class="btn primario" type="submit" [disabled]="salvando()">Salvar</button></div>
-      </form>
-    </section>
-  }
+      <p class="mudo pequeno">Número oficial da Meta (Cloud API): sem risco de banimento e sem computador ligado.</p>
+    </details>
+  </section>
+</div>
 
-  @case ('captacao') {
-    <section id="painel-captacao" role="tabpanel" aria-labelledby="aba-captacao">
-      <div class="duas">
-        <div class="cartao">
-          <h2>Formulário público</h2>
-          <p class="mudo pequeno">Use como destino do anúncio ou link da bio. O que o cliente preencher entra em Leads na hora — sem duplicar quem já existe.</p>
-          <div class="bloco-codigo">{{ linkCaptar() }}?c=NOME-DA-CAMPANHA</div>
-          <div class="linha">
-            <button type="button" class="btn pequeno" (click)="copiar(linkCaptar())">Copiar link</button>
-            <a class="btn pequeno" [href]="linkCaptar()" target="_blank" rel="noopener">Abrir <span class="sr-only">(nova aba)</span></a>
-          </div>
+<div class="duas">
+  <section class="cartao" aria-labelledby="t-cap">
+    <h2 id="t-cap">Captação de leads</h2>
+    <div class="pilha">
+      <div class="campo">
+        <span class="rotulo">Formulário público</span>
+        <div class="bloco-codigo">{{ linkCaptar() }}?c=NOME-DA-CAMPANHA</div>
+        <div class="linha">
+          <button type="button" class="btn pequeno" (click)="copiar(linkCaptar())">Copiar link</button>
+          <a class="btn pequeno fantasma" [href]="linkCaptar()" target="_blank" rel="noopener">Abrir <span class="sr-only">(nova aba)</span></a>
         </div>
-        <div class="cartao">
-          <h2>Webhook para Make, Zapier ou n8n</h2>
-          <p class="mudo pequeno">Ligue o formulário de cadastro do Facebook/Instagram a este endereço (POST, JSON):</p>
-          <div class="bloco-codigo">POST {{ linkWebhook() }}
+        <span class="ajuda">Destino do anúncio ou link da bio. Quem preenche entra em Leads na hora, sem duplicar.</span>
+      </div>
+      <div class="campo">
+        <span class="rotulo">Webhook (Make, Zapier, n8n)</span>
+        <div class="bloco-codigo">POST {{ linkWebhook() }}
 
 {{ '{' }} "nome": "...", "telefone": "...", "email": "...", "interesse": "...", "campanha": "..." {{ '}' }}</div>
-          <div class="linha">
-            <button type="button" class="btn pequeno" (click)="token() ? copiar(linkWebhook()) : verToken()">{{ token() ? 'Copiar endereço' : 'Mostrar o token' }}</button>
-            @if (token()) { <button type="button" class="btn pequeno perigo" (click)="verToken(true)">Trocar token</button> }
-          </div>
-          <p class="mudo pequeno">Também aceita o formato do Lead Ads (<span class="mono">field_data</span>) direto.</p>
+        <div class="linha">
+          <button type="button" class="btn pequeno" (click)="token() ? copiar(linkWebhook()) : verToken()">{{ token() ? 'Copiar endereço' : 'Mostrar o token' }}</button>
+          @if (token()) { <button type="button" class="btn pequeno perigo" (click)="verToken(true)">Trocar token</button> }
         </div>
+        <span class="ajuda">Aceita também o formato do Lead Ads (<span class="mono">field_data</span>).</span>
       </div>
-      <div class="cartao">
-        <h2>Passo a passo no Meta</h2>
-        <ol class="passos">
-          <li><b>Anúncio com formulário instantâneo:</b> Gerenciador de Anúncios → objetivo "Cadastros" → campos nome, telefone e o que procura.</li>
-          <li><b>Conecte o formulário:</b> no Make/Zapier, gatilho "Facebook Lead Ads → novo lead", ação "HTTP → POST" no endereço acima.</li>
-          <li><b>Teste:</b> mande um lead pela ferramenta de teste do Meta e veja ele aparecer em Leads.</li>
-          <li><b>Responda:</b> abra o lead, clique em "Sugerir mensagem", revise e mande pelo WhatsApp.</li>
-        </ol>
-      </div>
-    </section>
-  }
+    </div>
+    <details class="como">
+      <summary>Passo a passo no Meta</summary>
+      <ol class="passos">
+        <li><b>Anúncio com formulário instantâneo:</b> Gerenciador de Anúncios → objetivo "Cadastros" → campos nome, telefone e o que procura.</li>
+        <li><b>Conecte o formulário:</b> no Make/Zapier, gatilho "Facebook Lead Ads → novo lead", ação "HTTP → POST" no endereço acima.</li>
+        <li><b>Teste:</b> mande um lead pela ferramenta de teste do Meta e veja ele aparecer em Leads.</li>
+        <li><b>Responda:</b> abra o lead, clique em "Sugerir mensagem", revise e mande pelo WhatsApp.</li>
+      </ol>
+    </details>
+  </section>
 
-  @case ('portais') {
-    <section id="painel-portais" role="tabpanel" aria-labelledby="aba-portais" class="cartao estreito">
-      <h2>ZAP, Viva Real e OLX</h2>
-      <p class="mudo pequeno">Cole o endereço abaixo no painel do portal (feed XML no padrão VRSync). De hora em hora eles leem sozinhos:
-        imóvel novo aparece, vendido some, preço muda. Você mexe só aqui.</p>
-      <div class="linha sem-quebra">
-        <label class="sr-only" for="p-feed">Endereço do feed</label>
-        <input id="p-feed" class="mono" readonly [value]="linkFeed()" />
-        <button type="button" class="btn" (click)="copiar(linkFeed())">Copiar</button>
+  <section class="cartao" aria-labelledby="t-portais">
+    <h2 id="t-portais">Portais (ZAP, Viva Real, OLX)</h2>
+    <div class="pilha">
+      <div class="campo">
+        <label for="p-feed">Endereço do feed (cole no painel do portal)</label>
+        <div class="linha sem-quebra">
+          <input id="p-feed" class="mono" readonly [value]="linkFeed()" />
+          <button type="button" class="btn" (click)="copiar(linkFeed())">Copiar</button>
+        </div>
       </div>
       <p class="aviso" [class.info]="!comPendencia().length" role="status">
         <b>{{ disponiveis().length - comPendencia().length }}</b> de {{ disponiveis().length }} imóveis disponíveis prontos para publicar.
-        @if (comPendencia().length) { Falta nos outros: {{ resumoPendencias() }}. Quem não está pronto fica fora do feed; o resto publica normalmente. }
+        @if (comPendencia().length) { Falta nos outros: {{ resumoPendencias() }}. }
       </p>
       @if (comPendencia().length) {
         <ul class="lista">
-          @for (x of comPendencia().slice(0, 30); track x.m.id) {
+          @for (x of comPendencia().slice(0, 12); track x.m.id) {
             <li><span class="mono">{{ x.m.codigo }}</span><span class="principal">{{ x.m.tipo }} · {{ x.m.bairro }}<small>falta {{ x.falta.join(', ') }}</small></span></li>
           }
         </ul>
-        <a class="btn" routerLink="/imoveis">Completar em Imóveis</a>
+        <div><a class="btn" routerLink="/imoveis">Completar em Imóveis</a></div>
       }
-    </section>
-  }
-}
+    </div>
+    <details class="como">
+      <summary>Como funciona</summary>
+      <p class="mudo pequeno">Feed XML no padrão VRSync. De hora em hora os portais leem sozinhos: imóvel novo aparece, vendido some, preço muda. Quem não está pronto fica fora do feed; o resto publica normalmente.</p>
+    </details>
+  </section>
+</div>
 }

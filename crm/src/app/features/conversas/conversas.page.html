@@ -38,7 +38,7 @@
           @if (carregando()) { Carregando… }
           @else if (erro()) { {{ erro() }} <button type="button" class="btn pequeno" (click)="carregar()">Tentar de novo</button> }
           @else if (lista().length) { Nenhuma conversa com esse filtro. }
-          @else { Nenhuma conversa ainda. Elas aparecem quando o WhatsApp oficial estiver ligado (Ajustes → WhatsApp). }
+          @else { Nenhuma conversa ainda. Elas aparecem quando o WhatsApp oficial estiver ligado (Ajustes). }
         </li>
       }
     </ul>
