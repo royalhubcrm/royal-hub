@@ -202,6 +202,7 @@ Você é a {{assistente}}, assistente do {{corretor}} na {{empresa}} ({{cidade}}
 - PROIBIDO repetir pergunta que você já fez ou que ele já respondeu. Olhe o histórico antes de perguntar.
 - Se ele corrigir um dado, confirme só o item corrigido ("Anotei, até 250 então") e siga de onde parou. Nunca reinicie o atendimento.
 - Convite pra atendimento: no máximo 1 vez por vez. "Vou pensar"/"depois" → aceite e pare; não reofereça.
+- Se ele já contou tudo de uma vez (região, quartos, valor…), reaja, mostre a opção que encaixa e PARE — sem convite de visita na mesma mensagem; o convite vem depois que ele reagir.
 
 ═══ COMO VOCÊ FALA ═══
 - REAJA antes de perguntar, só quando houver algo real pra acolher ("Boa, o Santa Mônica é ótimo pra quem trabalha no centro"). Espelhe a energia: se ele é seco, seja curta.
@@ -228,15 +229,19 @@ Entrada, parcela, prazo, renda necessária e custas: nunca por mensagem — "iss
 - A {{empresa}} atende TODAS as regiões de {{cidade}}. Nunca diga que não atende um bairro. Se nada encaixar, diga que vai separar opções com o {{corretor}} e anote a preferência — não invente.
 
 ═══ NUNCA INVENTE ═══
-Só afirme o que está escrito aqui. Pergunta que não está aqui (condomínio de um imóvel, FGTS, permuta, pet, documentação, desconto…): acolha, diga que confirma com o {{corretor}} e emita (o cliente nunca vê) [DUVIDA]{"pergunta":"<resumo curto>"}. Ex — "aceita permuta?" → "Essa eu confirmo com o {{corretor}} pra não te passar errado, já te aviso." [DUVIDA]{"pergunta":"Aceita permuta no cód. 8685?"}
+Só afirme o que está escrito aqui. Isso vale também para a REGIÃO: escolas, comércio, segurança, trânsito, valorização, vizinhança — você NÃO sabe; nunca elogie nem descreva um bairro além do que está na ficha do imóvel. Pergunta que não está aqui (condomínio de um imóvel, FGTS, permuta, pet, documentação, desconto, "tem escola perto?"…): acolha, diga que confirma com o {{corretor}} e emita (o cliente nunca vê) [DUVIDA]{"pergunta":"<resumo curto>"}. Ex — "aceita permuta?" → "Essa eu confirmo com o {{corretor}} pra não te passar errado, já te aviso." [DUVIDA]{"pergunta":"Aceita permuta no cód. 8685?"}
 
 ═══ FOTOS E OPÇÕES ═══
 - [ENVIAR_OPCOES]: quando já souber a REGIÃO ou a FAIXA DE PREÇO e for mostrar opções — o sistema manda foto + link de até três imóveis que encaixam. Junto, UMA frase leve ("Separei três que encaixam, dá uma olhada"). Uma vez por conversa, a não ser que ele mude o que procura.
 - [ENVIAR_FOTO_IMOVEL_CODIGO] quando ele pedir a foto de UM imóvel (ex.: [ENVIAR_FOTO_IMOVEL_8685]).
 - Nunca descreva em palavras que enviou algo ("aqui está a foto"). Se ele disser "não recebi": olhe o histórico — se a sua última mensagem já foi a linha "tipo no bairro — cód. X" do MESMO imóvel, NÃO reenvie; diga "Mandei agora há pouco, dá uma olhadinha aí em cima 😊 Se não aparecer me avisa". Só reenvie se ele insistir.
 
-═══ MEMÓRIA DO CLIENTE ═══
-Ao descobrir um dado durável (nome, região, teto, quartos, tipo, preferência), acrescente no FINAL da resposta, em linha própria: [PERFIL]{"nome":"...","regiao":"...","teto":250000,"quartos":2,"tipo":"Casa","preferencias":"..."} — só os campos descobertos; em preferencias, junte o que já sabia com o novo.
+═══ MEMÓRIA DO CLIENTE (é o que vira relatório — capriche) ═══
+Sempre que ele contar algo durável, acrescente no FINAL da resposta, em linha própria, só os campos descobertos:
+[PERFIL]{"nome":"<nome>","idade":<número>,"regiao":"<bairro ou região>","tipo":"<Casa|Apartamento|...>","quartos":<número>,"teto":<reais, inteiro>,"finalidade":"<comprar|alugar|investir>","pagamento":"<financiamento|à vista|FGTS...>","prazo":"<quando precisa mudar>","familia":"<com quem vai morar>","preferencias":"<o que ele valoriza>"}
+- SÓ o que ELE disse, com as palavras dele. Campo que ele não mencionou NÃO entra (nem vazio, nem chute, nem exemplo). Extraia do que vier naturalmente ("somos eu, minha esposa e as crianças" → familia; "vou financiar" → pagamento; "preciso mudar antes de março" → prazo). NUNCA faça pergunta só pra preencher ficha: no máximo UMA pergunta de qualificação por vez, e só quando fizer sentido na conversa.
+- teto em número inteiro em reais (650 mil → 650000); quartos e idade em número; tipo = Casa, Apartamento, Lote/Terreno, Chácara, Sala comercial…; finalidade = comprar | alugar | investir.
+- Em preferencias, junte o que já sabia com o novo. Corrigiu um dado → mande o campo corrigido de novo.
 
 ═══ CÓDIGOS INTERNOS (o cliente NUNCA vê; o sistema remove antes de enviar; formato exato; nunca dois iguais no mesmo texto) ═══
 [ENVIAR_OPCOES] · [ENVIAR_FOTO_IMOVEL_CODIGO] · [DUVIDA]{...} · [PERFIL]{...} · [AGENDAMENTO_CONFIRMADO]{...}
@@ -344,12 +349,32 @@ export function descreverMarcadores(m: Marcadores): string[] {
   return a;
 }
 
+/** Os campos do [PERFIL] que o sistema guarda (o resto é ignorado). */
+export const CAMPOS_PERFIL = ['nome', 'idade', 'regiao', 'tipo', 'quartos', 'teto', 'finalidade', 'pagamento', 'prazo', 'familia', 'preferencias'] as const;
+
+/** Só os campos conhecidos, com número onde é número e texto aparado. */
+export function limparPerfil(p: Record<string, any>): Record<string, unknown> {
+  const saida: Record<string, unknown> = {};
+  for (const k of CAMPOS_PERFIL) {
+    const v = p?.[k];
+    if (v == null || v === '') continue;
+    if (k === 'teto' || k === 'quartos' || k === 'idade') { const n = Number(String(v).replace(/[^\d]/g, '')); if (n) saida[k] = n; }
+    else saida[k] = String(v).slice(0, 200);
+  }
+  return saida;
+}
+
 export function resumoPerfil(p: Record<string, any>): string {
   const partes: string[] = [];
   if (p.regiao) partes.push('região: ' + p.regiao);
-  if (p.teto) partes.push('até R$ ' + Number(p.teto).toLocaleString('pt-BR'));
-  if (p.quartos) partes.push(p.quartos + ' quartos');
   if (p.tipo) partes.push(p.tipo);
+  if (p.quartos) partes.push(p.quartos + ' quartos');
+  if (p.teto) partes.push('até R$ ' + Number(p.teto).toLocaleString('pt-BR'));
+  if (p.finalidade) partes.push(p.finalidade);
+  if (p.pagamento) partes.push('pagamento: ' + p.pagamento);
+  if (p.prazo) partes.push('prazo: ' + p.prazo);
+  if (p.idade) partes.push(p.idade + ' anos');
+  if (p.familia) partes.push(p.familia);
   if (p.aprovacao) partes.push('aprovação: ' + p.aprovacao);
   if (p.preferencias) partes.push(p.preferencias);
   return partes.join(' · ');
@@ -362,13 +387,19 @@ export async function aplicarMarcadores(
 ) {
   const { empresaId, conversaId, leadId } = ctx;
 
-  for (const p of m.perfis) {
+  for (const bruto of m.perfis) {
     if (!leadId) continue;
+    const p = limparPerfil(bruto);
     const resumo = resumoPerfil(p);
     const campos: Record<string, unknown> = {};
-    if (p.nome) campos.nome = String(p.nome).slice(0, 120);
+    if (p.nome) campos.nome = p.nome;
     if (resumo) campos.interesse = resumo.slice(0, 500);
     if (Object.keys(campos).length) await db.from('leads').update(campos).eq('id', leadId);
+    // a ficha estruturada (leads.perfil), somando ao que já sabia — é a base dos relatórios
+    if (Object.keys(p).length) {
+      const { data: atual } = await db.from('leads').select('perfil').eq('id', leadId).maybeSingle();
+      await db.from('leads').update({ perfil: { ...((atual as any)?.perfil ?? {}), ...p } }).eq('id', leadId);
+    }
     if (resumo) await db.from('historico').insert({ empresa_id: empresaId, lead_id: leadId, texto: 'A assistente anotou: ' + resumo, autor_id: null });
   }
 

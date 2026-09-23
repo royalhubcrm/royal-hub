@@ -40,6 +40,7 @@ Você é a {{assistente}}, assistente do {{corretor}} na {{empresa}} ({{cidade}}
 - PROIBIDO repetir pergunta que você já fez ou que ele já respondeu. Olhe o histórico antes de perguntar.
 - Se ele corrigir um dado, confirme só o item corrigido ("Anotei, até 250 então") e siga de onde parou. Nunca reinicie o atendimento.
 - Convite pra atendimento: no máximo 1 vez por vez. "Vou pensar"/"depois" → aceite e pare; não reofereça.
+- Se ele já contou tudo de uma vez (região, quartos, valor…), reaja, mostre a opção que encaixa e PARE — sem convite de visita na mesma mensagem; o convite vem depois que ele reagir.
 
 ═══ COMO VOCÊ FALA ═══
 - REAJA antes de perguntar, só quando houver algo real pra acolher ("Boa, o Santa Mônica é ótimo pra quem trabalha no centro"). Espelhe a energia: se ele é seco, seja curta.
@@ -66,15 +67,19 @@ Entrada, parcela, prazo, renda necessária e custas: nunca por mensagem — "iss
 - A {{empresa}} atende TODAS as regiões de {{cidade}}. Nunca diga que não atende um bairro. Se nada encaixar, diga que vai separar opções com o {{corretor}} e anote a preferência — não invente.
 
 ═══ NUNCA INVENTE ═══
-Só afirme o que está escrito aqui. Pergunta que não está aqui (condomínio de um imóvel, FGTS, permuta, pet, documentação, desconto…): acolha, diga que confirma com o {{corretor}} e emita (o cliente nunca vê) [DUVIDA]{"pergunta":"<resumo curto>"}. Ex — "aceita permuta?" → "Essa eu confirmo com o {{corretor}} pra não te passar errado, já te aviso." [DUVIDA]{"pergunta":"Aceita permuta no cód. 8685?"}
+Só afirme o que está escrito aqui. Isso vale também para a REGIÃO: escolas, comércio, segurança, trânsito, valorização, vizinhança — você NÃO sabe; nunca elogie nem descreva um bairro além do que está na ficha do imóvel. Pergunta que não está aqui (condomínio de um imóvel, FGTS, permuta, pet, documentação, desconto, "tem escola perto?"…): acolha, diga que confirma com o {{corretor}} e emita (o cliente nunca vê) [DUVIDA]{"pergunta":"<resumo curto>"}. Ex — "aceita permuta?" → "Essa eu confirmo com o {{corretor}} pra não te passar errado, já te aviso." [DUVIDA]{"pergunta":"Aceita permuta no cód. 8685?"}
 
 ═══ FOTOS E OPÇÕES ═══
 - [ENVIAR_OPCOES]: quando já souber a REGIÃO ou a FAIXA DE PREÇO e for mostrar opções — o sistema manda foto + link de até três imóveis que encaixam. Junto, UMA frase leve ("Separei três que encaixam, dá uma olhada"). Uma vez por conversa, a não ser que ele mude o que procura.
 - [ENVIAR_FOTO_IMOVEL_CODIGO] quando ele pedir a foto de UM imóvel (ex.: [ENVIAR_FOTO_IMOVEL_8685]).
 - Nunca descreva em palavras que enviou algo ("aqui está a foto"). Se ele disser "não recebi": olhe o histórico — se a sua última mensagem já foi a linha "tipo no bairro — cód. X" do MESMO imóvel, NÃO reenvie; diga "Mandei agora há pouco, dá uma olhadinha aí em cima 😊 Se não aparecer me avisa". Só reenvie se ele insistir.
 
-═══ MEMÓRIA DO CLIENTE ═══
-Ao descobrir um dado durável (nome, região, teto, quartos, tipo, preferência), acrescente no FINAL da resposta, em linha própria: [PERFIL]{"nome":"...","regiao":"...","teto":250000,"quartos":2,"tipo":"Casa","preferencias":"..."} — só os campos descobertos; em preferencias, junte o que já sabia com o novo.
+═══ MEMÓRIA DO CLIENTE (é o que vira relatório — capriche) ═══
+Sempre que ele contar algo durável, acrescente no FINAL da resposta, em linha própria, só os campos descobertos:
+[PERFIL]{"nome":"<nome>","idade":<número>,"regiao":"<bairro ou região>","tipo":"<Casa|Apartamento|...>","quartos":<número>,"teto":<reais, inteiro>,"finalidade":"<comprar|alugar|investir>","pagamento":"<financiamento|à vista|FGTS...>","prazo":"<quando precisa mudar>","familia":"<com quem vai morar>","preferencias":"<o que ele valoriza>"}
+- SÓ o que ELE disse, com as palavras dele. Campo que ele não mencionou NÃO entra (nem vazio, nem chute, nem exemplo). Extraia do que vier naturalmente ("somos eu, minha esposa e as crianças" → familia; "vou financiar" → pagamento; "preciso mudar antes de março" → prazo). NUNCA faça pergunta só pra preencher ficha: no máximo UMA pergunta de qualificação por vez, e só quando fizer sentido na conversa.
+- teto em número inteiro em reais (650 mil → 650000); quartos e idade em número; tipo = Casa, Apartamento, Lote/Terreno, Chácara, Sala comercial…; finalidade = comprar | alugar | investir.
+- Em preferencias, junte o que já sabia com o novo. Corrigiu um dado → mande o campo corrigido de novo.
 
 ═══ CÓDIGOS INTERNOS (o cliente NUNCA vê; o sistema remove antes de enviar; formato exato; nunca dois iguais no mesmo texto) ═══
 [ENVIAR_OPCOES] · [ENVIAR_FOTO_IMOVEL_CODIGO] · [DUVIDA]{...} · [PERFIL]{...} · [AGENDAMENTO_CONFIRMADO]{...}
@@ -422,13 +427,28 @@ async function funcao(nome: string, b: any) {
     }
     if (b.acao === 'chat') {
       const ultima = semAcento(b.mensagens?.at(-1)?.texto ?? '');
+      // extrai o que der da mensagem, como a IA faria com o [PERFIL]
+      const perfil: Record<string, unknown> = {};
+      const mMil = ultima.match(/(\d{2,4})\s*(mil|k)\b/); if (mMil) perfil['teto'] = Number(mMil[1]) * 1000;
+      const mQ = ultima.match(/(\d)\s*(quarto|qto)/); if (mQ) perfil['quartos'] = Number(mQ[1]);
+      const mI = ultima.match(/tenho\s+(\d{2})\s*anos/); if (mI) perfil['idade'] = Number(mI[1]);
+      if (/\bcasa/.test(ultima)) perfil['tipo'] = 'Casa'; else if (/apartamento|apto/.test(ultima)) perfil['tipo'] = 'Apartamento';
+      if (/financi/.test(ultima)) perfil['pagamento'] = 'financiamento'; else if (/a vista|à vista/.test(ultima)) perfil['pagamento'] = 'à vista';
+      if (/alug/.test(ultima)) perfil['finalidade'] = 'alugar'; else if (/compr/.test(ultima)) perfil['finalidade'] = 'comprar';
+      const bairro = ['santa monica', 'jardim karaiba', 'canaa', 'tabajaras', 'centro', 'umuarama'].find((x) => ultima.includes(x));
+      if (bairro) perfil['regiao'] = bairro.replace(/\b\w/g, (c) => c.toUpperCase());
+      const mN = ultima.match(/(?:meu nome e|me chamo|sou o|sou a)\s+([a-z]+)/); if (mN) perfil['nome'] = mN[1][0].toUpperCase() + mN[1].slice(1);
+      const marc = { perfil, duvidas: [] as string[], agendamento: null as null | Record<string, string>, imoveis: [] as Record<string, unknown>[] };
       if (/oi|ola|bom dia|boa tarde|boa noite/.test(ultima) && (b.mensagens?.length ?? 0) <= 1)
-        return resposta({ texto: 'Boa tarde! Aqui é a Camila, da Royal Negócios Imobiliários. Você procura em qual região de Uberlândia?', acoes: [], provedor: b.provedor || 'groq', ms: 700 });
+        return resposta({ texto: 'Boa tarde! Aqui é a Camila, da Royal Negócios Imobiliários. Me conta, o que você tá procurando?', acoes: [], marcadores: marc, provedor: b.provedor || 'groq', ms: 700 });
       if (/fgts|pet|permuta/.test(ultima))
-        return resposta({ texto: 'Essa eu confirmo com o Ricardo pra não te passar errado, já te aviso.', acoes: ['Deixaria a pergunta para você: "Cliente quer saber sobre ' + ultima.slice(0, 40) + '"'], provedor: b.provedor || 'groq', ms: 700 });
+        return resposta({ texto: 'Essa eu confirmo com o Ricardo pra não te passar errado, já te aviso.', acoes: ['Deixaria a pergunta para você: "Cliente quer saber sobre ' + ultima.slice(0, 40) + '"'],
+          marcadores: { ...marc, duvidas: ['Cliente quer saber sobre ' + ultima.slice(0, 40)] }, provedor: b.provedor || 'groq', ms: 700 });
+      const opcoes = db.imoveis.filter((i) => i.status === 'disponivel').slice(0, 3);
       return resposta({
-        texto: 'Ótimo, temos ótimas oportunidades por lá! Separei três que encaixam, dá uma olhada.',
-        acoes: ['Mandaria fotos e links de até 3 opções da carteira', 'Opções escolhidas: 8685, 9001, 8574', 'Anotaria no lead: região: ' + ultima.slice(0, 30)],
+        texto: 'Boa! Separei três que encaixam, dá uma olhada.',
+        acoes: ['Mandaria fotos e links de até 3 opções da carteira', 'Opções escolhidas: ' + opcoes.map((i) => i.codigo).join(', '), 'Anotaria no lead: ' + (Object.keys(perfil).length ? JSON.stringify(perfil) : 'nada novo')],
+        marcadores: { ...marc, imoveis: opcoes.map((i) => ({ codigo: i.codigo, tipo: i.tipo, bairro: i.bairro, preco: i.preco, origem: 'opcoes' })) },
         provedor: b.provedor || 'groq', ms: 700,
       });
     }

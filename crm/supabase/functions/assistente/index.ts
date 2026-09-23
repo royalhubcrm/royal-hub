@@ -1,7 +1,7 @@
 // IA para o painel: simulador da assistente, sugestão de primeira mensagem,
 // mensagem de retomada e rascunho de site.
 import { ErroTela, admin, comoUsuario, configDa, json, quemChamou, responder } from '../_shared/comum.ts';
-import { Msg, PROMPT_PADRAO, PROVEDORES, Provedor, VARIAVEIS_PROMPT, carteira, descreverMarcadores, iaConfigurada, imoveisQueServem, instrucoes, lerMarcadores, modeloDe, pedirIA, pedirIADetalhado, preferenciaIA, provedoresDisponiveis } from '../_shared/ia.ts';
+import { Msg, PROMPT_PADRAO, PROVEDORES, Provedor, VARIAVEIS_PROMPT, carteira, descreverMarcadores, iaConfigurada, imoveisQueServem, instrucoes, lerMarcadores, limparPerfil, modeloDe, pedirIA, pedirIADetalhado, preferenciaIA, provedoresDisponiveis } from '../_shared/ia.ts';
 
 Deno.serve(responder(async (req) => {
   const db = admin();
@@ -46,8 +46,21 @@ Deno.serve(responder(async (req) => {
       const r = await pedirIADetalhado(instrucoes(cfg, empresa, lista), msgs, 600, provedor ? { provedor, estrito: true } : pref);
       const m = lerMarcadores(r.texto);
       const acoes = descreverMarcadores(m);
-      if (m.opcoes) acoes.push('Opções escolhidas: ' + imoveisQueServem(todos, procura, 3).map((x) => x.codigo).join(', '));
-      return json({ texto: m.texto || '(a assistente só executaria as ações abaixo)', acoes, provedor: r.provedor, modelo: r.modelo, ms: Date.now() - inicio });
+      const opcoes = m.opcoes ? imoveisQueServem(todos, procura, 3) : [];
+      if (m.opcoes) acoes.push('Opções escolhidas: ' + opcoes.map((x) => x.codigo).join(', '));
+      // o mesmo que aplicarMarcadores gravaria numa conversa real, só que devolvido para a tela
+      const resumo = (x: any, origem: string) => ({ codigo: x.codigo, tipo: x.tipo, bairro: x.bairro, preco: x.preco, origem });
+      const marcadores = {
+        perfil: Object.assign({}, ...m.perfis.map(limparPerfil)),
+        duvidas: m.duvidas.map((d) => d.pergunta).filter(Boolean),
+        agendamento: m.agendamento,
+        imoveis: [
+          ...opcoes.map((x) => resumo(x, 'opcoes')),
+          ...m.fotos.map((cod) => { const x = todos.find((i) => i.codigo === cod); return x ? resumo(x, 'foto') : { codigo: cod, origem: 'foto' }; }),
+          ...(m.agendamento?.codigo ? [(() => { const x = todos.find((i) => i.codigo === m.agendamento!.codigo); return x ? resumo(x, 'agendamento') : { codigo: m.agendamento!.codigo, origem: 'agendamento' }; })()] : []),
+        ],
+      };
+      return json({ texto: m.texto || '(a assistente só executaria as ações abaixo)', acoes, marcadores, provedor: r.provedor, modelo: r.modelo, ms: Date.now() - inicio });
     }
 
     // ------------------------------------------------ primeira mensagem para um lead
