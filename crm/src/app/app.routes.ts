@@ -24,6 +24,7 @@ export const routes: Routes = [
       { path: 'pipeline', title: t('Pipeline'), loadComponent: () => import('./features/pipeline/pipeline.page') },
       { path: 'leads', title: t('Leads'), loadComponent: () => import('./features/leads/leads.page') },
       { path: 'conversas', title: t('Conversas'), loadComponent: () => import('./features/conversas/conversas.page') },
+      { path: 'assistente', title: t('Assistente'), loadComponent: () => import('./features/assistente/assistente.page') },
       { path: 'imoveis', title: t('Imóveis'), data: { papeis: ['admin', 'gerente', 'corretor'] },
         loadComponent: () => import('./features/imoveis/imoveis.page') },
       { path: 'imoveis/folha', title: t('Folha de imóveis'), data: { papeis: ['admin', 'gerente', 'corretor'] },

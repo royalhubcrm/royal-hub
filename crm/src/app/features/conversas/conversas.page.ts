@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, i
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
-import { Config } from '../../core/models/config.model';
 import { Conversa, Mensagem, estadoConversa } from '../../core/models/conversa.model';
 import { ConfigService } from '../../core/services/config.service';
 import { ConversasService } from '../../core/services/conversas.service';
@@ -12,13 +11,10 @@ import { erroAmigavel } from '../../core/supabase/supabase.client';
 import { QuandoPipe, TelefonePipe } from '../../shared/pipes/formatos.pipe';
 import { linkWhats } from '../../shared/util/telefone';
 import { semAcento } from '../../shared/util/planilha';
-import { TestarAssistente } from './testar-assistente';
-import { AssistenteConfig } from './assistente-config';
-import { AbasDirective } from '../../shared/ui/abas.directive';
 
 @Component({
   selector: 'app-conversas',
-  imports: [FormsModule, RouterLink, QuandoPipe, TelefonePipe, TestarAssistente, AssistenteConfig, AbasDirective],
+  imports: [FormsModule, RouterLink, QuandoPipe, TelefonePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './conversas.page.html',
   styleUrl: './conversas.page.scss',
@@ -34,7 +30,6 @@ export default class ConversasPage {
   protected readonly auth = inject(AuthService);
   private readonly caixa = viewChild<ElementRef<HTMLElement>>('caixa');
 
-  protected readonly aba = signal<'conversas' | 'testar' | 'assistente'>('conversas');
   protected readonly lista = signal<Conversa[]>([]);
   protected readonly selId = signal<string | null>(null);
   protected readonly mensagens = signal<Mensagem[]>([]);
@@ -156,16 +151,6 @@ export default class ConversasPage {
   protected whats(c: Conversa) { return linkWhats(c.telefone); }
 
   protected pausada(c: Conversa) { return !!c.pausado_ate && new Date(c.pausado_ate) > new Date(); }
-
-  // ---------------------------------------------------------------- regras (admin)
-  protected async salvarRegras(campos: Partial<Config>) {
-    try {
-      await this.cfg.salvar(campos);
-      this.avisos.ok('Regras da assistente salvas.');
-    } catch (e) {
-      this.avisos.erro(e);
-    }
-  }
 
   private rolarParaFim() {
     setTimeout(() => { const el = this.caixa()?.nativeElement; if (el) el.scrollTop = el.scrollHeight; });

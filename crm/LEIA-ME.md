@@ -38,7 +38,7 @@ npx supabase functions deploy
 npx supabase secrets set GROQ_API_KEY=sua-chave SITE_URL=https://endereco-do-app
 ```
 
-- `GROQ_API_KEY`: gratuita em https://console.groq.com/keys. Liga a assistente, a sugestão de mensagem, a retomada e o "Montar site com IA". Também aceita `GEMINI_API_KEY` e `ANTHROPIC_API_KEY`; com mais de uma, o WhatsApp usa a primeira que responder (Groq → Claude → Gemini) e a tela Conversas → Testar a assistente deixa escolher qual testar. Modelos: `GROQ_MODEL` (padrão `openai/gpt-oss-120b`) e `GEMINI_MODEL` (padrão `gemini-3.6-flash`).
+- `GROQ_API_KEY`: gratuita em https://console.groq.com/keys. Liga a assistente, a sugestão de mensagem, a retomada e o "Montar site com IA". Também aceita `GEMINI_API_KEY` e `ANTHROPIC_API_KEY`; com mais de uma, o WhatsApp usa a primeira que responder (Groq → Claude → Gemini) e a tela Assistente → Testar deixa escolher qual testar. Modelos: `GROQ_MODEL` (padrão `openai/gpt-oss-120b`) e `GEMINI_MODEL` (padrão `gemini-3.6-flash`).
 - `SITE_URL`: o endereço público do app. Entra nos links que a assistente manda no WhatsApp e no feed dos portais.
 - Opcional: `META_APP_SECRET` (a função confere a assinatura das mensagens da Meta) e `CRON_SECRET` (retomada automática, ver `supabase/agendador-retomadas.sql`).
 
@@ -52,12 +52,13 @@ npx supabase secrets set GROQ_API_KEY=sua-chave SITE_URL=https://endereco-do-app
 | Painel | Números do mês, 14 dias, funil, últimos leads, imóveis mais pedidos | todos |
 | Pipeline | Kanban de vendas: arrastar ou usar as setas (teclado) | todos |
 | Leads | Tabela com busca, filtros, ordenação e páginas; ficha com histórico; importar planilha | todos |
-| Conversas | WhatsApp: ler, responder, ligar/desligar a assistente; testar a assistente; aba "Assistente" (admin) com o system prompt editável e a escolha de Groq/Gemini/Claude | todos |
+| Conversas | WhatsApp: ler, responder, ligar/desligar a assistente por conversa | todos |
+| Assistente | Testar a assistente com a ficha do cliente ao lado e diálogos salvos com anotações; aba Configurar (admin): quando responde, personalidade, qual IA/modelo e as instruções completas | todos (configurar: admin) |
 | Imóveis | Carteira com fotos, CEP automático, situação, portais; folha para o cliente (imprimir/PDF) | admin, gerente, corretor |
 | Agenda e gerência | Visitas marcadas, perguntas que a assistente deixou, clientes parados, interesses | admin, gerente |
 | Sites | Sites dos clientes com prévia ao vivo e rascunho por IA | admin |
 | Equipe | Pessoas, papéis, equipes | admin |
-| Ajustes | Imobiliária, assistente, WhatsApp oficial, captação (formulário e webhook), portais | admin |
+| Ajustes | Imobiliária, WhatsApp oficial, captação (formulário e webhook), portais | admin |
 | Empresas | Criar e bloquear imobiliárias | dono da plataforma |
 
 Páginas públicas, sem login: `/captar/<empresa>` (formulário do anúncio), `/imovel/<id>` e `/s/<site>`.

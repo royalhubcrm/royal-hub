@@ -45,31 +45,6 @@
     </section>
   }
 
-  @case ('assistente') {
-    <section id="painel-assistente" role="tabpanel" aria-labelledby="aba-assistente" class="cartao estreito">
-      <form class="pilha" (ngSubmit)="salvar(['assistente', 'fatos', 'estilo'])">
-        <p class="mudo">A assistente responde no WhatsApp usando só os imóveis disponíveis da carteira. O objetivo dela é marcar a visita no escritório.
-          Teste o resultado em Conversas → Testar a assistente.</p>
-        <div class="campo">
-          <label for="a-nome">Nome da assistente</label>
-          <input id="a-nome" name="assistente" [(ngModel)]="f.assistente" />
-        </div>
-        <div class="campo">
-          <label for="a-fatos">O que ela pode afirmar com segurança</label>
-          <textarea id="a-fatos" name="fatos" rows="6" [(ngModel)]="f.fatos" aria-describedby="a-fatos-ajuda"></textarea>
-          <span class="ajuda" id="a-fatos-ajuda">Descontos, documentação, financiamento… Uma regra por linha. O que não estiver aqui ela não inventa: deixa a pergunta para você em Agenda e gerência.</span>
-        </div>
-        <div class="campo">
-          <label for="a-estilo">Como ela deve falar</label>
-          <textarea id="a-estilo" name="estilo" rows="8" [(ngModel)]="f.estilo" aria-describedby="a-estilo-ajuda"
-                    placeholder="Ex.: chama pelo nome, fala curto, nunca promete desconto, usa 'a gente'."></textarea>
-          <span class="ajuda" id="a-estilo-ajuda">Cole exemplos de mensagens suas: ela imita o jeito de escrever.</span>
-        </div>
-        <div><button class="btn primario" type="submit" [disabled]="salvando()">Salvar</button></div>
-      </form>
-    </section>
-  }
-
   @case ('whatsapp') {
     <section id="painel-whatsapp" role="tabpanel" aria-labelledby="aba-whatsapp" class="cartao estreito">
       <p class="linha">

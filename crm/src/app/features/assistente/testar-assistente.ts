@@ -47,12 +47,11 @@ interface Fala { papel: 'cliente' | 'bot'; texto: string; acoes?: string[]; prov
   template: `
     <div class="teste">
       <section class="chat" aria-label="Conversa de teste">
-        <p class="mudo">Escreva como se fosse o cliente — "tem casa de 3 quartos até 600 mil?" — e veja a resposta.
-          É só um teste: nada é enviado e nada é gravado. O jeito de falar se ajusta em "Assistente: prompt e modelo".</p>
+        <p class="mudo pequeno">Escreva como se fosse o cliente. Nada é enviado nem gravado.</p>
         <div class="linha modelo">
           <label for="t-modelo">Responder com</label>
           <select id="t-modelo" [ngModel]="provedor()" name="modelo" (ngModelChange)="provedor.set($event)" aria-describedby="t-modelo-ajuda">
-            <option value="">Automático (o configurado em "Assistente: prompt e modelo")</option>
+            <option value="">Automático (o configurado)</option>
             @for (p of disponiveis(); track p) { <option [value]="p">{{ nome(p) }}</option> }
           </select>
           @if (provedor()) {
@@ -63,8 +62,8 @@ interface Fala { papel: 'cliente' | 'bot'; texto: string; acoes?: string[]; prov
             </select>
           }
           <span class="ajuda" id="t-modelo-ajuda">
-            @if (disponiveis().length) { Ligadas: {{ ligadas() }}. Mande a mesma pergunta em cada modelo para comparar; a resposta mostra qual respondeu. }
-            @else { Nenhuma chave de IA configurada nas funções (GROQ_API_KEY ou GEMINI_API_KEY). }
+            @if (disponiveis().length) { Mande a mesma pergunta em cada modelo para comparar. }
+            @else { Nenhuma chave de IA configurada nas funções. }
           </span>
         </div>
         <ol class="falas" #caixa aria-live="polite" aria-label="Mensagens">
@@ -84,19 +83,18 @@ interface Fala { papel: 'cliente' | 'bot'; texto: string; acoes?: string[]; prov
         <form class="enviar" (ngSubmit)="enviar()">
           <label class="sr-only" for="t-msg">Mensagem do cliente</label>
           <input id="t-msg" name="msg" [(ngModel)]="texto" placeholder="Mensagem do cliente" autocomplete="off" />
-          <button class="btn primario" type="submit" [disabled]="pensando()">Responder</button>
-          <button class="btn" type="button" (click)="abrirAnotacoes()" [disabled]="!falas().length" title="Guarda a conversa com prós, contras e o que mudar no prompt">Salvar com anotações</button>
-          <button class="btn fantasma" type="button" (click)="recomecar()" [disabled]="!falas().length">Recomeçar</button>
+          <button class="btn primario" type="submit" [disabled]="pensando()">Enviar</button>
+          <button class="btn" type="button" (click)="abrirAnotacoes()" [disabled]="!falas().length" title="Guarda a conversa com prós, contras e o que mudar nas instruções">Salvar</button>
+          <button class="btn fantasma" type="button" (click)="recomecar()" [disabled]="!falas().length">Limpar</button>
         </form>
         @if (aberto(); as t) {
-          <p class="aviso info pequeno">Continuando o diálogo salvo <b>{{ t.titulo }}</b>. Ao salvar, as anotações dele são atualizadas.
+          <p class="aviso info pequeno">Continuando <b>{{ t.titulo }}</b>. Salvar atualiza as anotações dele.
             <button type="button" class="btn pequeno fantasma" (click)="recomecar()">Começar outro</button></p>
         }
 
         <section class="salvos" aria-labelledby="t-salvos">
           <header>
             <h2 id="t-salvos">Diálogos salvos <span class="mudo">({{ salvos().length }})</span></h2>
-            <span class="mudo pequeno">Para comparar respostas e evoluir o prompt.</span>
           </header>
           @if (salvos().length) {
             <ul class="lista">
@@ -111,13 +109,13 @@ interface Fala { papel: 'cliente' | 'bot'; texto: string; acoes?: string[]; prov
                     <div class="detalhe">
                       @if (t.pros) { <p><b>Prós:</b> {{ t.pros }}</p> }
                       @if (t.contras) { <p><b>Contras:</b> {{ t.contras }}</p> }
-                      @if (t.melhoria) { <p><b>Mudar no prompt:</b> {{ t.melhoria }}</p> }
-                      <p class="mudo pequeno">Prompt na hora do teste: {{ t.prompt_base ? 'personalizado (' + t.prompt_base.length + ' caracteres)' : 'padrão do sistema' }}.</p>
+                      @if (t.melhoria) { <p><b>Mudar nas instruções:</b> {{ t.melhoria }}</p> }
+                      <p class="mudo pequeno">Instruções na hora do teste: {{ t.prompt_base ? 'personalizadas' : 'padrão' }}.</p>
                       <ol class="transcricao">
                         @for (f of t.falas; track $index) { <li [class.bot]="f.papel === 'bot'"><b>{{ f.papel === 'bot' ? 'Assistente' : 'Cliente' }}:</b> {{ f.texto }}</li> }
                       </ol>
                       <div class="linha">
-                        <button type="button" class="btn pequeno" (click)="continuar(t)">Continuar esta conversa</button>
+                        <button type="button" class="btn pequeno" (click)="continuar(t)">Continuar</button>
                         <button type="button" class="btn pequeno" (click)="abrirAnotacoes(t)">Editar anotações</button>
                         <button type="button" class="btn pequeno perigo empurra" (click)="excluir(t)">Excluir</button>
                       </div>
@@ -126,16 +124,16 @@ interface Fala { papel: 'cliente' | 'bot'; texto: string; acoes?: string[]; prov
                 </li>
               }
             </ul>
-          } @else { <p class="mudo pequeno">Nenhum ainda. Converse com a assistente e clique em "Salvar com anotações".</p> }
+          } @else { <p class="mudo pequeno">Nenhum ainda. Converse e clique em Salvar.</p> }
         </section>
       </section>
 
       <aside class="ficha" aria-label="O que a assistente está anotando" aria-live="polite">
         <header>
-          <h2>O que ela está anotando</h2>
+          <h2>Ficha do cliente</h2>
           <span class="mudo pequeno mono">{{ preenchidos() }} de {{ campos.length }} campos</span>
         </header>
-        <p class="mudo pequeno">Em tempo real, a partir do [PERFIL] e dos códigos que a IA emite. Na conversa real isto vai para o lead (campo perfil), os interesses, as dúvidas e a agenda — é a base dos relatórios.</p>
+        <p class="mudo pequeno">O que ela anota enquanto conversa. Na conversa real vai para o lead, os interesses, as dúvidas e a agenda.</p>
 
         <dl class="perfil">
           @for (c of campos; track c.chave) {
@@ -174,19 +172,19 @@ interface Fala { papel: 'cliente' | 'bot'; texto: string; acoes?: string[]; prov
         } @else { <p class="mudo pequeno">Não marcada.</p> }
 
         <div class="linha">
-          <button type="button" class="btn pequeno" (click)="copiarJson()" [disabled]="!falas().length">Copiar como JSON</button>
+          <button type="button" class="btn pequeno" (click)="copiarJson()" [disabled]="!falas().length">Copiar JSON</button>
         </div>
       </aside>
     </div>
 
-    <app-gaveta titulo="Salvar diálogo com anotações" [aberta]="anotando()" [sujo]="anotando()" (fechar)="anotando.set(false)">
+    <app-gaveta titulo="Salvar diálogo" [aberta]="anotando()" [sujo]="anotando()" (fechar)="anotando.set(false)">
       <form id="form-anotacoes" class="pilha" (ngSubmit)="salvarAnotacoes()" novalidate>
         <div class="campo">
           <label for="an-titulo" class="obrigatorio">Título</label>
           <input id="an-titulo" name="titulo" [(ngModel)]="an.titulo" required autofocus placeholder="Ex.: cliente com tudo na 1ª mensagem" />
         </div>
         <fieldset class="campo">
-          <legend class="rotulo">Como a assistente foi? (1 = ruim, 5 = ótima)</legend>
+          <legend class="rotulo">Nota (1 = ruim, 5 = ótima)</legend>
           <div class="notas" role="radiogroup">
             @for (n of [1, 2, 3, 4, 5]; track n) {
               <label [class.marcado]="an.nota === n"><input type="radio" name="nota" [value]="n" [(ngModel)]="an.nota" />{{ n }}</label>
@@ -194,18 +192,18 @@ interface Fala { papel: 'cliente' | 'bot'; texto: string; acoes?: string[]; prov
           </div>
         </fieldset>
         <div class="campo">
-          <label for="an-pros">Prós — o que ela fez bem</label>
+          <label for="an-pros">Prós</label>
           <textarea id="an-pros" name="pros" rows="3" [(ngModel)]="an.pros" placeholder="Ex.: respondeu a dúvida antes de perguntar; anotou o perfil certo"></textarea>
         </div>
         <div class="campo">
-          <label for="an-contras">Contras — o que incomodou</label>
+          <label for="an-contras">Contras</label>
           <textarea id="an-contras" name="contras" rows="3" [(ngModel)]="an.contras" placeholder="Ex.: elogiou o bairro sem saber; convidou pra visita cedo demais"></textarea>
         </div>
         <div class="campo">
-          <label for="an-melhoria">O que mudar no prompt</label>
+          <label for="an-melhoria">O que mudar nas instruções</label>
           <textarea id="an-melhoria" name="melhoria" rows="3" [(ngModel)]="an.melhoria" placeholder="Ex.: reforçar em NUNCA INVENTE que região é [DUVIDA]"></textarea>
         </div>
-        <p class="mudo pequeno">Vai junto: as {{ falas().length }} mensagens, a ficha do cliente, o modelo usado e o prompt que estava valendo.</p>
+        <p class="mudo pequeno">Vai junto: as {{ falas().length }} mensagens, a ficha, o modelo e as instruções da hora.</p>
       </form>
       <div rodape>
         <button type="submit" form="form-anotacoes" class="btn primario" [disabled]="salvandoAnotacoes()">{{ salvandoAnotacoes() ? 'Salvando…' : 'Salvar' }}</button>

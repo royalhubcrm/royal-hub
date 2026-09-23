@@ -15,6 +15,7 @@ const MENU: ItemMenu[] = [
   { rota: '/leads', rotulo: 'Leads', grupo: 'dia' },
   { rota: '/conversas', rotulo: 'Conversas', grupo: 'dia' },
   { rota: '/imoveis', rotulo: 'Imóveis', papeis: ['admin', 'gerente', 'corretor'], grupo: 'dia' },
+  { rota: '/assistente', rotulo: 'Assistente', grupo: 'gestao' },
   { rota: '/gerencia', rotulo: 'Agenda e gerência', papeis: ['admin', 'gerente'], grupo: 'gestao' },
   { rota: '/sites', rotulo: 'Sites', papeis: ['admin'], grupo: 'gestao' },
   { rota: '/equipe', rotulo: 'Equipe', papeis: ['admin'], grupo: 'gestao' },

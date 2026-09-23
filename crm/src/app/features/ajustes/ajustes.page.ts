@@ -11,7 +11,7 @@ import { AvisosService } from '../../core/ui/avisos.service';
 import { AbasDirective } from '../../shared/ui/abas.directive';
 import { MascaraDirective } from '../../shared/ui/mascara.directive';
 
-type Aba = 'imobiliaria' | 'assistente' | 'whatsapp' | 'captacao' | 'portais';
+type Aba = 'imobiliaria' | 'whatsapp' | 'captacao' | 'portais';
 
 @Component({
   selector: 'app-ajustes',
@@ -29,7 +29,6 @@ export default class AjustesPage {
 
   protected readonly abas: { id: Aba; rotulo: string }[] = [
     { id: 'imobiliaria', rotulo: 'Imobiliária' },
-    { id: 'assistente', rotulo: 'Assistente de IA' },
     { id: 'whatsapp', rotulo: 'WhatsApp' },
     { id: 'captacao', rotulo: 'Captação de leads' },
     { id: 'portais', rotulo: 'Portais' },
