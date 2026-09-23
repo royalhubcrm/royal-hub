@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { SUPABASE } from '../supabase/supabase.client';
 
-export interface FalaSalva { papel: 'cliente' | 'bot'; texto: string; provedor?: string; ms?: number; acoes?: string[] }
+export interface FalaSalva { papel: 'cliente' | 'bot'; texto: string; provedor?: string; ms?: number; acoes?: string[]; marcadores?: unknown }
 
 /** Um diálogo de teste guardado com as anotações de quem testou. */
 export interface TesteAssistente {

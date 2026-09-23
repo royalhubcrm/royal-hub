@@ -333,7 +333,8 @@ export class TestarAssistente {
         provedor: this.provedor() || (this.falas().find((f) => f.provedor)?.provedor ?? ''),
         modelo: this.falas().length ? '' : editando?.modelo ?? '',
         prompt_base: cfg?.prompt_base ?? editando?.prompt_base ?? '',
-        falas: falasAtuais.map((f) => ({ papel: f.papel, texto: f.texto, provedor: f.provedor, ms: f.ms, acoes: f.acoes })),
+        // os marcadores vão junto: ao continuar o diálogo, a ficha se refaz
+        falas: falasAtuais.map((f) => ({ papel: f.papel, texto: f.texto, provedor: f.provedor, ms: f.ms, acoes: f.acoes, marcadores: f.marcadores })),
         ficha: this.falas().length
           ? { perfil: this.perfil(), imoveis: this.imoveis(), duvidas: this.duvidas(), agendamento: this.agendamento() }
           : editando?.ficha ?? {},
@@ -353,7 +354,7 @@ export class TestarAssistente {
   /** Recoloca um diálogo salvo no chat para seguir testando a partir dele. */
   protected continuar(t: TesteAssistente) {
     this.aberto.set(t);
-    this.falas.set(t.falas.map((f) => ({ papel: f.papel, texto: f.texto, provedor: f.provedor as Provedor | undefined, ms: f.ms, acoes: f.acoes })));
+    this.falas.set(t.falas.map((f) => ({ papel: f.papel, texto: f.texto, provedor: f.provedor as Provedor | undefined, ms: f.ms, acoes: f.acoes, marcadores: f.marcadores as Marcadores | undefined })));
     this.mudouAgora.set(new Set());
     if (t.provedor && (['groq', 'gemini', 'anthropic'] as string[]).includes(t.provedor)) this.provedor.set(t.provedor as Provedor);
     this.rolar();
