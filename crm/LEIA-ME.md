@@ -43,7 +43,7 @@ npx supabase secrets set GROQ_API_KEY=sua-chave SITE_URL=https://endereco-do-app
 - Opcional: `META_APP_SECRET` (a função confere a assinatura das mensagens da Meta) e `CRON_SECRET` (retomada automática, ver `supabase/agendador-retomadas.sql`).
 
 ### 4. Publicar o app
-`npm run build` gera a pasta `dist/crm/browser`. Ela pode ir para Cloudflare Pages, Netlify ou Vercel. O arquivo `_redirects` já está incluído, para as rotas funcionarem ao recarregar a página.
+`npm run build` gera a pasta `dist/crm/browser`. Na Cloudflare (Workers & Pages → conectar o repositório, raiz `crm`, build `npm run build`, deploy `npx wrangler deploy`) o `wrangler.jsonc` já cuida das rotas do app ao recarregar a página. Em outra hospedagem (Netlify, Vercel), configure "toda rota → index.html".
 
 ## O que tem em cada tela
 
