@@ -1,7 +1,7 @@
 /** Dados de exemplo do modo demonstração (inventados). */
 export type Tabelas = Record<
   'empresas' | 'perfis' | 'equipes' | 'config' | 'etapas_pipeline' | 'leads' | 'historico' | 'imoveis'
-  | 'conversas' | 'mensagens' | 'agendamentos' | 'interesses' | 'duvidas' | 'sites',
+  | 'conversas' | 'mensagens' | 'agendamentos' | 'interesses' | 'duvidas' | 'sites' | 'testes_assistente',
   any[]
 >;
 
@@ -140,6 +140,7 @@ export function semente(): Tabelas {
       { id: 'g1', empresa_id: EMP, conversa_id: conversas[2].id, lead_id: leads[3].id, nome: 'Carlos Menezes', pergunta: 'Cliente quer saber se aceita FGTS na entrada', resposta: '', status: 'aberta', criado_em: dias(0) },
       { id: 'g2', empresa_id: EMP, conversa_id: conversas[0].id, lead_id: leads[0].id, nome: 'Maria Silva', pergunta: 'O condomínio do 8685 aceita pet?', resposta: '', status: 'aberta', criado_em: dias(1) },
     ],
+    testes_assistente: [],
     sites: [{
       id: 'h1', empresa_id: EMP, slug: 'royal-zona-sul', nome: 'Royal Zona Sul', titulo: 'Casas na Zona Sul de Uberlândia', subtitulo: 'Atendimento com hora marcada, do primeiro contato à chave.',
       sobre: 'A Royal atende todas as regiões de Uberlândia há mais de 10 anos.', cor: '#1E3A5F', fundo: 'claro', fonte: 'moderna', whats: '5534999990000',

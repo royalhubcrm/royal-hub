@@ -1,4 +1,9 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import { AuthService } from '../../core/auth/auth.service';
+import { EquipeService } from '../../core/services/equipe.service';
+import { TesteAssistente, TesteEditavel, TestesAssistenteService } from '../../core/services/testes-assistente.service';
+import { QuandoPipe } from '../../shared/pipes/formatos.pipe';
+import { Gaveta } from '../../shared/ui/gaveta';
 import { FormsModule } from '@angular/forms';
 import { ConfigService } from '../../core/services/config.service';
 import { DEMO } from '../../core/supabase/demo';
@@ -37,7 +42,7 @@ interface Fala { papel: 'cliente' | 'bot'; texto: string; acoes?: string[]; prov
  */
 @Component({
   selector: 'app-testar-assistente',
-  imports: [FormsModule, BrlPipe],
+  imports: [FormsModule, BrlPipe, QuandoPipe, Gaveta],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="teste">
@@ -73,8 +78,49 @@ interface Fala { papel: 'cliente' | 'bot'; texto: string; acoes?: string[]; prov
           <label class="sr-only" for="t-msg">Mensagem do cliente</label>
           <input id="t-msg" name="msg" [(ngModel)]="texto" placeholder="Mensagem do cliente" autocomplete="off" />
           <button class="btn primario" type="submit" [disabled]="pensando()">Responder</button>
-          <button class="btn" type="button" (click)="recomecar()" [disabled]="!falas().length">Recomeçar</button>
+          <button class="btn" type="button" (click)="abrirAnotacoes()" [disabled]="!falas().length" title="Guarda a conversa com prós, contras e o que mudar no prompt">Salvar com anotações</button>
+          <button class="btn fantasma" type="button" (click)="recomecar()" [disabled]="!falas().length">Recomeçar</button>
         </form>
+        @if (aberto(); as t) {
+          <p class="aviso info pequeno">Continuando o diálogo salvo <b>{{ t.titulo }}</b>. Ao salvar, as anotações dele são atualizadas.
+            <button type="button" class="btn pequeno fantasma" (click)="recomecar()">Começar outro</button></p>
+        }
+
+        <section class="salvos" aria-labelledby="t-salvos">
+          <header>
+            <h2 id="t-salvos">Diálogos salvos <span class="mudo">({{ salvos().length }})</span></h2>
+            <span class="mudo pequeno">Para comparar respostas e evoluir o prompt.</span>
+          </header>
+          @if (salvos().length) {
+            <ul class="lista">
+              @for (t of salvos(); track t.id) {
+                <li class="salvo">
+                  <details>
+                    <summary>
+                      <span class="titulo">{{ t.titulo || 'Sem título' }}</span>
+                      @if (t.nota) { <span class="nota mono" [attr.aria-label]="'Nota ' + t.nota + ' de 5'">{{ estrelas(t.nota) }}</span> }
+                      <span class="mudo pequeno">{{ t.falas.length }} msgs · {{ t.provedor ? nome(t.provedor) : 'auto' }}{{ t.modelo ? ' · ' + t.modelo : '' }} · {{ autor(t) }} · {{ t.criado_em | quando }}</span>
+                    </summary>
+                    <div class="detalhe">
+                      @if (t.pros) { <p><b>Prós:</b> {{ t.pros }}</p> }
+                      @if (t.contras) { <p><b>Contras:</b> {{ t.contras }}</p> }
+                      @if (t.melhoria) { <p><b>Mudar no prompt:</b> {{ t.melhoria }}</p> }
+                      <p class="mudo pequeno">Prompt na hora do teste: {{ t.prompt_base ? 'personalizado (' + t.prompt_base.length + ' caracteres)' : 'padrão do sistema' }}.</p>
+                      <ol class="transcricao">
+                        @for (f of t.falas; track $index) { <li [class.bot]="f.papel === 'bot'"><b>{{ f.papel === 'bot' ? 'Assistente' : 'Cliente' }}:</b> {{ f.texto }}</li> }
+                      </ol>
+                      <div class="linha">
+                        <button type="button" class="btn pequeno" (click)="continuar(t)">Continuar esta conversa</button>
+                        <button type="button" class="btn pequeno" (click)="abrirAnotacoes(t)">Editar anotações</button>
+                        <button type="button" class="btn pequeno perigo empurra" (click)="excluir(t)">Excluir</button>
+                      </div>
+                    </div>
+                  </details>
+                </li>
+              }
+            </ul>
+          } @else { <p class="mudo pequeno">Nenhum ainda. Converse com a assistente e clique em "Salvar com anotações".</p> }
+        </section>
       </section>
 
       <aside class="ficha" aria-label="O que a assistente está anotando" aria-live="polite">
@@ -125,6 +171,40 @@ interface Fala { papel: 'cliente' | 'bot'; texto: string; acoes?: string[]; prov
         </div>
       </aside>
     </div>
+
+    <app-gaveta titulo="Salvar diálogo com anotações" [aberta]="anotando()" [sujo]="anotando()" (fechar)="anotando.set(false)">
+      <form id="form-anotacoes" class="pilha" (ngSubmit)="salvarAnotacoes()" novalidate>
+        <div class="campo">
+          <label for="an-titulo" class="obrigatorio">Título</label>
+          <input id="an-titulo" name="titulo" [(ngModel)]="an.titulo" required autofocus placeholder="Ex.: cliente com tudo na 1ª mensagem" />
+        </div>
+        <fieldset class="campo">
+          <legend class="rotulo">Como a assistente foi? (1 = ruim, 5 = ótima)</legend>
+          <div class="notas" role="radiogroup">
+            @for (n of [1, 2, 3, 4, 5]; track n) {
+              <label [class.marcado]="an.nota === n"><input type="radio" name="nota" [value]="n" [(ngModel)]="an.nota" />{{ n }}</label>
+            }
+          </div>
+        </fieldset>
+        <div class="campo">
+          <label for="an-pros">Prós — o que ela fez bem</label>
+          <textarea id="an-pros" name="pros" rows="3" [(ngModel)]="an.pros" placeholder="Ex.: respondeu a dúvida antes de perguntar; anotou o perfil certo"></textarea>
+        </div>
+        <div class="campo">
+          <label for="an-contras">Contras — o que incomodou</label>
+          <textarea id="an-contras" name="contras" rows="3" [(ngModel)]="an.contras" placeholder="Ex.: elogiou o bairro sem saber; convidou pra visita cedo demais"></textarea>
+        </div>
+        <div class="campo">
+          <label for="an-melhoria">O que mudar no prompt</label>
+          <textarea id="an-melhoria" name="melhoria" rows="3" [(ngModel)]="an.melhoria" placeholder="Ex.: reforçar em NUNCA INVENTE que região é [DUVIDA]"></textarea>
+        </div>
+        <p class="mudo pequeno">Vai junto: as {{ falas().length }} mensagens, a ficha do cliente, o modelo usado e o prompt que estava valendo.</p>
+      </form>
+      <div rodape>
+        <button type="submit" form="form-anotacoes" class="btn primario" [disabled]="salvandoAnotacoes()">{{ salvandoAnotacoes() ? 'Salvando…' : 'Salvar' }}</button>
+        <button type="button" class="btn" (click)="anotando.set(false)">Cancelar</button>
+      </div>
+    </app-gaveta>
   `,
   styles: `
     .teste { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); gap: 16px; align-items: start; }
@@ -154,13 +234,40 @@ interface Fala { papel: 'cliente' | 'bot'; texto: string; acoes?: string[]; prov
     .lista > * { padding: 6px 0; }
     .duvidas { margin: 0; padding-left: 16px; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
     .visita { font-size: 13px; }
+    .salvos { margin-top: 8px; display: flex; flex-direction: column; gap: 8px;
+      > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; } h2 { font-size: 13.5px; } }
+    .salvo { display: block; padding: 0; details { width: 100%; }
+      summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 9px 4px; list-style: none;
+        &::-webkit-details-marker { display: none; } &::before { content: '▸'; color: var(--slate-400); } }
+      details[open] summary::before { content: '▾'; }
+      .titulo { font-weight: 600; } .nota { color: var(--ouro-texto); letter-spacing: .1em; }
+      .detalhe { display: flex; flex-direction: column; gap: 8px; padding: 4px 4px 12px 18px; font-size: 13px; } }
+    .transcricao { margin: 0; padding: 10px 12px; list-style: none; display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow-y: auto;
+      background: var(--slate-100); border-radius: 6px; font-size: 12.5px;
+      li.bot { color: var(--navy-700); } }
+    .notas { display: flex; border: 1px solid var(--slate-300); border-radius: 6px; overflow: hidden; width: fit-content;
+      label { min-width: 44px; min-height: calc(var(--alvo) - 2px); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border-left: 1px solid var(--slate-300); font-weight: 500;
+        &:first-child { border-left: 0; } &.marcado { background: var(--navy-700); color: #fff; }
+        input { position: absolute; opacity: 0; width: 1px; height: 1px; } &:has(input:focus-visible) { box-shadow: inset 0 0 0 2px var(--azul-500); } } }
+    fieldset.campo { border: 0; margin: 0; padding: 0; } legend.rotulo { padding: 0; margin-bottom: 5px; }
     @media (max-width: 960px) { .teste { grid-template-columns: minmax(0, 1fr); } .ficha { position: static; } }
   `,
 })
 export class TestarAssistente {
   private readonly cfg = inject(ConfigService);
   private readonly avisos = inject(AvisosService);
+  private readonly testes = inject(TestesAssistenteService);
+  private readonly equipe = inject(EquipeService);
+  private readonly auth = inject(AuthService);
   private readonly caixa = viewChild<ElementRef<HTMLElement>>('caixa');
+
+  // ---- diálogos salvos com anotações
+  protected readonly salvos = signal<TesteAssistente[]>([]);
+  /** O diálogo salvo que está sendo continuado (salvar atualiza ele). */
+  protected readonly aberto = signal<TesteAssistente | null>(null);
+  protected readonly anotando = signal(false);
+  protected readonly salvandoAnotacoes = signal(false);
+  protected an: { id?: string; titulo: string; nota: number | null; pros: string; contras: string; melhoria: string } = this.anotacaoVazia();
 
   protected readonly campos = CAMPOS_PERFIL;
   protected readonly falas = signal<Fala[]>([]);
@@ -190,9 +297,82 @@ export class TestarAssistente {
     // na demonstração não há função no servidor: mostra as duas para o layout
     if (DEMO) this.disponiveis.set(['groq', 'gemini']);
     else void this.cfg.ia<{ provedores: Provedor[] }>({ acao: 'provedores' }).then((r) => this.disponiveis.set(r.provedores)).catch(() => null);
+    void this.carregarSalvos();
+    void this.equipe.garantirPessoas().catch(() => null);
   }
 
-  protected nome(p: Provedor) { return NOMES[p] ?? p; }
+  private async carregarSalvos() {
+    try { this.salvos.set(await this.testes.listar()); } catch (e) { this.avisos.erro(e); }
+  }
+
+  protected estrelas(n: number) { return '★'.repeat(n) + '☆'.repeat(5 - n); }
+  protected autor(t: TesteAssistente) { return t.autor_id ? this.equipe.nomeDe(t.autor_id) || 'alguém da equipe' : 'sistema'; }
+  private anotacaoVazia() { return { titulo: '', nota: null as number | null, pros: '', contras: '', melhoria: '' }; }
+
+  /** Abre a gaveta para salvar a conversa atual (ou editar as anotações de um salvo). */
+  protected abrirAnotacoes(t?: TesteAssistente) {
+    const base = t ?? this.aberto();
+    this.an = base
+      ? { id: base.id, titulo: base.titulo, nota: base.nota, pros: base.pros, contras: base.contras, melhoria: base.melhoria }
+      : { ...this.anotacaoVazia(), titulo: (this.falas()[0]?.texto ?? '').slice(0, 60) };
+    if (t) this.aberto.set(t);
+    this.anotando.set(true);
+  }
+
+  protected async salvarAnotacoes() {
+    if (!this.an.titulo.trim()) return this.avisos.erro('Dê um título para achar depois.');
+    this.salvandoAnotacoes.set(true);
+    try {
+      const editando = this.aberto();
+      // anotações de um salvo, sem ter continuado a conversa: mantém as falas dele
+      const falasAtuais = this.falas().length ? this.falas() : (editando?.falas ?? []);
+      const cfg = this.cfg.config();
+      const t: TesteEditavel = {
+        id: this.an.id, titulo: this.an.titulo.trim(), nota: this.an.nota,
+        pros: this.an.pros.trim(), contras: this.an.contras.trim(), melhoria: this.an.melhoria.trim(),
+        provedor: this.provedor() || (this.falas().find((f) => f.provedor)?.provedor ?? ''),
+        modelo: this.falas().length ? '' : editando?.modelo ?? '',
+        prompt_base: cfg?.prompt_base ?? editando?.prompt_base ?? '',
+        falas: falasAtuais.map((f) => ({ papel: f.papel, texto: f.texto, provedor: f.provedor, ms: f.ms, acoes: f.acoes })),
+        ficha: this.falas().length
+          ? { perfil: this.perfil(), imoveis: this.imoveis(), duvidas: this.duvidas(), agendamento: this.agendamento() }
+          : editando?.ficha ?? {},
+      };
+      const salvo = await this.testes.salvar(t);
+      this.aberto.set(salvo);
+      this.anotando.set(false);
+      this.avisos.ok(this.an.id ? 'Anotações atualizadas.' : 'Diálogo salvo com as anotações.');
+      await this.carregarSalvos();
+    } catch (e) {
+      this.avisos.erro(e);
+    } finally {
+      this.salvandoAnotacoes.set(false);
+    }
+  }
+
+  /** Recoloca um diálogo salvo no chat para seguir testando a partir dele. */
+  protected continuar(t: TesteAssistente) {
+    this.aberto.set(t);
+    this.falas.set(t.falas.map((f) => ({ papel: f.papel, texto: f.texto, provedor: f.provedor as Provedor | undefined, ms: f.ms, acoes: f.acoes })));
+    this.mudouAgora.set(new Set());
+    if (t.provedor && (['groq', 'gemini', 'anthropic'] as string[]).includes(t.provedor)) this.provedor.set(t.provedor as Provedor);
+    this.rolar();
+    document.getElementById('t-msg')?.focus();
+  }
+
+  protected async excluir(t: TesteAssistente) {
+    if (!(await this.avisos.confirmar(`Excluir o diálogo "${t.titulo || 'sem título'}"?`, { texto: 'As anotações somem junto.', confirmar: 'Excluir' }))) return;
+    try {
+      await this.testes.remover(t.id);
+      if (this.aberto()?.id === t.id) this.aberto.set(null);
+      this.avisos.ok('Diálogo excluído.');
+      await this.carregarSalvos();
+    } catch (e) {
+      this.avisos.erro(e);
+    }
+  }
+
+  protected nome(p: string) { return NOMES[p as Provedor] ?? p; }
   protected ligadas() { return this.disponiveis().map((p) => this.nome(p)).join(' e '); }
   protected numero(v: unknown) { return Number(String(v).replace(/[^\d]/g, '')) || 0; }
   protected rotuloOrigem(o: ImovelCitado['origem']) { return o === 'opcoes' ? 'mandaria nas opções' : o === 'foto' ? 'pediu a foto' : 'visita marcada'; }
@@ -225,6 +405,7 @@ export class TestarAssistente {
   protected recomecar() {
     this.falas.set([]);
     this.mudouAgora.set(new Set());
+    this.aberto.set(null);
   }
 
   protected copiarJson() {

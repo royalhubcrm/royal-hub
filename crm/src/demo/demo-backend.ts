@@ -236,6 +236,7 @@ const PADRAO: Record<string, () => Record<string, unknown>> = {
   agendamentos: () => ({ conversa_id: null, lead_id: null, nome: '', telefone: '', data: null, hora: null, local: '', como: '', imovel: '', marcado_por: 'manual', status: 'marcado', criado_em: agora() }),
   equipes: () => ({ gerente_id: null, criado_em: agora() }),
   sites: () => ({ criado_em: agora(), atualizado_em: agora() }),
+  testes_assistente: () => ({ autor_id: eu.id, titulo: '', provedor: '', modelo: '', prompt_base: '', falas: [], ficha: {}, nota: null, pros: '', contras: '', melhoria: '', criado_em: agora(), atualizado_em: agora() }),
 };
 
 function nomeEtapa(slug: string) { return db.etapas_pipeline.find((e) => e.slug === slug)?.nome ?? slug; }
