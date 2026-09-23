@@ -29,7 +29,7 @@ import { RouterLink } from '@angular/router';
       box-shadow: var(--sombra); color: inherit; text-decoration: none;
       &.destaque { border-top: 3px solid var(--ouro-500); padding-top: 12px; }
     }
-    a.metrica:hover { border-color: var(--slate-300); background: #FBFCFE; }
+    a.metrica:hover { border-color: var(--slate-300); background: var(--superficie-hover); }
     .rotulo { font: 500 10.5px/1.2 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--slate-600); }
     .valor { font: 500 27px/1.1 var(--mono); letter-spacing: -.02em; color: var(--navy-900); }
     .detalhe { font-size: 12px; color: var(--slate-500); }

@@ -25,7 +25,7 @@ import { formatarTelefone } from '../../shared/util/telefone';
       <button type="button" class="btn primario" (click)="imprimir()">Imprimir ou salvar PDF</button>
     </div>
 
-    <article class="folha">
+    <article class="folha tema-claro">
       <header>
         <div>
           <p class="empresa">{{ auth.empresa()?.nome }}</p>

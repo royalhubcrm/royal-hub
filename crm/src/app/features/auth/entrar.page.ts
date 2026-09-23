@@ -4,17 +4,19 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { SUPABASE_CONFIGURADO, erroAmigavel } from '../../core/supabase/supabase.client';
 import { Marca } from '../../shared/ui/marca';
+import { BotaoTema } from '../../shared/ui/botao-tema';
 import { focarPrimeiroErro } from '../../shared/util/validacao';
 
 type Modo = 'entrar' | 'esqueci' | 'enviado' | 'primeiro' | 'sem-acesso';
 
 @Component({
   selector: 'app-entrar',
-  imports: [FormsModule, Marca],
+  imports: [FormsModule, Marca, BotaoTema],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './auth.scss',
   template: `
     <div class="auth">
+      <div class="auth-tema"><app-botao-tema /></div>
       <aside class="auth-marca">
         <img class="auth-foto" src="/login-lado.webp" srcset="/login-lado-p.webp 480w, /login-lado.webp 900w" sizes="(max-width: 760px) 0px, 42vw" alt="" fetchpriority="high" decoding="async" />
         <app-marca [escuro]="true" [altura]="64" />

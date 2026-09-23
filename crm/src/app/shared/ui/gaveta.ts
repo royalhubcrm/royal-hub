@@ -27,9 +27,9 @@ import { AvisosService } from '../../core/ui/avisos.service';
   styles: `
     .gaveta {
       margin: 0 0 0 auto; height: 100dvh; max-height: 100dvh; width: min(560px, 100vw); max-width: 100vw;
-      padding: 0; border: 0; box-shadow: -8px 0 24px rgba(15, 27, 45, .18); background: var(--superficie);
+      padding: 0; border: 0; box-shadow: var(--sombra-forte); background: var(--superficie);
       &.larga { width: min(760px, 100vw); }
-      &::backdrop { background: rgba(15, 27, 45, .42); }
+      &::backdrop { background: var(--veu); }
       &[open] { animation: entra .16s ease-out; }
     }
     @keyframes entra { from { transform: translateX(24px); } }

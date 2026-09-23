@@ -94,8 +94,8 @@ const NOMES: Record<ProvedorIA, string> = { groq: 'Groq', gemini: 'Gemini', anth
     .prompt { display: flex; flex-direction: column; gap: 10px; > header { margin-bottom: 0; } }
     .variaveis { display: flex; flex-wrap: wrap; gap: 6px; }
     .chip { all: unset; cursor: pointer; font: 500 11.5px/1 var(--mono); padding: 5px 8px; border-radius: 999px;
-      background: var(--azul-100); color: var(--navy-700); border: 1px solid #C9D9EA;
-      &:hover { background: #D9E6F3; } &:focus-visible { box-shadow: var(--foco); } }
+      background: var(--azul-100); color: var(--navy-700); border: 1px solid var(--azul-200);
+      &:hover { background: var(--azul-200); } &:focus-visible { box-shadow: var(--foco); } }
     textarea.mono { font: 12.5px/1.5 var(--mono); }
     .previa { border: 1px solid var(--slate-200); border-radius: var(--raio); padding: 8px 12px;
       summary { cursor: pointer; font-size: 13px; font-weight: 500; }

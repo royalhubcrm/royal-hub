@@ -254,7 +254,7 @@ interface Fala { papel: 'cliente' | 'bot'; texto: string; acoes?: string[]; prov
       li.bot { color: var(--navy-700); } }
     .notas { display: flex; border: 1px solid var(--slate-300); border-radius: 6px; overflow: hidden; width: fit-content;
       label { min-width: 44px; min-height: calc(var(--alvo) - 2px); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border-left: 1px solid var(--slate-300); font-weight: 500;
-        &:first-child { border-left: 0; } &.marcado { background: var(--navy-700); color: #fff; }
+        &:first-child { border-left: 0; } &.marcado { background: var(--primario); color: var(--sobre-primario); }
         input { position: absolute; opacity: 0; width: 1px; height: 1px; } &:has(input:focus-visible) { box-shadow: inset 0 0 0 2px var(--azul-500); } } }
     fieldset.campo { border: 0; margin: 0; padding: 0; } legend.rotulo { padding: 0; margin-bottom: 5px; }
     @media (max-width: 960px) { .teste { grid-template-columns: minmax(0, 1fr); } .ficha { position: static; } }

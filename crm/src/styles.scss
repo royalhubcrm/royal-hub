@@ -1,17 +1,23 @@
 /* ============================================================================
    Royal CRM — base visual
    Paleta corporativa (azul-marinho, ardósia, cinza), números em fonte mono,
-   densidade alta. Acessibilidade: contraste AA, foco sempre visível, alvos de
-   toque de 36px (44px no celular) e respeito a "reduzir movimento".
+   densidade alta. Acessibilidade: contraste AA nos dois temas, foco sempre
+   visível, alvos de toque de 36px (44px no celular) e respeito a "reduzir movimento".
+
+   Temas: as cores são variáveis. O tema claro é o padrão; o escuro entra com
+   <html data-tema="escuro"> (TemaService) e redefine as mesmas variáveis.
+   Páginas públicas (site, formulário) usam .tema-claro para ficarem sempre claras.
    ============================================================================ */
-:root {
+@mixin tema-claro {
+  color-scheme: light;
   --navy-900: #0F1B2D;
   --navy-800: #16263D;
   --navy-700: #1E3A5F;
   --azul-600: #264D75;
   --azul-500: #2F5D8C;
   --azul-400: #4A7FB5;
-  --azul-100: #E6EEF7;
+  --azul-200: #C9D9EA;   /* bordas sobre o azul claro */
+  --azul-100: #E6EEF7;   /* fundo azulado suave (balões, chips, aviso info) */
   --slate-900: #0F172A;
   --slate-700: #334155;
   --slate-600: #475569;
@@ -21,28 +27,89 @@
   --slate-200: #E2E8F0;
   --slate-100: #F1F5F9;
   /* o dourado da marca — decoração em fundo claro, texto só no tom escuro */
-  --ouro-300: #E0BE6B;   /* sobre o azul-marinho */
-  --ouro-500: #C9A227;   /* traços e detalhes */
+  --ouro-300: #E0BE6B;
+  --ouro-500: #C9A227;
   --ouro-700: #A97E1E;
   --ouro-texto: #8A6714; /* passa no contraste AA em fundo claro */
 
   --fundo: #F5F7FA;
   --superficie: #FFFFFF;
-  --ganho: #23704F;
-  --ganho-100: #E3F2EA;
-  --perda: #9B3B3B;
-  --perda-100: #F7E6E6;
-  --alerta: #8A5A00;
-  --alerta-100: #FBF0D9;
+  --superficie-hover: #FAFBFD;
+  --ganho: #23704F;  --ganho-100: #E3F2EA;  --ganho-200: #C3DCCB;
+  --perda: #9B3B3B;  --perda-100: #F7E6E6;  --perda-200: #E3C4C4;
+  --alerta: #8A5A00; --alerta-100: #FBF0D9; --alerta-200: #EBD9B0;
+
+  /* ação principal (botão, avatar, contador) */
+  --primario: #1E3A5F; --primario-hover: #16263D; --sobre-primario: #FFFFFF;
+  /* blocos invertidos: avisos flutuantes, "pular para o conteúdo" */
+  --inverso-fundo: #0F1B2D; --inverso-texto: #FFFFFF;
+  --codigo-fundo: #0F1B2D; --codigo-texto: #D9E2EE;
+  --erro-forte: #6B2020;
+  /* menu lateral: azul-marinho nos dois temas */
+  --lateral-fundo: #0F1B2D; --lateral-texto: #C5D0DE; --lateral-mudo: #8C9AB0; --lateral-grupo: #93A2B8; --lateral-forte: #FFFFFF;
+
+  --sombra: 0 1px 2px rgba(15, 27, 45, .06), 0 1px 1px rgba(15, 27, 45, .04);
+  --sombra-forte: 0 12px 40px rgba(15, 27, 45, .3);
+  --veu: rgba(15, 27, 45, .42);
+  --foco-suave: rgba(47, 93, 140, .25);
+}
+
+@mixin tema-escuro {
+  color-scheme: dark;
+  /* a escala vira do avesso: 900 é o texto mais claro, 100 o fundo mais sutil */
+  --navy-900: #F2F6FB;
+  --navy-800: #DEE7F2;
+  --navy-700: #A8C6EA;
+  --azul-600: #93B8E2;
+  --azul-500: #7EA9DB;
+  --azul-400: #5D8FC6;
+  --azul-200: #2B4366;
+  --azul-100: #1B2B44;
+  --slate-900: #ECF1F7;
+  --slate-700: #C9D2DE;
+  --slate-600: #AEB9C8;
+  --slate-500: #97A3B4;
+  --slate-400: #6B788C;
+  --slate-300: #3A4759;
+  --slate-200: #2B3648;
+  --slate-100: #1F2836;
+  --ouro-300: #E0BE6B;
+  --ouro-500: #C9A227;
+  --ouro-700: #A97E1E;
+  --ouro-texto: #E0BE6B;
+
+  --fundo: #0E131B;
+  --superficie: #171E2A;
+  --superficie-hover: #1C2431;
+  --ganho: #7BD0A2;  --ganho-100: #15302A;  --ganho-200: #27523F;
+  --perda: #F0A3A3;  --perda-100: #3A2020;  --perda-200: #5A3030;
+  --alerta: #F0C36B; --alerta-100: #382C13; --alerta-200: #5C4A1F;
+
+  --primario: #386FB0; --primario-hover: #4380C4; --sobre-primario: #FFFFFF;
+  --inverso-fundo: #E8EEF6; --inverso-texto: #0F1B2D;
+  --codigo-fundo: #0B1018; --codigo-texto: #D9E2EE;
+  --erro-forte: #7A2E2E;
+  --lateral-fundo: #0A1220; --lateral-texto: #C5D0DE; --lateral-mudo: #8C9AB0; --lateral-grupo: #93A2B8; --lateral-forte: #FFFFFF;
+
+  --sombra: 0 1px 2px rgba(0, 0, 0, .5), 0 1px 1px rgba(0, 0, 0, .3);
+  --sombra-forte: 0 12px 40px rgba(0, 0, 0, .6);
+  --veu: rgba(0, 0, 0, .6);
+  --foco-suave: rgba(126, 169, 219, .35);
+}
+
+:root {
+  @include tema-claro;
 
   --sans: 'IBM Plex Sans', system-ui, sans-serif;
   --mono: 'IBM Plex Mono', ui-monospace, monospace;   /* os números: ar de recibo antigo, alinhados */
   --serif: 'Cinzel', Georgia, 'Times New Roman', serif; /* a letra da marca, só em títulos */
   --raio: 8px;
-  --sombra: 0 1px 2px rgba(15, 27, 45, .06), 0 1px 1px rgba(15, 27, 45, .04);
   --foco: 0 0 0 2px var(--superficie), 0 0 0 4px var(--azul-500);
   --alvo: 36px;
 }
+:root[data-tema="escuro"] { @include tema-escuro; }
+/* páginas para o cliente final (site, formulário, folha impressa): sempre claras */
+.tema-claro { @include tema-claro; }
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; }
@@ -74,7 +141,7 @@ img { max-width: 100%; }
 }
 .pular {
   position: absolute; left: 12px; top: -48px; z-index: 100;
-  background: var(--navy-900); color: #fff; padding: 10px 14px; border-radius: var(--raio);
+  background: var(--inverso-fundo); color: var(--inverso-texto); padding: 10px 14px; border-radius: var(--raio);
   &:focus { top: 12px; }
 }
 
@@ -107,11 +174,11 @@ img { max-width: 100%; }
   transition: background .12s, border-color .12s;
   &:hover { background: var(--slate-100); border-color: var(--slate-400); }
   &:disabled { opacity: .55; cursor: not-allowed; }
-  &.primario { background: var(--navy-700); border-color: var(--navy-700); color: #fff;
-    &:hover { background: var(--navy-800); } }
+  &.primario { background: var(--primario); border-color: var(--primario); color: var(--sobre-primario);
+    &:hover { background: var(--primario-hover); border-color: var(--primario-hover); } }
   &.fantasma { background: transparent; border-color: transparent; color: var(--slate-700);
     &:hover { background: var(--slate-100); } }
-  &.perigo { color: var(--perda); border-color: #E3C4C4;
+  &.perigo { color: var(--perda); border-color: var(--perda-200);
     &:hover { background: var(--perda-100); } }
   &.pequeno { min-height: 30px; padding: 0 10px; font-size: 12px; }
   &.icone { padding: 0; width: var(--alvo); }
@@ -131,15 +198,16 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]), select, textarea
   border: 1px solid var(--slate-300); border-radius: 6px; background: var(--superficie);
   font: 400 14px/1.4 var(--sans); color: var(--slate-900);
   &:hover { border-color: var(--slate-400); }
-  &:focus-visible { border-color: var(--azul-500); box-shadow: 0 0 0 3px rgba(47, 93, 140, .25); border-radius: 6px; }
+  &:focus-visible { border-color: var(--azul-500); box-shadow: 0 0 0 3px var(--foco-suave); border-radius: 6px; }
   &[aria-invalid=true] { border-color: var(--perda); }
   &::placeholder { color: var(--slate-400); }
   &:read-only { background: var(--slate-100); }
 }
 select { padding-right: 28px; }
 textarea { min-height: 88px; resize: vertical; }
-input[type=color] { width: 100%; height: var(--alvo); border: 1px solid var(--slate-300); border-radius: 6px; padding: 2px; background: #fff; }
-input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--navy-700); }
+input[type=color] { width: 100%; height: var(--alvo); border: 1px solid var(--slate-300); border-radius: 6px; padding: 2px; background: var(--superficie); }
+input[type=checkbox], input[type=radio] { accent-color: var(--primario); }
+input[type=checkbox] { width: 16px; height: 16px; }
 
 .grade-campos { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 /* formulário curto numa linha só (campos + botão alinhados pela base) */
@@ -182,7 +250,7 @@ table.tabela {
   th { font: 500 10.5px/1.2 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--slate-600);
        background: var(--slate-100); position: sticky; top: 0; white-space: nowrap; }
   tbody tr:last-child td { border-bottom: 0; }
-  tbody tr:hover { background: #FAFBFD; }
+  tbody tr:hover { background: var(--superficie-hover); }
   .num { text-align: right; font-family: var(--mono); }
   button.ordenar { all: unset; cursor: pointer; display: inline-flex; gap: 4px; align-items: center;
     &:focus-visible { box-shadow: var(--foco); } }
@@ -206,10 +274,10 @@ table.tabela {
   border: 1px dashed var(--slate-300); border-radius: var(--raio); background: var(--superficie);
 }
 .aviso {
-  padding: 10px 14px; border-radius: var(--raio); border: 1px solid #EBD9B0;
-  background: var(--alerta-100); color: #5C3D00; font-size: 13px;
-  &.erro { border-color: #E3C4C4; background: var(--perda-100); color: #6B2020; }
-  &.info { border-color: #C9D9EA; background: var(--azul-100); color: var(--navy-700); }
+  padding: 10px 14px; border-radius: var(--raio); border: 1px solid var(--alerta-200);
+  background: var(--alerta-100); color: var(--alerta); font-size: 13px;
+  &.erro { border-color: var(--perda-200); background: var(--perda-100); color: var(--perda); }
+  &.info { border-color: var(--azul-200); background: var(--azul-100); color: var(--navy-700); }
 }
 
 /* --------------------------------------------------- abas (role="tablist") */
@@ -236,8 +304,8 @@ button.linha-lista { all: unset; box-sizing: border-box; cursor: pointer; width:
 
 /* -------------------------------------------------------- blocos de código */
 .bloco-codigo {
-  font: 12px/1.5 var(--mono); background: var(--navy-900); color: #D9E2EE; padding: 10px 12px;
-  border-radius: 6px; white-space: pre-wrap; word-break: break-all;
+  font: 12px/1.5 var(--mono); background: var(--codigo-fundo); color: var(--codigo-texto); padding: 10px 12px;
+  border: 1px solid var(--slate-200); border-radius: 6px; white-space: pre-wrap; word-break: break-all;
 }
 
 /* -------------------------------------------------------------- impressão */

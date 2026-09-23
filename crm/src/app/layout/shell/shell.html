@@ -36,6 +36,7 @@
     <div class="eu">
       <span class="nome">{{ auth.perfil()?.nome }}</span>
       <span class="papel">{{ rotuloPapel(auth.papel() ?? '') }} · {{ auth.empresa()?.nome }}</span>
+      <app-botao-tema [claro]="true" />
       <button type="button" class="sair" (click)="auth.sair()">Sair</button>
     </div>
   </nav>

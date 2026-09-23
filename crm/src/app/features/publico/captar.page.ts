@@ -12,6 +12,7 @@ import { emailValido, focarPrimeiroErro } from '../../shared/util/validacao';
   selector: 'app-captar',
   imports: [FormsModule, MascaraDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: 'tema-claro' },
   template: `
     <main class="captar">
       @if (empresa(); as e) {

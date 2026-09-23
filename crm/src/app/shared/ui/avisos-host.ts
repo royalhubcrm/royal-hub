@@ -31,15 +31,15 @@ import { AvisosService } from '../../core/ui/avisos.service';
     .avisos { position: fixed; right: 16px; bottom: 16px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; max-width: min(420px, calc(100vw - 32px)); }
     .aviso-flutuante {
       display: flex; align-items: center; gap: 10px; padding: 10px 8px 10px 14px; border-radius: var(--raio);
-      background: var(--navy-900); color: #fff; box-shadow: 0 6px 20px rgba(15, 27, 45, .25); font-size: 13px;
-      &.erro { background: #6B2020; }
+      background: var(--inverso-fundo); color: var(--inverso-texto); box-shadow: var(--sombra-forte); font-size: 13px;
+      &.erro { background: var(--erro-forte); color: #fff; }
       span { flex: 1; }
-      .btn { color: #fff; } .btn:hover { background: rgba(255, 255, 255, .12); }
+      .btn { color: inherit; } .btn:hover { background: rgba(127, 127, 127, .2); }
     }
     .confirmar {
-      border: 0; border-radius: 10px; padding: 20px; width: min(420px, calc(100vw - 32px));
-      box-shadow: 0 12px 40px rgba(15, 27, 45, .3);
-      &::backdrop { background: rgba(15, 27, 45, .42); }
+      border: 1px solid var(--slate-200); border-radius: 10px; padding: 20px; width: min(420px, calc(100vw - 32px));
+      background: var(--superficie); color: var(--slate-900); box-shadow: var(--sombra-forte);
+      &::backdrop { background: var(--veu); }
       h2 { font-size: 16px; margin-bottom: 8px; }
       p { color: var(--slate-600); margin-bottom: 18px; }
       p:empty { display: none; }

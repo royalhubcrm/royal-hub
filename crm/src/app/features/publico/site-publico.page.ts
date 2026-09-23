@@ -9,6 +9,7 @@ import { Vitrine } from './vitrine';
   selector: 'app-site-publico',
   imports: [Vitrine],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: 'tema-claro' },
   template: `
     @if (dados(); as d) {
       <app-vitrine [site]="d.site" [imoveis]="d.imoveis" />

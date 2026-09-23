@@ -5,6 +5,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { Papel, rotuloPapel } from '../../core/models/pessoa.model';
 import { ConversasService } from '../../core/services/conversas.service';
 import { Marca } from '../../shared/ui/marca';
+import { BotaoTema } from '../../shared/ui/botao-tema';
 
 interface ItemMenu { rota: string; rotulo: string; papeis?: Papel[]; dono?: boolean; grupo: 'dia' | 'gestao' }
 
@@ -23,7 +24,7 @@ const MENU: ItemMenu[] = [
 
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, Marca],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, Marca, BotaoTema],
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -1,4 +1,4 @@
-.auth { display: grid; grid-template-columns: minmax(280px, 42%) 1fr; min-height: 100dvh; }
+.auth { display: grid; grid-template-columns: minmax(280px, 42%) 1fr; min-height: 100dvh; position: relative; }
 .auth-marca {
   position: relative; overflow: hidden; isolation: isolate;
   background: var(--navy-900); color: #C5D0DE; padding: 48px; display: flex; flex-direction: column; justify-content: flex-end; gap: 22px;
@@ -19,6 +19,7 @@
   .btn.primario { width: 100%; min-height: 44px; font-size: 14px; letter-spacing: .02em; }
 }
 .senha { display: flex; gap: 6px; }
+.auth-tema { position: absolute; top: 12px; right: 12px; }
 .link { all: unset; cursor: pointer; color: var(--azul-500); text-decoration: underline; width: fit-content; font-size: 13px;
   &:focus-visible { box-shadow: var(--foco); border-radius: 2px; } }
 

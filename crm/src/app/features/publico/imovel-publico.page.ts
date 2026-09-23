@@ -9,6 +9,7 @@ import { linkWhats } from '../../shared/util/telefone';
   selector: 'app-imovel-publico',
   imports: [BrlPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: 'tema-claro' },
   template: `
     @if (m(); as m) {
       <div class="pagina">
