@@ -1,0 +1,12 @@
+// Publicação na Cloudflare (Workers com arquivos estáticos).
+// No painel: raiz do projeto = "crm", build = "npm run build", deploy = "npx wrangler deploy".
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "royal-hub",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./dist/crm/browser",
+    // rota desconhecida (ex.: /leads ao recarregar) devolve o index.html do app
+    "not_found_handling": "single-page-application"
+  }
+}
