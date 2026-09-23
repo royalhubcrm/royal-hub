@@ -1,4 +1,7 @@
 fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.mais { border: 1px solid var(--slate-200); border-radius: var(--raio); padding: 8px 12px;
+  > summary { cursor: pointer; font-size: 13px; font-weight: 500; color: var(--slate-700); }
+  &[open] > summary { margin-bottom: 12px; } }
 legend { padding: 0; margin-bottom: 5px; }
 .segmentos { display: flex; border: 1px solid var(--slate-300); border-radius: 6px; overflow: hidden;
   label { flex: 1; display: flex; align-items: center; justify-content: center; min-height: calc(var(--alvo) - 2px);

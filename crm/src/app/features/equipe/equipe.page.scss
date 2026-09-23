@@ -3,6 +3,6 @@ td select { width: auto; min-width: 150px; min-height: 32px; padding: 3px 26px 3
 .tabela { min-width: 860px; }
 tr.inativo td { color: var(--slate-500); }
 .acoes-linha { white-space: nowrap; text-align: right; .btn + .btn { margin-left: 4px; } }
-.nova-equipe { margin-top: 14px; align-items: flex-end; .campo { flex: 0 1 280px; } }
-.perfis { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0;
+.perfis-ajuda { margin-top: 12px; summary { cursor: pointer; font-size: 13px; font-weight: 500; color: var(--slate-700); } &[open] summary { margin-bottom: 8px; } }
+.perfis { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; font-size: 13px;
   dt { font-weight: 600; } dd { margin: 0; color: var(--slate-600); } }

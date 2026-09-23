@@ -3,44 +3,16 @@
     <h1>Equipe</h1>
     <p>Quem entra no sistema e o que cada um vê.</p>
   </div>
+  <div class="acoes">
+    <button type="button" class="btn" (click)="criandoEquipe.set(true)">+ Equipe</button>
+    <button type="button" class="btn primario" (click)="criandoPessoa.set(true)">+ Pessoa</button>
+  </div>
 </header>
 
-<section class="cartao" aria-labelledby="t-nova">
-  <h2 id="t-nova">Adicionar pessoa</h2>
-  <form class="form-grade" (ngSubmit)="criar()" novalidate>
-    <div class="campo">
-      <label for="n-nome" class="obrigatorio">Nome</label>
-      <input id="n-nome" name="nome" [(ngModel)]="nova.nome" autocomplete="off" required (blur)="tocar('nome')"
-             [attr.aria-invalid]="mostraErro('nome') && !nova.nome.trim()" aria-describedby="n-nome-erro" />
-      @if (mostraErro('nome') && !nova.nome.trim()) { <span class="erro" id="n-nome-erro">Digite o nome.</span> }
-    </div>
-    <div class="campo">
-      <label for="n-email" class="obrigatorio">E-mail</label>
-      <input id="n-email" name="email" type="email" [(ngModel)]="nova.email" autocomplete="off" required (blur)="tocar('email')"
-             [attr.aria-invalid]="mostraErro('email') && !!erroEmail" aria-describedby="n-email-erro" />
-      @if (mostraErro('email') && erroEmail) { <span class="erro" id="n-email-erro">{{ erroEmail }}</span> }
-    </div>
-    <div class="campo">
-      <label for="n-senha" class="obrigatorio">Senha provisória</label>
-      <div class="linha sem-quebra">
-        <input id="n-senha" name="senha" class="mono" [(ngModel)]="nova.senha" autocomplete="new-password" required (blur)="tocar('senha')"
-               [attr.aria-invalid]="mostraErro('senha') && !!erroSenha" aria-describedby="n-senha-erro" />
-        <button type="button" class="btn pequeno" (click)="sugerirSenha()">Gerar</button>
-      </div>
-      @if (mostraErro('senha') && erroSenha) { <span class="erro" id="n-senha-erro">{{ erroSenha }}</span> }
-    </div>
-    <div class="campo">
-      <label for="n-papel">Perfil</label>
-      <select id="n-papel" name="papel" [(ngModel)]="nova.papel">
-        @for (p of papeis; track p.valor) { <option [value]="p.valor">{{ p.rotulo }}</option> }
-      </select>
-    </div>
-    <button class="btn primario" type="submit" [disabled]="ocupado()">{{ ocupado() ? 'Criando…' : 'Adicionar' }}</button>
-  </form>
-</section>
-
 <section class="cartao" aria-labelledby="t-pessoas">
-  <h2 id="t-pessoas">Pessoas com acesso</h2>
+  <header>
+    <h2 id="t-pessoas">Pessoas <span class="mudo">({{ pessoas().length }})</span></h2>
+  </header>
   @if (carregando()) { <p class="mudo" role="status">Carregando…</p> }
   <div class="tabela-rolagem" [attr.aria-busy]="carregando()">
     <table class="tabela">
@@ -82,12 +54,20 @@
       </tbody>
     </table>
   </div>
+  <details class="perfis-ajuda">
+    <summary>O que cada perfil pode</summary>
+    <dl class="perfis">
+      @for (p of papeis; track p.valor) { <dt>{{ p.rotulo }}</dt><dd>{{ p.pode }}</dd> }
+    </dl>
+  </details>
 </section>
 
-<section class="cartao" aria-labelledby="t-equipes">
-  <h2 id="t-equipes">Equipes</h2>
-  <p class="mudo pequeno">O gerente vê os leads e as conversas das pessoas da equipe dele. O administrador vê tudo.</p>
-  @if (equipes().length) {
+@if (equipes().length) {
+  <section class="cartao" aria-labelledby="t-equipes">
+    <header>
+      <h2 id="t-equipes">Equipes <span class="mudo">({{ equipes().length }})</span></h2>
+      <span class="mudo pequeno">O gerente vê os leads e as conversas da equipe dele.</span>
+    </header>
     <div class="tabela-rolagem">
       <table class="tabela">
         <caption class="sr-only">Equipes</caption>
@@ -110,22 +90,60 @@
         </tbody>
       </table>
     </div>
-  }
-  <form class="linha nova-equipe" (ngSubmit)="criarEquipe()">
-    <div class="campo">
-      <label for="eq-nome" class="obrigatorio">Nova equipe</label>
-      <input id="eq-nome" name="eq" [(ngModel)]="nomeEquipe" placeholder="Ex.: Equipe Centro" />
-    </div>
-    <button class="btn" type="submit">Criar equipe</button>
-  </form>
-</section>
+  </section>
+}
 
-<section class="cartao" aria-labelledby="t-perfis">
-  <h2 id="t-perfis">O que cada perfil pode</h2>
-  <dl class="perfis">
-    @for (p of papeis; track p.valor) { <dt>{{ p.rotulo }}</dt><dd>{{ p.pode }}</dd> }
-  </dl>
-</section>
+<app-gaveta titulo="Nova pessoa" [aberta]="criandoPessoa()" [sujo]="!!(nova.nome || nova.email)" (fechar)="criandoPessoa.set(false)">
+  <form id="form-pessoa" class="pilha" (ngSubmit)="criar()" novalidate>
+    <div class="campo">
+      <label for="n-nome" class="obrigatorio">Nome</label>
+      <input id="n-nome" name="nome" [(ngModel)]="nova.nome" autocomplete="off" required autofocus (blur)="tocar('nome')"
+             [attr.aria-invalid]="mostraErro('nome') && !nova.nome.trim()" aria-describedby="n-nome-erro" />
+      @if (mostraErro('nome') && !nova.nome.trim()) { <span class="erro" id="n-nome-erro">Digite o nome.</span> }
+    </div>
+    <div class="campo">
+      <label for="n-email" class="obrigatorio">E-mail</label>
+      <input id="n-email" name="email" type="email" [(ngModel)]="nova.email" autocomplete="off" required (blur)="tocar('email')"
+             [attr.aria-invalid]="mostraErro('email') && !!erroEmail" aria-describedby="n-email-erro" />
+      @if (mostraErro('email') && erroEmail) { <span class="erro" id="n-email-erro">{{ erroEmail }}</span> }
+    </div>
+    <div class="campo">
+      <label for="n-senha" class="obrigatorio">Senha provisória</label>
+      <div class="linha sem-quebra">
+        <input id="n-senha" name="senha" class="mono" [(ngModel)]="nova.senha" autocomplete="new-password" required (blur)="tocar('senha')"
+               [attr.aria-invalid]="mostraErro('senha') && !!erroSenha" aria-describedby="n-senha-erro n-senha-ajuda" />
+        <button type="button" class="btn" (click)="sugerirSenha()">Gerar</button>
+      </div>
+      @if (mostraErro('senha') && erroSenha) { <span class="erro" id="n-senha-erro">{{ erroSenha }}</span> }
+      <span class="ajuda" id="n-senha-ajuda">Passe para a pessoa; ela troca depois em "Esqueci minha senha".</span>
+    </div>
+    <div class="campo">
+      <label for="n-papel">Perfil</label>
+      <select id="n-papel" name="papel" [(ngModel)]="nova.papel" aria-describedby="n-papel-ajuda">
+        @for (p of papeis; track p.valor) { <option [value]="p.valor">{{ p.rotulo }}</option> }
+      </select>
+      <span class="ajuda" id="n-papel-ajuda">{{ podeDoPapel(nova.papel) }}</span>
+    </div>
+  </form>
+  <div rodape>
+    <button type="submit" form="form-pessoa" class="btn primario" [disabled]="ocupado()">{{ ocupado() ? 'Criando…' : 'Adicionar' }}</button>
+    <button type="button" class="btn" (click)="criandoPessoa.set(false)">Cancelar</button>
+  </div>
+</app-gaveta>
+
+<app-gaveta titulo="Nova equipe" [aberta]="criandoEquipe()" (fechar)="criandoEquipe.set(false)">
+  <form id="form-equipe" class="pilha" (ngSubmit)="criarEquipe()">
+    <div class="campo">
+      <label for="eq-nome" class="obrigatorio">Nome</label>
+      <input id="eq-nome" name="eq" [(ngModel)]="nomeEquipe" placeholder="Ex.: Equipe Centro" required autofocus aria-describedby="eq-ajuda" />
+      <span class="ajuda" id="eq-ajuda">Depois escolha o gerente e coloque as pessoas nela, na tabela.</span>
+    </div>
+  </form>
+  <div rodape>
+    <button type="submit" form="form-equipe" class="btn primario">Criar equipe</button>
+    <button type="button" class="btn" (click)="criandoEquipe.set(false)">Cancelar</button>
+  </div>
+</app-gaveta>
 
 <app-gaveta [titulo]="'Nova senha para ' + (trocandoSenha()?.nome ?? '')" [aberta]="!!trocandoSenha()" (fechar)="trocandoSenha.set(null)">
   <form id="form-senha" class="pilha" (ngSubmit)="trocarSenha()">

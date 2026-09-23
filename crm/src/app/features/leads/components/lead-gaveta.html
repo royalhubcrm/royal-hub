@@ -8,23 +8,10 @@
         @if (mostraErro('nome') && erroNome) { <span class="erro" id="l-nome-erro">{{ erroNome }}</span> }
       </div>
       <div class="campo">
-        <label for="l-tel">WhatsApp / telefone</label>
+        <label for="l-tel">WhatsApp</label>
         <input id="l-tel" name="telefone" [(ngModel)]="f.telefone" appMascara="telefone" placeholder="(34) 99999-0000" (blur)="tocar('telefone')"
                [attr.aria-invalid]="mostraErro('telefone') && !!erroTelefone" aria-describedby="l-tel-erro" />
         @if (mostraErro('telefone') && erroTelefone) { <span class="erro" id="l-tel-erro">{{ erroTelefone }}</span> }
-      </div>
-    </div>
-
-    <div class="grade-campos">
-      <div class="campo">
-        <label for="l-email">E-mail</label>
-        <input id="l-email" name="email" type="email" [(ngModel)]="f.email" (blur)="tocar('email')"
-               [attr.aria-invalid]="mostraErro('email') && !!erroEmail" aria-describedby="l-email-erro" />
-        @if (mostraErro('email') && erroEmail) { <span class="erro" id="l-email-erro">{{ erroEmail }}</span> }
-      </div>
-      <div class="campo">
-        <label for="l-empresa">Empresa do cliente</label>
-        <input id="l-empresa" name="empresa" [(ngModel)]="f.empresa" placeholder="Opcional" />
       </div>
     </div>
 
@@ -59,38 +46,53 @@
       </div>
       <div class="campo">
         <label for="l-resp">Responsável</label>
-        <select id="l-resp" name="responsavel" [(ngModel)]="f.responsavel_id" aria-describedby="l-resp-ajuda">
+        <select id="l-resp" name="responsavel" [(ngModel)]="f.responsavel_id">
           <option value="">Ninguém ainda</option>
           @for (p of equipe.pessoasCache(); track p.id) {
             @if (p.ativo || p.id === f.responsavel_id) { <option [value]="p.id">{{ p.nome }}</option> }
           }
         </select>
-        <span class="ajuda" id="l-resp-ajuda">O gerente da equipe também vê.</span>
       </div>
-    </div>
-
-    <div class="grade-campos">
-      <div class="campo">
-        <label for="l-origem">Origem</label>
-        <input id="l-origem" name="origem" [(ngModel)]="f.origem" list="l-origens" />
-        <datalist id="l-origens">@for (o of origens; track o) { <option [value]="o"></option> }</datalist>
-      </div>
-      <div class="campo">
-        <label for="l-camp">Campanha / anúncio</label>
-        <input id="l-camp" name="campanha" [(ngModel)]="f.campanha" />
-      </div>
-    </div>
-
-    <div class="campo">
-      <label for="l-imv">Imóveis apresentados</label>
-      <input id="l-imv" name="imoveis" class="mono" [(ngModel)]="f.imoveis" placeholder="8685, 8574" aria-describedby="l-imv-ajuda" />
-      <span class="ajuda" id="l-imv-ajuda">Os códigos, separados por vírgula.</span>
     </div>
 
     <div class="campo">
       <label for="l-obs">Observações</label>
       <textarea id="l-obs" name="obs" rows="3" [(ngModel)]="f.obs"></textarea>
     </div>
+
+    <details class="mais" [open]="maisAberto()" (toggle)="maisAberto.set($any($event.target).open)">
+      <summary>Mais campos <span class="mudo pequeno">e-mail, empresa, origem, campanha, imóveis</span></summary>
+      <div class="pilha">
+        <div class="grade-campos">
+          <div class="campo">
+            <label for="l-email">E-mail</label>
+            <input id="l-email" name="email" type="email" [(ngModel)]="f.email" (blur)="tocar('email')"
+                   [attr.aria-invalid]="mostraErro('email') && !!erroEmail" aria-describedby="l-email-erro" />
+            @if (mostraErro('email') && erroEmail) { <span class="erro" id="l-email-erro">{{ erroEmail }}</span> }
+          </div>
+          <div class="campo">
+            <label for="l-empresa">Empresa do cliente</label>
+            <input id="l-empresa" name="empresa" [(ngModel)]="f.empresa" placeholder="Opcional" />
+          </div>
+        </div>
+        <div class="grade-campos">
+          <div class="campo">
+            <label for="l-origem">Origem</label>
+            <input id="l-origem" name="origem" [(ngModel)]="f.origem" list="l-origens" />
+            <datalist id="l-origens">@for (o of origens; track o) { <option [value]="o"></option> }</datalist>
+          </div>
+          <div class="campo">
+            <label for="l-camp">Campanha / anúncio</label>
+            <input id="l-camp" name="campanha" [(ngModel)]="f.campanha" />
+          </div>
+        </div>
+        <div class="campo">
+          <label for="l-imv">Imóveis apresentados</label>
+          <input id="l-imv" name="imoveis" class="mono" [(ngModel)]="f.imoveis" placeholder="8685, 8574" aria-describedby="l-imv-ajuda" />
+          <span class="ajuda" id="l-imv-ajuda">Os códigos, separados por vírgula.</span>
+        </div>
+      </div>
+    </details>
   </form>
 
   @if (lead()) {

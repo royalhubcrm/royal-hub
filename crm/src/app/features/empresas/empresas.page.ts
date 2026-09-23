@@ -5,12 +5,13 @@ import { AuthService } from '../../core/auth/auth.service';
 import { Empresa } from '../../core/models/pessoa.model';
 import { EquipeService } from '../../core/services/equipe.service';
 import { AvisosService } from '../../core/ui/avisos.service';
+import { Gaveta } from '../../shared/ui/gaveta';
 import { emailValido, focarPrimeiroErro } from '../../shared/util/validacao';
 
 /** Só para o dono da plataforma: as imobiliárias que usam o sistema. */
 @Component({
   selector: 'app-empresas',
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, Gaveta],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="cabecalho-pagina">
@@ -18,38 +19,8 @@ import { emailValido, focarPrimeiroErro } from '../../shared/util/validacao';
         <h1>Empresas</h1>
         <p>Cada imobiliária só enxerga os próprios dados. Bloquear tira o acesso na hora, sem apagar nada.</p>
       </div>
+      <div class="acoes"><button type="button" class="btn primario" (click)="criando.set(true)">+ Imobiliária</button></div>
     </header>
-
-    <section class="cartao" aria-labelledby="t-nova-emp">
-      <h2 id="t-nova-emp">Nova imobiliária</h2>
-      <form class="form-grade" (ngSubmit)="criar()" novalidate>
-        <div class="campo">
-          <label for="e-emp" class="obrigatorio">Nome da imobiliária</label>
-          <input id="e-emp" name="empresa" [(ngModel)]="nova.empresa" required (blur)="tocar('empresa')"
-                 [attr.aria-invalid]="mostraErro('empresa') && !nova.empresa.trim()" aria-describedby="e-emp-erro" />
-          @if (mostraErro('empresa') && !nova.empresa.trim()) { <span class="erro" id="e-emp-erro">Digite o nome.</span> }
-        </div>
-        <div class="campo">
-          <label for="e-nome" class="obrigatorio">Administrador</label>
-          <input id="e-nome" name="nome" [(ngModel)]="nova.nome" required (blur)="tocar('nome')"
-                 [attr.aria-invalid]="mostraErro('nome') && !nova.nome.trim()" aria-describedby="e-nome-erro" />
-          @if (mostraErro('nome') && !nova.nome.trim()) { <span class="erro" id="e-nome-erro">Quem vai administrar?</span> }
-        </div>
-        <div class="campo">
-          <label for="e-email" class="obrigatorio">E-mail dele</label>
-          <input id="e-email" name="email" type="email" [(ngModel)]="nova.email" required (blur)="tocar('email')"
-                 [attr.aria-invalid]="mostraErro('email') && !!erroEmail" aria-describedby="e-email-erro" />
-          @if (mostraErro('email') && erroEmail) { <span class="erro" id="e-email-erro">{{ erroEmail }}</span> }
-        </div>
-        <div class="campo">
-          <label for="e-senha" class="obrigatorio">Senha provisória</label>
-          <input id="e-senha" name="senha" class="mono" [(ngModel)]="nova.senha" autocomplete="new-password" required minlength="8" (blur)="tocar('senha')"
-                 [attr.aria-invalid]="mostraErro('senha') && nova.senha.length < 8" aria-describedby="e-senha-erro" />
-          @if (mostraErro('senha') && nova.senha.length < 8) { <span class="erro" id="e-senha-erro">Pelo menos 8 caracteres.</span> }
-        </div>
-        <button class="btn primario" type="submit" [disabled]="ocupado()">{{ ocupado() ? 'Criando…' : 'Criar' }}</button>
-      </form>
-    </section>
 
     <section class="cartao" aria-labelledby="t-emps">
       <h2 id="t-emps">Imobiliárias</h2>
@@ -75,6 +46,39 @@ import { emailValido, focarPrimeiroErro } from '../../shared/util/validacao';
         </table>
       </div>
     </section>
+
+    <app-gaveta titulo="Nova imobiliária" [aberta]="criando()" [sujo]="!!(nova.empresa || nova.nome || nova.email)" (fechar)="criando.set(false)">
+      <form id="form-empresa" class="pilha" (ngSubmit)="criar()" novalidate>
+        <div class="campo">
+          <label for="e-emp" class="obrigatorio">Nome da imobiliária</label>
+          <input id="e-emp" name="empresa" [(ngModel)]="nova.empresa" required autofocus (blur)="tocar('empresa')"
+                 [attr.aria-invalid]="mostraErro('empresa') && !nova.empresa.trim()" aria-describedby="e-emp-erro" />
+          @if (mostraErro('empresa') && !nova.empresa.trim()) { <span class="erro" id="e-emp-erro">Digite o nome.</span> }
+        </div>
+        <div class="campo">
+          <label for="e-nome" class="obrigatorio">Administrador</label>
+          <input id="e-nome" name="nome" [(ngModel)]="nova.nome" required (blur)="tocar('nome')"
+                 [attr.aria-invalid]="mostraErro('nome') && !nova.nome.trim()" aria-describedby="e-nome-erro" />
+          @if (mostraErro('nome') && !nova.nome.trim()) { <span class="erro" id="e-nome-erro">Quem vai administrar?</span> }
+        </div>
+        <div class="campo">
+          <label for="e-email" class="obrigatorio">E-mail do administrador</label>
+          <input id="e-email" name="email" type="email" [(ngModel)]="nova.email" required (blur)="tocar('email')"
+                 [attr.aria-invalid]="mostraErro('email') && !!erroEmail" aria-describedby="e-email-erro" />
+          @if (mostraErro('email') && erroEmail) { <span class="erro" id="e-email-erro">{{ erroEmail }}</span> }
+        </div>
+        <div class="campo">
+          <label for="e-senha" class="obrigatorio">Senha provisória</label>
+          <input id="e-senha" name="senha" class="mono" [(ngModel)]="nova.senha" autocomplete="new-password" required minlength="8" (blur)="tocar('senha')"
+                 [attr.aria-invalid]="mostraErro('senha') && nova.senha.length < 8" aria-describedby="e-senha-erro" />
+          @if (mostraErro('senha') && nova.senha.length < 8) { <span class="erro" id="e-senha-erro">Pelo menos 8 caracteres.</span> }
+        </div>
+      </form>
+      <div rodape>
+        <button type="submit" form="form-empresa" class="btn primario" [disabled]="ocupado()">{{ ocupado() ? 'Criando…' : 'Criar' }}</button>
+        <button type="button" class="btn" (click)="criando.set(false)">Cancelar</button>
+      </div>
+    </app-gaveta>
   `,
 })
 export default class EmpresasPage {
@@ -83,6 +87,7 @@ export default class EmpresasPage {
   protected readonly auth = inject(AuthService);
   protected readonly empresas = signal<Empresa[]>([]);
   protected readonly ocupado = signal(false);
+  protected readonly criando = signal(false);
   protected nova = { empresa: '', nome: '', email: '', senha: '' };
   protected readonly tentou = signal(false);
   protected readonly tocados = signal<Set<string>>(new Set());
@@ -111,6 +116,7 @@ export default class EmpresasPage {
       this.nova = { empresa: '', nome: '', email: '', senha: '' };
       this.tentou.set(false);
       this.tocados.set(new Set());
+      this.criando.set(false);
       await this.carregar();
     } catch (e) {
       this.avisos.erro(e);

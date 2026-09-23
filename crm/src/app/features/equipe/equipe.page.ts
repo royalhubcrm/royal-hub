@@ -26,6 +26,8 @@ export default class EquipePage {
   protected readonly ocupado = signal(false);
   protected readonly carregando = signal(true);
 
+  protected readonly criandoPessoa = signal(false);
+  protected readonly criandoEquipe = signal(false);
   protected nova = { nome: '', email: '', senha: '', papel: 'corretor' as Papel };
   protected readonly tentouCriar = signal(false);
   protected readonly tocados = signal<Set<string>>(new Set());
@@ -73,6 +75,7 @@ export default class EquipePage {
       this.nova = { nome: '', email: '', senha: '', papel: 'corretor' };
       this.tentouCriar.set(false);
       this.tocados.set(new Set());
+      this.criandoPessoa.set(false);
       await this.carregar();
     } catch (e) {
       this.avisos.erro(e);
@@ -93,6 +96,7 @@ export default class EquipePage {
   }
 
   protected rotuloPapel(v: string) { return this.papeis.find((p) => p.valor === v)?.rotulo ?? v; }
+  protected podeDoPapel(v: string) { return this.papeis.find((p) => p.valor === v)?.pode ?? ''; }
 
   protected async trocarSenha() {
     const p = this.trocandoSenha();
@@ -129,6 +133,7 @@ export default class EquipePage {
     try {
       await this.srv.salvarEquipe({ nome: this.nomeEquipe.trim() });
       this.nomeEquipe = '';
+      this.criandoEquipe.set(false);
       this.avisos.ok('Equipe criada. Agora escolha o gerente e coloque as pessoas nela.');
       await this.carregar();
     } catch (e) {

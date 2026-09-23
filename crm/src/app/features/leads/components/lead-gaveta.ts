@@ -57,6 +57,8 @@ export class LeadGaveta {
   /** Campos por onde a pessoa já passou: o erro aparece ao sair do campo, não enquanto digita. */
   protected readonly tocados = signal<Set<string>>(new Set());
   protected readonly salvando = signal(false);
+  /** O bloco "Mais campos" abre sozinho quando o lead já tem algo nele. */
+  protected readonly maisAberto = signal(false);
   protected readonly historico = signal<Historico[]>([]);
   protected readonly sugestao = signal('');
   protected readonly pensando = signal(false);
@@ -72,6 +74,7 @@ export class LeadGaveta {
       if (!this.aberta()) return;
       this.f = l ? this.deLead(l) : { ...this.vazio(), status: this.etapaInicial() };
       this.inicial = JSON.stringify(this.f);
+      this.maisAberto.set(!!(this.f.email || this.f.empresa || this.f.campanha || this.f.imoveis));
       this.tentouSalvar.set(false);
       this.tocados.set(new Set());
       this.sugestao.set('');
@@ -96,7 +99,8 @@ export class LeadGaveta {
     this.tentouSalvar.set(true);
     if (this.erroNome || this.erroTelefone || this.erroEmail) {
       this.avisos.erro('Confira os campos marcados.');
-      focarPrimeiroErro();
+      if (this.erroEmail) this.maisAberto.set(true); // o e-mail fica no bloco fechado
+      setTimeout(focarPrimeiroErro);
       return;
     }
     this.salvando.set(true);
