@@ -1,7 +1,7 @@
 // IA para o painel: simulador da assistente, sugestão de primeira mensagem,
 // mensagem de retomada e rascunho de site.
 import { ErroTela, admin, comoUsuario, configDa, json, quemChamou, responder } from '../_shared/comum.ts';
-import { Msg, carteira, descreverMarcadores, iaConfigurada, imoveisQueServem, instrucoes, lerMarcadores, pedirIA } from '../_shared/ia.ts';
+import { Msg, PROVEDORES, Provedor, carteira, descreverMarcadores, iaConfigurada, imoveisQueServem, instrucoes, lerMarcadores, pedirIA, pedirIADetalhado, provedoresDisponiveis } from '../_shared/ia.ts';
 
 Deno.serve(responder(async (req) => {
   const db = admin();
@@ -14,18 +14,25 @@ Deno.serve(responder(async (req) => {
   const empresa = emp?.nome ?? 'Imobiliária';
 
   switch (b.acao) {
+    // ------------------------------------------------ quais IAs estão ligadas (para a tela de teste)
+    case 'provedores':
+      return json({ provedores: provedoresDisponiveis() });
+
     // ------------------------------------------------ simulador (não grava nada)
     case 'chat': {
+      const provedor = PROVEDORES.includes(b.provedor) ? (b.provedor as Provedor) : undefined;
       const cru = (Array.isArray(b.mensagens) ? b.mensagens : []).filter((m: any) => m?.texto).slice(-16);
       if (!cru.length) throw new ErroTela('Escreva uma mensagem.');
       const msgs: Msg[] = cru.map((m: any) => ({ role: m.papel === 'bot' ? 'assistant' : 'user', content: String(m.texto).slice(0, 2000) }));
       const procura = cru.filter((m: any) => m.papel !== 'bot').map((m: any) => m.texto).join(' ').slice(-1200);
       const todos = await carteira(db, eu.empresa_id);
       const lista = imoveisQueServem(todos, procura);
-      const m = lerMarcadores(await pedirIA(instrucoes(cfg, empresa, lista), msgs));
+      const inicio = Date.now();
+      const r = await pedirIADetalhado(instrucoes(cfg, empresa, lista), msgs, 600, provedor);
+      const m = lerMarcadores(r.texto);
       const acoes = descreverMarcadores(m);
       if (m.opcoes) acoes.push('Opções escolhidas: ' + imoveisQueServem(todos, procura, 3).map((x) => x.codigo).join(', '));
-      return json({ texto: m.texto || '(a assistente só executaria as ações abaixo)', acoes });
+      return json({ texto: m.texto || '(a assistente só executaria as ações abaixo)', acoes, provedor: r.provedor, ms: Date.now() - inicio });
     }
 
     // ------------------------------------------------ primeira mensagem para um lead

@@ -6,28 +6,46 @@ import { telefoneChave } from './comum.ts';
 export interface Msg { role: 'user' | 'assistant'; content: string }
 
 // ---------------------------------------------------------------- chamar a IA
+export type Provedor = 'groq' | 'anthropic' | 'gemini';
+export const PROVEDORES: Provedor[] = ['groq', 'anthropic', 'gemini'];
+
+/** Os provedores com chave configurada, na ordem de preferência. */
+export const provedoresDisponiveis = (): Provedor[] =>
+  PROVEDORES.filter((p) => !!Deno.env.get({ groq: 'GROQ_API_KEY', anthropic: 'ANTHROPIC_API_KEY', gemini: 'GEMINI_API_KEY' }[p]));
+
 /** Groq (gratuito) primeiro; depois Anthropic ou Gemini, se tiver a chave. */
-export async function pedirIA(sistema: string, mensagens: Msg[], maxTokens = 600): Promise<string> {
+export async function pedirIA(sistema: string, mensagens: Msg[], maxTokens = 600, provedor?: Provedor): Promise<string> {
+  return (await pedirIADetalhado(sistema, mensagens, maxTokens, provedor)).texto;
+}
+
+/**
+ * Igual a pedirIA, mas diz qual provedor respondeu. Com `provedor` informado,
+ * usa só ele (é o que a tela "Testar a assistente" faz para comparar os dois).
+ */
+export async function pedirIADetalhado(sistema: string, mensagens: Msg[], maxTokens = 600, provedor?: Provedor): Promise<{ texto: string; provedor: Provedor }> {
   const erros: string[] = [];
+  const quer = (p: Provedor) => !provedor || provedor === p;
   const groq = Deno.env.get('GROQ_API_KEY');
-  if (groq) {
+  if (groq && quer('groq')) {
     try {
+      const model = Deno.env.get('GROQ_MODEL') || 'openai/gpt-oss-120b';
       const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: { authorization: 'Bearer ' + groq, 'content-type': 'application/json' },
         body: JSON.stringify({
-          model: Deno.env.get('GROQ_MODEL') || 'llama-3.3-70b-versatile',
-          max_tokens: maxTokens, temperature: 0.6,
+          model, max_tokens: maxTokens, temperature: 0.6,
+          // modelos que "pensam" (gpt-oss, qwen) gastariam os tokens todos raciocinando
+          ...(/gpt-oss|qwen|deepseek/.test(model) ? { reasoning_effort: 'low' } : {}),
           messages: [{ role: 'system', content: sistema }, ...mensagens],
         }),
       });
       const j = await r.json();
-      if (r.ok) return String(j.choices?.[0]?.message?.content ?? '');
+      if (r.ok) return { texto: String(j.choices?.[0]?.message?.content ?? ''), provedor: 'groq' };
       erros.push('Groq ' + r.status + ': ' + (j.error?.message ?? ''));
     } catch (e) { erros.push('Groq: ' + (e as Error).message); }
-  }
+  } else if (provedor === 'groq') erros.push('Groq: falta a chave GROQ_API_KEY.');
   const anthropic = Deno.env.get('ANTHROPIC_API_KEY');
-  if (anthropic) {
+  if (anthropic && quer('anthropic')) {
     try {
       const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -38,26 +56,31 @@ export async function pedirIA(sistema: string, mensagens: Msg[], maxTokens = 600
         }),
       });
       const j = await r.json();
-      if (r.ok) return (j.content ?? []).map((b: { text?: string }) => b.text ?? '').join('');
+      if (r.ok) return { texto: (j.content ?? []).map((b: { text?: string }) => b.text ?? '').join(''), provedor: 'anthropic' };
       erros.push('Anthropic ' + r.status + ': ' + (j.error?.message ?? ''));
     } catch (e) { erros.push('Anthropic: ' + (e as Error).message); }
-  }
+  } else if (provedor === 'anthropic') erros.push('Anthropic: falta a chave ANTHROPIC_API_KEY.');
   const gemini = Deno.env.get('GEMINI_API_KEY');
-  if (gemini) {
+  if (gemini && quer('gemini')) {
     try {
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${gemini}`, {
-        method: 'POST', headers: { 'content-type': 'application/json' },
+      const model = Deno.env.get('GEMINI_MODEL') || 'gemini-3.6-flash';
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': gemini },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: sistema }] },
           contents: juntarSeguidas(mensagens).map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
-          generationConfig: { maxOutputTokens: maxTokens },
+          // o Gemini 2.5+ "pensa" antes de responder; sem limitar, o pensamento come o maxOutputTokens
+          generationConfig: { maxOutputTokens: maxTokens, thinkingConfig: { thinkingBudget: 0 } },
         }),
       });
       const j = await r.json();
-      if (r.ok) return (j.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? '').join('');
-      erros.push('Gemini ' + r.status);
+      if (r.ok) {
+        const texto = (j.candidates?.[0]?.content?.parts ?? []).filter((p: { thought?: boolean }) => !p.thought).map((p: { text?: string }) => p.text ?? '').join('');
+        if (texto) return { texto, provedor: 'gemini' };
+        erros.push('Gemini: resposta vazia (' + (j.candidates?.[0]?.finishReason ?? j.promptFeedback?.blockReason ?? '?') + ')');
+      } else erros.push('Gemini ' + r.status + ': ' + (j.error?.message ?? ''));
     } catch (e) { erros.push('Gemini: ' + (e as Error).message); }
-  }
+  } else if (provedor === 'gemini') erros.push('Gemini: falta a chave GEMINI_API_KEY.');
   throw new Error(erros.length ? erros.join(' | ') : 'Nenhuma chave de IA configurada (GROQ_API_KEY).');
 }
 

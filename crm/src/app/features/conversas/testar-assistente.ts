@@ -1,9 +1,13 @@
 import { ChangeDetectionStrategy, Component, ElementRef, inject, signal, viewChild } from '@angular/core';
+import { DEMO } from '../../core/supabase/demo';
 import { FormsModule } from '@angular/forms';
 import { ConfigService } from '../../core/services/config.service';
 import { AvisosService } from '../../core/ui/avisos.service';
 
-interface Fala { papel: 'cliente' | 'bot'; texto: string; acoes?: string[] }
+type Provedor = 'groq' | 'gemini' | 'anthropic';
+const NOMES: Record<Provedor, string> = { groq: 'Groq', gemini: 'Gemini', anthropic: 'Claude' };
+
+interface Fala { papel: 'cliente' | 'bot'; texto: string; acoes?: string[]; provedor?: Provedor; ms?: number }
 
 /**
  * Simulador: você escreve como se fosse o cliente e vê o que a assistente
@@ -17,10 +21,21 @@ interface Fala { papel: 'cliente' | 'bot'; texto: string; acoes?: string[] }
     <div class="teste">
       <p class="mudo">Escreva como se fosse o cliente — "tem casa de 3 quartos até 600 mil?" — e veja a resposta.
         É só um teste: nada é enviado e nada é gravado. O jeito de falar se ajusta em Ajustes → Assistente.</p>
+      <div class="linha modelo">
+        <label for="t-modelo">Responder com</label>
+        <select id="t-modelo" [ngModel]="provedor()" name="modelo" (ngModelChange)="provedor.set($event)" aria-describedby="t-modelo-ajuda">
+          <option value="">Automático (a ordem do WhatsApp)</option>
+          @for (p of disponiveis(); track p) { <option [value]="p">{{ nome(p) }}</option> }
+        </select>
+        <span class="ajuda" id="t-modelo-ajuda">
+          @if (disponiveis().length) { Ligadas: {{ ligadas() }}. Mande a mesma pergunta em cada uma para comparar. }
+          @else { Nenhuma chave de IA configurada nas funções (GROQ_API_KEY ou GEMINI_API_KEY). }
+        </span>
+      </div>
       <ol class="falas" #caixa aria-live="polite" aria-label="Conversa de teste">
         @for (f of falas(); track $index) {
           <li class="fala" [class.bot]="f.papel === 'bot'">
-            <span class="autor">{{ f.papel === 'bot' ? 'Assistente' : 'Cliente (você)' }}</span>
+            <span class="autor">{{ f.papel === 'bot' ? 'Assistente' : 'Cliente (você)' }}@if (f.provedor) { <span class="quem">· {{ nome(f.provedor) }}@if (f.ms) { · {{ (f.ms / 1000).toFixed(1) }}s }</span> }</span>
             <p>{{ f.texto }}</p>
             @if (f.acoes?.length) {
               <ul class="acoes">@for (a of f.acoes; track a) { <li>{{ a }}</li> }</ul>
@@ -48,6 +63,9 @@ interface Fala { papel: 'cliente' | 'bot'; texto: string; acoes?: string[] }
       p { white-space: pre-wrap; } .autor { font: 500 10.5px/1.3 var(--mono); text-transform: uppercase; color: var(--slate-500); } }
     .acoes { margin: 6px 0 0; padding-left: 16px; font-size: 12px; color: var(--navy-700); }
     .enviar { display: flex; gap: 8px; }
+    .modelo { align-items: flex-start; gap: 4px 10px; label { font-size: 12px; font-weight: 500; color: var(--slate-700); min-height: var(--alvo); display: inline-flex; align-items: center; }
+      select { width: auto; min-width: 220px; } .ajuda { flex-basis: 100%; font-size: 12px; color: var(--slate-500); } }
+    .quem { font-weight: 400; color: var(--ouro-texto); }
   `,
 })
 export class TestarAssistente {
@@ -57,7 +75,18 @@ export class TestarAssistente {
 
   protected readonly falas = signal<Fala[]>([]);
   protected readonly pensando = signal(false);
+  protected readonly provedor = signal<Provedor | ''>('');
+  protected readonly disponiveis = signal<Provedor[]>([]);
   protected texto = '';
+
+  constructor() {
+    // na demonstração não há função no servidor: mostra as duas para o layout
+    if (DEMO) this.disponiveis.set(['groq', 'gemini']);
+    else void this.cfg.ia<{ provedores: Provedor[] }>({ acao: 'provedores' }).then((r) => this.disponiveis.set(r.provedores)).catch(() => null);
+  }
+
+  protected nome(p: Provedor) { return NOMES[p] ?? p; }
+  protected ligadas() { return this.disponiveis().map((p) => this.nome(p)).join(' e '); }
 
   protected async enviar() {
     const t = this.texto.trim();
@@ -67,11 +96,12 @@ export class TestarAssistente {
     this.pensando.set(true);
     this.rolar();
     try {
-      const r = await this.cfg.ia<{ texto: string; acoes?: string[] }>({
+      const r = await this.cfg.ia<{ texto: string; acoes?: string[]; provedor?: Provedor; ms?: number }>({
         acao: 'chat',
+        provedor: this.provedor() || undefined,
         mensagens: this.falas().map((f) => ({ papel: f.papel, texto: f.texto })),
       });
-      this.falas.update((l) => [...l, { papel: 'bot', texto: r.texto, acoes: r.acoes }]);
+      this.falas.update((l) => [...l, { papel: 'bot', texto: r.texto, acoes: r.acoes, provedor: r.provedor, ms: r.ms }]);
     } catch (e) {
       this.avisos.erro(e);
     } finally {
