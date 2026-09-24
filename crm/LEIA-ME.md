@@ -65,7 +65,7 @@ Em Ajustes → WhatsApp escolha **QR code** e siga o passo a passo da tela: a pa
 | Ajustes | Imobiliária, WhatsApp (QR code ou oficial), captação (formulário e webhook), portais | admin |
 | Empresas | Criar e bloquear imobiliárias | dono da plataforma |
 
-Páginas públicas, sem login: `/captar/<empresa>` (formulário do anúncio), `/imovel/<id>` e `/s/<site>`.
+Páginas públicas, sem login: `/` (a página inicial que apresenta o Royal Hub; quem já está logado cai no painel), `/captar/<empresa>` (formulário do anúncio), `/imovel/<id>` e `/s/<site>`. O botão "Falar com a gente" da página inicial aparece quando `CONTATO_WHATS` em `src/app/features/inicio/inicio.page.ts` estiver preenchido.
 
 ## Atalhos e detalhes de uso
 

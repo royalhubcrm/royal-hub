@@ -12,13 +12,21 @@ export const logadoGuard: CanActivateFn = async (_rota, estado) => {
   return router.createUrlTree(['/entrar'], { queryParams: estado.url !== '/' ? { volta: estado.url } : {} });
 };
 
-/** Tela de login: quem já está dentro vai direto para o painel. */
+/** Tela de login: quem já está dentro vai direto para o painel. (inject só vale antes do await) */
 export const deslogadoGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
+  const router = inject(Router);
   await auth.pronto;
-  return auth.logado() && auth.perfil() ? inject(Router).createUrlTree(['/']) : true;
+  return auth.logado() && auth.perfil() ? router.createUrlTree(['/painel']) : true;
 };
 
+/** Página inicial pública: quem já está dentro vai direto para o painel. */
+export const inicioGuard: CanActivateFn = async () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  await auth.pronto;
+  return auth.logado() && auth.perfil()?.ativo ? router.createUrlTree(['/painel']) : true;
+};
 /** Rotas restritas por papel: data: { papeis: ['admin'] } */
 export const papelGuard: CanActivateFn = (rota) => {
   const auth = inject(AuthService);
@@ -26,3 +34,4 @@ export const papelGuard: CanActivateFn = (rota) => {
   if (rota.data['dono']) return auth.perfil()?.dono ? true : inject(Router).createUrlTree(['/']);
   return !papeis.length || auth.pode(...papeis) ? true : inject(Router).createUrlTree(['/']);
 };
+
