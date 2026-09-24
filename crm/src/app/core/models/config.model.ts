@@ -22,6 +22,10 @@ export interface Config {
   /** Por onde o WhatsApp está ligado: API oficial da Meta ou a ponte por QR code. */
   wa_canal: 'oficial' | 'ponte';
   ponte_visto_em: string | null;
+  /** QR pendente de escanear (a ponte manda; some ao conectar) e o número que conectou. */
+  ponte_qr: string | null;
+  ponte_qr_em: string | null;
+  ponte_numero: string;
   /** Conversas → Assistente: o texto do prompt (vazio = padrão) e quem responde. */
   prompt_base: string;
   ia_provedor: 'auto' | ProvedorIA;

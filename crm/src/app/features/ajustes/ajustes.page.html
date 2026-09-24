@@ -61,18 +61,33 @@
         </div>
         <span class="ajuda">Vai no arquivo .env da ponte, junto com EMPRESA = <span class="mono">{{ slug() }}</span>.</span>
       </div>
-      <p class="aviso" [class.info]="ponteViva()" role="status">
-        @if (ponteViva()) { Ponte conectada: passou por aqui {{ f.ponte_visto_em! | quando }}. }
-        @else if (f.ponte_visto_em) { A ponte não aparece desde {{ f.ponte_visto_em | quando }}. Confira o computador onde ela roda. }
-        @else { A ponte ainda não se conectou. Siga o passo a passo abaixo. }
-      </p>
+      @if (!ponteViva() && qrImagem()) {
+        <div class="qr" role="status" aria-live="polite">
+          <img [src]="qrImagem()" width="240" height="240" alt="QR code para conectar o WhatsApp" />
+          <div>
+            <b>Escaneie com o celular</b>
+            <ol class="passos">
+              <li>Abra o WhatsApp e toque em <b>⋮</b> (Android) ou <b>Configurações</b> (iPhone).</li>
+              <li><b>Aparelhos conectados</b> → <b>Conectar aparelho</b>.</li>
+              <li>Aponte a câmera para este código.</li>
+            </ol>
+            <span class="ajuda">O código troca sozinho a cada poucos segundos. Ao conectar, ele some daqui.</span>
+          </div>
+        </div>
+      } @else {
+        <p class="aviso" [class.info]="ponteViva()" role="status">
+          @if (ponteViva()) { Conectado{{ ponte()?.ponte_numero ? ' ao número ' + ponte()?.ponte_numero : '' }}. Passou por aqui {{ ponte()!.ponte_visto_em! | quando }}. }
+          @else if (ponte()?.ponte_visto_em) { A ponte não aparece desde {{ ponte()!.ponte_visto_em! | quando }}. Confira o computador onde ela roda. }
+          @else { A ponte ainda não se conectou. Ligue-a no computador (passo a passo abaixo) e o QR aparece aqui. }
+        </p>
+      }
       <details class="como">
         <summary>Como ligar a ponte</summary>
         <ol class="passos">
           <li>Copie a pasta <span class="mono">ponte-whatsapp</span> do projeto para o computador que vai ficar ligado.</li>
           <li>Copie <span class="mono">.env.exemplo</span> para <span class="mono">.env</span> e preencha EMPRESA = <span class="mono">{{ slug() }}</span> e PONTE_TOKEN com o token acima.</li>
           <li>No terminal, dentro da pasta: <span class="mono">npm install</span> e depois <span class="mono">npm start</span>.</li>
-          <li>No celular: WhatsApp → Aparelhos conectados → Conectar aparelho → aponte para o QR do terminal.</li>
+          <li>Volte aqui: o QR aparece nesta tela em alguns segundos. Escaneie com o celular.</li>
         </ol>
         <p class="mudo pequeno">Se você escrever pelo celular, a assistente recua por 6 horas naquela conversa. Fechou o computador, a ponte para; ao abrir, reconecta sozinha.</p>
       </details>

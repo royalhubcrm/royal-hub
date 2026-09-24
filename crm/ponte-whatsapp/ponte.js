@@ -37,6 +37,9 @@ const numero = (jid) => (jid || '').split('@')[0].split(':')[0];
 const jidDe = (telefone) => telefone.replace(/\D/g, '') + '@s.whatsapp.net';
 const hora = () => new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
+/** Conta ao sistema em que pé a ponte está (o QR aparece em Ajustes → WhatsApp). Falhar aqui não derruba nada. */
+const avisar = (b) => sistema({ acao: 'ponte_estado', ...b }).catch((e) => console.log('  x sistema: ' + e.message));
+
 /** Quem você assumiu há pouco (escreveu pelo celular): a ponte não manda o que estava preparando. */
 const assumidas = new Map();
 
@@ -90,11 +93,13 @@ async function conectar() {
 
   sock.ev.on('connection.update', (u) => {
     if (u.qr) {
-      console.log('\n  No celular: WhatsApp → Aparelhos conectados → Conectar aparelho → aponte para o código:\n');
+      console.log('\n  Escaneie em Ajustes → WhatsApp do sistema, ou aqui: WhatsApp → Aparelhos conectados → Conectar aparelho\n');
       qrcode.generate(u.qr, { small: true });
+      avisar({ estado: 'qr', qr: u.qr });
     }
     if (u.connection === 'open') {
       console.log('\n  Conectado. Controle tudo pela tela Conversas do sistema. Parar: Ctrl+C\n');
+      avisar({ estado: 'ligada', numero: numero(sock.user?.id) });
       clearInterval(relogio);
       relogio = setInterval(() => buscarPendentes(sock), A_CADA * 1000);
       setTimeout(() => buscarPendentes(sock), 5000);
@@ -103,8 +108,10 @@ async function conectar() {
       clearInterval(relogio);
       if (u.lastDisconnect?.error?.output?.statusCode === DisconnectReason.loggedOut) {
         console.log('\n  Sessão encerrada no celular. Apague a pasta "sessao" e rode de novo para escanear outro QR.\n');
-        process.exit(0);
+        avisar({ estado: 'saiu' }).then(() => process.exit(0));
+        return;
       }
+      avisar({ estado: 'caiu' });
       console.log('  Caiu, reconectando em 3s…');
       setTimeout(conectar, 3000);
     }

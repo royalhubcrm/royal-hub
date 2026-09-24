@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
@@ -35,6 +35,12 @@ export default class AjustesPage {
   protected readonly token = signal('');
   protected readonly imoveis = signal<Imovel[]>([]);
 
+  /** Ponte por QR code: estado vindo do banco a cada poucos segundos, e o QR desenhado. */
+  protected readonly ponte = signal<Pick<Config, 'ponte_visto_em' | 'ponte_qr' | 'ponte_qr_em' | 'ponte_numero'> | null>(null);
+  protected readonly qrImagem = signal('');
+  private qrDesenhado = '';
+  private readonly destroy = inject(DestroyRef);
+
   protected readonly slug = computed(() => this.auth.empresa()?.slug ?? '');
   protected readonly linkCaptar = computed(() => `${location.origin}/captar/${this.slug()}`);
   protected readonly linkWebhook = computed(() => `${this.cfgSrv.enderecoFuncao('leads-webhook')}?empresa=${this.slug()}&token=${this.token() || 'SEU_TOKEN'}`);
@@ -52,9 +58,37 @@ export default class AjustesPage {
   });
 
   /** A ponte avisa a cada 45 s que está viva; 3 min sem sinal = caiu. */
-  protected ponteViva() { const v = this.f.ponte_visto_em; return !!v && Date.now() - new Date(v).getTime() < 3 * 60000; }
+  protected ponteViva() { const v = this.ponte()?.ponte_visto_em; return !!v && Date.now() - new Date(v).getTime() < 3 * 60000; }
+  /** QR válido por pouco tempo: a ponte manda um novo a cada ~20 s enquanto ninguém escaneia. */
+  protected qrFresco() { const p = this.ponte(); return !!p?.ponte_qr && !!p.ponte_qr_em && Date.now() - new Date(p.ponte_qr_em).getTime() < 90000; }
   protected waLigado() { return this.f.wa_canal === 'ponte' ? this.ponteViva() : !!this.f.wa_configurado; }
-  protected estadoWa() { return this.f.wa_canal === 'ponte' ? (this.ponteViva() ? 'Ligado' : 'Esperando a ponte') : this.f.wa_configurado ? 'Ligado' : 'Desligado'; }
+  protected estadoWa() {
+    if (this.f.wa_canal !== 'ponte') return this.f.wa_configurado ? 'Ligado' : 'Desligado';
+    return this.ponteViva() ? 'Ligado' : this.qrFresco() ? 'Escaneie o QR' : 'Esperando a ponte';
+  }
+
+  /** Enquanto o canal for a ponte, relê o estado a cada 4 s (o QR troca sozinho e some ao conectar). */
+  private acompanharPonte() {
+    const relogio = setInterval(() => { if (this.f.wa_canal === 'ponte' && document.visibilityState === 'visible') void this.lerPonte(); }, 4000);
+    this.destroy.onDestroy(() => clearInterval(relogio));
+  }
+
+  private async lerPonte() {
+    try {
+      const c = await this.cfgSrv.carregar();
+      this.ponte.set({ ponte_visto_em: c.ponte_visto_em, ponte_qr: c.ponte_qr, ponte_qr_em: c.ponte_qr_em, ponte_numero: c.ponte_numero });
+      await this.desenharQr();
+    } catch { /* sem rede agora: tenta no próximo tique */ }
+  }
+
+  private async desenharQr() {
+    const qr = this.qrFresco() ? this.ponte()!.ponte_qr! : '';
+    if (qr === this.qrDesenhado) return;
+    this.qrDesenhado = qr;
+    if (!qr) { this.qrImagem.set(''); return; }
+    const { toDataURL } = await import('qrcode');
+    this.qrImagem.set(await toDataURL(qr, { margin: 1, width: 240, errorCorrectionLevel: 'L' }));
+  }
 
   protected async mudarCanal(canal: Config['wa_canal']) {
     this.f.wa_canal = canal;
@@ -72,6 +106,9 @@ export default class AjustesPage {
     try {
       const c = await this.cfgSrv.carregar();
       this.f = { ...c };
+      this.ponte.set({ ponte_visto_em: c.ponte_visto_em, ponte_qr: c.ponte_qr, ponte_qr_em: c.ponte_qr_em, ponte_numero: c.ponte_numero });
+      void this.desenharQr();
+      this.acompanharPonte();
       this.nomeEmpresa = this.auth.empresa()?.nome ?? '';
       this.wa = { numero: c.wa_numero_id, token: '', verificacao: c.wa_verificacao };
       this.carregado.set(true);

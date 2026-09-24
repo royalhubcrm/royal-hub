@@ -274,6 +274,19 @@ async function ponteMensagem(db: DB, empresa: Empresa, b: any) {
   return { envios, motivo };
 }
 
+/** A ponte conta em que pé está: 'qr' (com o código para a tela mostrar), 'ligada', 'caiu' ou 'saiu' (deslogou no celular). */
+async function ponteEstado(db: DB, empresa: Empresa, b: any) {
+  const agora = new Date().toISOString();
+  const estado = String(b.estado ?? '');
+  const campos: Record<string, unknown> =
+    estado === 'qr' ? { ponte_qr: String(b.qr ?? '').slice(0, 1000), ponte_qr_em: agora }
+    : estado === 'ligada' ? { ponte_qr: null, ponte_qr_em: null, ponte_visto_em: agora, ponte_numero: String(b.numero ?? '').replace(/\D/g, '').slice(0, 20) }
+    : estado === 'saiu' ? { ponte_qr: null, ponte_qr_em: null, ponte_visto_em: null, ponte_numero: '' }
+    : { ponte_qr: null, ponte_qr_em: null }; // caiu: mantém o visto_em, a tela avisa quando passar dos 3 min
+  await db.from('config').update(campos).eq('empresa_id', empresa.id);
+  return { ok: true };
+}
+
 /** O que a ponte precisa entregar: mensagens do painel e retomadas do dia. Marca como entregue ao devolver. */
 async function pontePendentes(db: DB, empresa: Empresa) {
   const cfg = await configDa(db, empresa.id);
@@ -337,10 +350,11 @@ Deno.serve(responder(async (req) => {
   }
 
   // ---- a ponte (QR code) conversando com o sistema
-  if (corpo.acao === 'ponte_mensagem' || corpo.acao === 'ponte_pendentes') {
+  if (corpo.acao === 'ponte_mensagem' || corpo.acao === 'ponte_pendentes' || corpo.acao === 'ponte_estado') {
     const empresa = await empresaPorSlug(db, url.searchParams.get('empresa'));
     if (!empresa) throw new ErroTela('Empresa não encontrada.', 404);
     await ponteAutorizada(db, req, empresa);
+    if (corpo.acao === 'ponte_estado') return json(await ponteEstado(db, empresa, corpo));
     return json(corpo.acao === 'ponte_mensagem' ? await ponteMensagem(db, empresa, corpo) : await pontePendentes(db, empresa));
   }
 

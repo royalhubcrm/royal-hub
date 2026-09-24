@@ -117,7 +117,7 @@ export function semente(): Tabelas {
       empresa_id: EMP, corretor: 'Ricardo Almeida', creci: '12345-F', whats: '5534999990000', endereco: 'R. José Nonato Ribeiro, 428 — Cazeca, Uberlândia-MG',
       cidade: 'Uberlândia', assistente: 'Camila', estilo: '', bot_ligado: true, bot_modo: 'novos', bot_hora_inicio: null, bot_hora_fim: null, bot_numeros: '',
       fatos: 'Primeiro imóvel tem 50% de desconto na documentação — é o único desconto que existe.\nRenda informal ou autônomo: consegue sim; o corretor é especialista em formalizar renda.\nAprovação de crédito: o corretor resolve; nunca prometa aprovação.\nEntrada, renda necessária, parcela, prazo e custas: só no atendimento presencial.',
-      wa_numero_id: '', wa_verificacao: 'royal2026', wa_configurado: true, wa_canal: 'oficial', ponte_visto_em: null, prompt_base: '', ia_provedor: 'auto', ia_modelo: '',
+      wa_numero_id: '', wa_verificacao: 'royal2026', wa_configurado: true, wa_canal: 'oficial', ponte_visto_em: null, ponte_qr: null, ponte_qr_em: null, ponte_numero: '', prompt_base: '', ia_provedor: 'auto', ia_modelo: '',
     }],
     etapas_pipeline: [
       ['novo', 'Novo', 1, '#64748B', 10, 'aberta'], ['contato', 'Em contato', 2, '#3B6EA5', 20, 'aberta'], ['visita', 'Visita', 3, '#2F5D8C', 40, 'aberta'],

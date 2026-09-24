@@ -7,7 +7,7 @@ Liga o WhatsApp do seu celular ao Royal CRM sem a API oficial da Meta. Roda num 
 1. No painel, em **Ajustes → WhatsApp**, escolha o canal **QR code** e clique em **Mostrar o token**.
 2. Nesta pasta, copie `.env.exemplo` para `.env` e preencha `EMPRESA` (o endereço da empresa, o mesmo do link de captação) e `PONTE_TOKEN`.
 3. `npm install` (uma vez) e depois `npm start`.
-4. No celular: WhatsApp → Aparelhos conectados → Conectar aparelho → aponte para o código que aparece no terminal.
+4. Volte ao painel: o QR aparece em **Ajustes → WhatsApp** (e também no terminal). No celular: WhatsApp → Aparelhos conectados → Conectar aparelho → aponte para o código.
 
 Pronto: as mensagens aparecem em Conversas, viram lead e a assistente responde conforme as regras da tela Assistente. A sessão fica na pasta `sessao/`; para trocar de número, apague a pasta e rode de novo.
 

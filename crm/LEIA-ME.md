@@ -44,7 +44,7 @@ npx supabase secrets set GROQ_API_KEY=sua-chave SITE_URL=https://endereco-do-app
 
 ### 4. WhatsApp por QR code (sem a API da Meta)
 
-Em Ajustes → WhatsApp escolha **QR code** e siga o passo a passo da tela: a pasta `ponte-whatsapp/` roda num computador ligado (`npm install`, `npm start`), você escaneia o QR uma vez e pronto. A ponte fala com a função `whatsapp` usando o token do webhook da empresa; o painel e as retomadas deixam as mensagens numa fila (`crm.fila_whatsapp`) que a ponte entrega. Detalhes em `ponte-whatsapp/LEIA-ME.md`.
+Em Ajustes → WhatsApp escolha **QR code** e siga o passo a passo da tela: a pasta `ponte-whatsapp/` roda num computador ligado (`npm install`, `npm start`), o QR aparece na própria tela de Ajustes, você escaneia uma vez e pronto. A ponte fala com a função `whatsapp` usando o token do webhook da empresa; o painel e as retomadas deixam as mensagens numa fila (`crm.fila_whatsapp`) que a ponte entrega. Detalhes em `ponte-whatsapp/LEIA-ME.md`.
 
 ### 4. Publicar o app
 `npm run build` gera a pasta `dist/crm/browser`. Na Cloudflare (Workers & Pages → conectar o repositório, raiz `crm`, build `npm run build`, deploy `npx wrangler deploy`) o `wrangler.jsonc` já cuida das rotas do app ao recarregar a página. Em outra hospedagem (Netlify, Vercel), configure "toda rota → index.html".

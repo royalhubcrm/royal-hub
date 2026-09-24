@@ -6,3 +6,8 @@ ul.lista { max-height: 300px; overflow-y: auto; }
   summary { cursor: pointer; font-size: 13px; font-weight: 500; color: var(--slate-700); }
   &[open] summary { margin-bottom: 8px; } }
 .bloco-codigo { margin: 4px 0; }
+/* QR da ponte: fundo branco sempre (o celular precisa de contraste, mesmo no tema escuro) */
+.qr { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;
+  img { background: #fff; padding: 8px; border-radius: 8px; border: 1px solid var(--slate-200); flex: none; }
+  > div { display: flex; flex-direction: column; gap: 6px; min-width: 200px; flex: 1; }
+  .passos { margin: 0; } }
