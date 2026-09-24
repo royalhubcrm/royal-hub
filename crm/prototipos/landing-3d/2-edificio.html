@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Royal Hub · Edifício</title>
+<meta name="description" content="Protótipo 2: uma torre de linhas douradas se ergue andar por andar sobre um piso espelhado. Elegância que se constrói.">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+  :root { --navy: #0F1B2D; --ouro: #E0BE6B; --texto: #C5D0DE; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--navy); color: #fff; font: 400 16px/1.55 'IBM Plex Sans', system-ui, sans-serif; }
+  #cena { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+  .rolagem { height: 420vh; }
+  .topo { position: fixed; inset: 0 0 auto; z-index: 3; display: flex; align-items: center; justify-content: space-between; padding: 18px clamp(16px, 4vw, 48px); }
+  .marca { display: inline-flex; align-items: center; gap: 10px; font: 600 14px/1 Cinzel, serif; letter-spacing: .14em; text-decoration: none; color: #fff; }
+  .marca i { font-style: normal; color: var(--ouro); }
+  .marca svg { height: 30px; width: auto; }
+  .entrar { color: var(--ouro); border: 1px solid rgba(224,190,107,.7); border-radius: 6px; padding: 10px 18px; text-decoration: none; font-size: 14px; font-weight: 500; }
+  .entrar:hover { background: var(--ouro); color: var(--navy); }
+  .palco { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+  .etapa { position: absolute; left: clamp(16px, 6vw, 96px); bottom: 12vh; max-width: 520px; opacity: 0; transition: opacity .35s; }
+  .etapa > * { pointer-events: auto; }
+  .sobre { font: 500 11px/1 'IBM Plex Mono', monospace; letter-spacing: .2em; text-transform: uppercase; color: var(--ouro); margin: 0 0 16px; }
+  h1 { font: 600 clamp(30px, 4.6vw, 52px)/1.14 Cinzel, serif; letter-spacing: .01em; margin: 0; text-wrap: balance; }
+  .etapa p { color: var(--texto); font-size: 17px; margin: 18px 0 0; max-width: 44ch; }
+  .andares { display: flex; gap: 22px; margin-top: 22px; padding: 0; list-style: none; flex-wrap: wrap; }
+  .andares li { font: 600 13px/1 Cinzel, serif; letter-spacing: .12em; color: var(--ouro); padding-top: 10px; border-top: 1px solid rgba(224,190,107,.5); }
+  .acoes { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+  .btn { display: inline-flex; align-items: center; min-height: 48px; padding: 0 22px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 14.5px; letter-spacing: .02em; }
+  .btn.ouro { background: linear-gradient(160deg, #E0BE6B, #C9A227 60%, #A97E1E); color: var(--navy); font-weight: 600; }
+  .btn.claro { color: #fff; border: 1px solid rgba(255,255,255,.45); }
+  .dica { position: fixed; right: clamp(16px, 4vw, 48px); bottom: 22px; z-index: 2; font: 500 11px/1 'IBM Plex Mono', monospace; letter-spacing: .2em; text-transform: uppercase; color: rgba(197,208,222,.7); transition: opacity .4s; }
+  a:focus-visible { outline: 2px solid var(--ouro); outline-offset: 3px; }
+  @media (max-width: 760px) {
+    .etapa { left: 16px; right: 16px; bottom: 40px; z-index: 1; } .etapa p { font-size: 15px; } .dica { display: none; }
+    /* no celular a torre fica atrás do texto: um véu escuro na base garante a leitura */
+    .palco::after { content: ''; position: absolute; inset: 40% 0 0; background: linear-gradient(transparent, rgba(15,27,45,.9) 50%); }
+  }
+  @media (prefers-reduced-motion: reduce) { .etapa, .dica { transition: none; } }
+</style>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }</script>
+</head>
+<body>
+<canvas id="cena" aria-hidden="true"></canvas>
+
+<header class="topo">
+  <a class="marca" href="#" aria-label="Royal Hub">
+    <svg viewBox="0 0 120 96" aria-hidden="true"><g stroke="#E0BE6B" fill="#E0BE6B" stroke-width="6" stroke-linecap="round" stroke-linejoin="miter"><path d="M31 61 L60 22 L89 61" fill="none" stroke-width="6.5"/><path d="M19 70 L26 24 L58 81" fill="none"/><path d="M101 70 L94 24 L62 81" fill="none"/><path d="M22 72 C33 81 46 85 57 84" fill="none" stroke-width="4.5"/><path d="M98 72 C87 81 74 85 63 84" fill="none" stroke-width="4.5"/><circle cx="60" cy="13" r="6.5" stroke="none"/><circle cx="26" cy="19" r="6" stroke="none"/><circle cx="94" cy="19" r="6" stroke="none"/><circle cx="60" cy="87" r="7" stroke="none"/><circle cx="17" cy="72" r="5.5" stroke="none"/><circle cx="103" cy="72" r="5.5" stroke="none"/></g></svg>
+    <span>ROYAL <i>HUB</i></span>
+  </a>
+  <a class="entrar" href="https://royal-hub.royalhubcrm.workers.dev/entrar">Entrar</a>
+</header>
+
+<div class="palco" aria-live="polite">
+  <section class="etapa" data-ini="0" data-fim="0.24">
+    <p class="sobre">CRM para imobiliárias</p>
+    <h1>Elegância se constrói andar por andar.</h1>
+    <p>Role a página para erguer.</p>
+  </section>
+  <section class="etapa" data-ini="0.36" data-fim="0.74">
+    <p class="sobre">Royal Hub</p>
+    <h1>Cada andar, uma parte do trabalho. O mesmo edifício.</h1>
+    <ul class="andares" aria-label="O que o Royal Hub reúne"><li>Leads</li><li>Conversas</li><li>Imóveis</li><li>Visitas</li><li>Site</li></ul>
+  </section>
+  <section class="etapa" data-ini="0.84" data-fim="1.01">
+    <p class="sobre">Comece hoje</p>
+    <h1>Atendimento à altura dos imóveis que você vende.</h1>
+    <div class="acoes">
+      <a class="btn ouro" href="https://royal-hub.royalhubcrm.workers.dev/entrar">Entrar no painel</a>
+      <a class="btn claro" href="#">Falar com a gente</a>
+    </div>
+  </section>
+</div>
+<p class="dica" id="dica">Role para erguer</p>
+<div class="rolagem"></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { Reflector } from 'three/addons/objects/Reflector.js';
+
+const reduz = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const canvas = document.getElementById('cena');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setClearColor(0x0F1B2D, 1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x0F1B2D, 9, 24);
+const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 60);
+
+// ---- a torre: lajes finas + pilares, tudo em linhas douradas sobre faces azul-marinho
+const ANDARES = 14, L = 2.2, P = 1.5, H = .42;
+const matFace = new THREE.MeshStandardMaterial({ color: 0x1A2C48, metalness: .55, roughness: .4 });
+const matLinha = new THREE.LineBasicMaterial({ color: 0xE0BE6B, transparent: true, opacity: .85 });
+const lajeGeo = new THREE.BoxGeometry(L, .06, P);
+const arestaGeo = new THREE.EdgesGeometry(lajeGeo);
+const cantos = [[-L/2, -P/2], [L/2, -P/2], [L/2, P/2], [-L/2, P/2]];
+const pilarGeo = new THREE.BufferGeometry().setFromPoints(cantos.flatMap(([x, z]) => [new THREE.Vector3(x, .03, z), new THREE.Vector3(x, H, z)]));
+const torre = new THREE.Group(); scene.add(torre);
+const andares = [];
+for (let i = 0; i < ANDARES; i++) {
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(lajeGeo, matFace), new THREE.LineSegments(arestaGeo, matLinha));
+  if (i < ANDARES - 1) g.add(new THREE.LineSegments(pilarGeo, matLinha));
+  g.position.y = i * H; torre.add(g); andares.push(g);
+}
+// a cobertura: um volume menor, todo dourado, coroando a torre
+const topo = new THREE.Group();
+const cobGeo = new THREE.BoxGeometry(L * .55, H * .9, P * .55);
+topo.add(new THREE.Mesh(cobGeo, new THREE.MeshStandardMaterial({ color: 0xC9A227, metalness: .9, roughness: .25, emissive: 0x3A2C08 })),
+         new THREE.LineSegments(new THREE.EdgesGeometry(cobGeo), matLinha));
+topo.position.y = (ANDARES - 1) * H + H * .5; torre.add(topo);
+
+// ---- o piso espelhado: reflete a torre e some na névoa
+const espelho = new Reflector(new THREE.PlaneGeometry(80, 80), {
+  clipBias: .003, textureWidth: Math.round(innerWidth * Math.min(devicePixelRatio, 2)), textureHeight: Math.round(innerHeight * Math.min(devicePixelRatio, 2)), color: 0x8A96A8,
+});
+espelho.rotation.x = -Math.PI / 2; espelho.position.y = -.04; scene.add(espelho);
+// um véu azul-marinho por cima do espelho: o reflexo fica discreto e some na névoa como o resto da cena
+const veu = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshBasicMaterial({ color: 0x0F1B2D, transparent: true, opacity: .6 }));
+veu.rotation.x = -Math.PI / 2; veu.position.y = -.02; scene.add(veu);
+
+// ---- luz: chave dourada quente, contraluz azul fria, ambiente do céu
+scene.add(new THREE.HemisphereLight(0x4A7FB5, 0x0F1B2D, .5));
+const chave = new THREE.DirectionalLight(0xF2D68A, 2.4); chave.position.set(4, 7, 3); scene.add(chave);
+const contra = new THREE.DirectionalLight(0x7EA9DB, 1.2); contra.position.set(-5, 3, -4); scene.add(contra);
+
+// ---- rolagem → progresso
+let alvoP = 0, p = 0;
+const lerProgresso = () => { const max = document.documentElement.scrollHeight - innerHeight; alvoP = max > 0 ? Math.min(1, Math.max(0, scrollY / max)) : 0; };
+addEventListener('scroll', lerProgresso, { passive: true }); lerProgresso();
+const clamp = (v) => Math.min(1, Math.max(0, v));
+const saida = (t) => 1 - Math.pow(1 - t, 3);
+
+const etapas = [...document.querySelectorAll('.etapa')].map((el) => ({ el, ini: +el.dataset.ini, fim: +el.dataset.fim }));
+const dica = document.getElementById('dica');
+function mostrar(p) {
+  for (const e of etapas) { const d = p >= e.ini && p < e.fim; e.el.style.opacity = d ? 1 : 0; e.el.style.visibility = d ? 'visible' : 'hidden'; }
+  dica.style.opacity = p < .05 ? 1 : 0;
+}
+
+let mx = 0, rx = 0;
+addEventListener('pointermove', (ev) => { mx = (ev.clientX / innerWidth - .5) * 2; }, { passive: true });
+
+let largo = true;
+function ajustar() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  espelho.getRenderTarget().setSize(Math.round(w * Math.min(devicePixelRatio, 2)), Math.round(h * Math.min(devicePixelRatio, 2)));
+  largo = w / h > 1;
+}
+addEventListener('resize', ajustar); ajustar();
+
+const relogio = new THREE.Clock();
+const olhar = new THREE.Vector3();
+renderer.setAnimationLoop(() => {
+  const t = relogio.getElapsedTime();
+  p += (alvoP - p) * .07;
+  // cada andar surge quando a rolagem chega à sua vez: nasce fechado e se abre até o tamanho inteiro
+  const ergue = .1 + p * 1.05;                 // o térreo já está lá antes de rolar
+  for (let i = 0; i < ANDARES; i++) {
+    const f = saida(clamp((ergue - i / ANDARES) / .16));
+    const g = andares[i]; g.visible = f > 0;
+    g.scale.set(f, 1, f); g.position.y = i * H + (1 - f) * .6;
+  }
+  const fc = saida(clamp((ergue - 1) / .12));
+  topo.visible = fc > 0; topo.scale.setScalar(fc);
+  // a câmera dá a volta devagar e sobe junto com a torre
+  const alt = ANDARES * H;
+  rx += (mx * .35 - rx) * .04;
+  const ang = (reduz ? .55 : t * .06 + .55) + rx;
+  const raio = largo ? 8.6 : 11;
+  const altura = 1.2 + p * 5.2;
+  camera.position.set(Math.sin(ang) * raio + (largo ? 1.2 : 0), altura, Math.cos(ang) * raio);
+  olhar.set(largo ? 1.2 : 0, alt * .25 + p * alt * .35, 0);
+  camera.lookAt(olhar);
+  mostrar(p);
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Royal Hub · O caminho</title>
+<meta name="description" content="Protótipo 3: um fio de luz dourada percorre quatro estações, do lead à chave na mão. A câmera acompanha a rolagem.">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+  :root { --navy: #0F1B2D; --ouro: #E0BE6B; --texto: #C5D0DE; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--navy); color: #fff; font: 400 16px/1.55 'IBM Plex Sans', system-ui, sans-serif; }
+  #cena { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+  .rolagem { height: 520vh; }
+  .topo { position: fixed; inset: 0 0 auto; z-index: 3; display: flex; align-items: center; justify-content: space-between; padding: 18px clamp(16px, 4vw, 48px); }
+  .marca { display: inline-flex; align-items: center; gap: 10px; font: 600 14px/1 Cinzel, serif; letter-spacing: .14em; text-decoration: none; color: #fff; }
+  .marca i { font-style: normal; color: var(--ouro); }
+  .marca svg { height: 30px; width: auto; }
+  .entrar { color: var(--ouro); border: 1px solid rgba(224,190,107,.7); border-radius: 6px; padding: 10px 18px; text-decoration: none; font-size: 14px; font-weight: 500; }
+  .entrar:hover { background: var(--ouro); color: var(--navy); }
+  .palco { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+  /* um véu escuro na base: o texto continua legível com as partículas passando atrás */
+  .palco::after { content: ''; position: absolute; inset: 45% 0 0; background: linear-gradient(transparent, rgba(15,27,45,.88) 55%); }
+  .etapa { z-index: 1; }
+  .etapa { position: absolute; left: 50%; bottom: 14vh; transform: translateX(-50%); width: min(640px, calc(100% - 32px)); text-align: center; opacity: 0; transition: opacity .35s; }
+  .etapa > * { pointer-events: auto; }
+  .etapa.abertura { bottom: auto; top: 50%; transform: translate(-50%, -50%); }
+  .sobre { font: 500 11px/1 'IBM Plex Mono', monospace; letter-spacing: .2em; text-transform: uppercase; color: var(--ouro); margin: 0 0 16px; }
+  .sobre b { font-weight: 500; opacity: .6; margin-right: 10px; }
+  h1, h2 { font: 600 clamp(28px, 4.2vw, 48px)/1.14 Cinzel, serif; letter-spacing: .01em; margin: 0; text-wrap: balance; }
+  h2 { font-size: clamp(26px, 3.6vw, 40px); }
+  .etapa p { color: var(--texto); font-size: 17px; margin: 16px auto 0; max-width: 46ch; }
+  .acoes { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 28px; }
+  .btn { display: inline-flex; align-items: center; min-height: 48px; padding: 0 22px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 14.5px; letter-spacing: .02em; }
+  .btn.ouro { background: linear-gradient(160deg, #E0BE6B, #C9A227 60%, #A97E1E); color: var(--navy); font-weight: 600; }
+  .btn.claro { color: #fff; border: 1px solid rgba(255,255,255,.45); }
+  .trilha { position: fixed; left: clamp(16px, 4vw, 48px); top: 50%; transform: translateY(-50%); z-index: 2; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 18px; }
+  .trilha li { font: 500 10.5px/1 'IBM Plex Mono', monospace; letter-spacing: .18em; text-transform: uppercase; color: rgba(197,208,222,.45); display: flex; align-items: center; gap: 10px; transition: color .3s; }
+  .trilha li::before { content: ''; width: 6px; height: 6px; border-radius: 50%; border: 1px solid currentColor; transition: background .3s; }
+  .trilha li.ativa { color: var(--ouro); } .trilha li.ativa::before { background: var(--ouro); }
+  a:focus-visible { outline: 2px solid var(--ouro); outline-offset: 3px; }
+  @media (max-width: 760px) { .trilha { display: none; } .etapa p { font-size: 15px; } }
+  @media (prefers-reduced-motion: reduce) { .etapa, .trilha li { transition: none; } }
+</style>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }</script>
+</head>
+<body>
+<canvas id="cena" aria-hidden="true"></canvas>
+
+<header class="topo">
+  <a class="marca" href="#" aria-label="Royal Hub">
+    <svg viewBox="0 0 120 96" aria-hidden="true"><g stroke="#E0BE6B" fill="#E0BE6B" stroke-width="6" stroke-linecap="round" stroke-linejoin="miter"><path d="M31 61 L60 22 L89 61" fill="none" stroke-width="6.5"/><path d="M19 70 L26 24 L58 81" fill="none"/><path d="M101 70 L94 24 L62 81" fill="none"/><path d="M22 72 C33 81 46 85 57 84" fill="none" stroke-width="4.5"/><path d="M98 72 C87 81 74 85 63 84" fill="none" stroke-width="4.5"/><circle cx="60" cy="13" r="6.5" stroke="none"/><circle cx="26" cy="19" r="6" stroke="none"/><circle cx="94" cy="19" r="6" stroke="none"/><circle cx="60" cy="87" r="7" stroke="none"/><circle cx="17" cy="72" r="5.5" stroke="none"/><circle cx="103" cy="72" r="5.5" stroke="none"/></g></svg>
+    <span>ROYAL <i>HUB</i></span>
+  </a>
+  <a class="entrar" href="https://royal-hub.royalhubcrm.workers.dev/entrar">Entrar</a>
+</header>
+
+<ol class="trilha" aria-label="Etapas do caminho">
+  <li data-p="0.11">Lead</li><li data-p="0.42">Conversa</li><li data-p="0.71">Visita</li><li data-p="0.955">Chave na mão</li>
+</ol>
+
+<div class="palco" aria-live="polite">
+  <section class="etapa abertura" data-ini="0" data-fim="0.05">
+    <p class="sobre">CRM para imobiliárias</p>
+    <h1>Do primeiro contato à chave na mão.</h1>
+    <p>Role a página para percorrer o caminho de um cliente dentro do Royal Hub.</p>
+  </section>
+  <section class="etapa" data-ini="0.05" data-fim="0.2">
+    <p class="sobre"><b>01</b>Lead</p>
+    <h2>Chega do anúncio, do formulário, dos portais.</h2>
+    <p>Entra com nome, telefone e o que procura. Sem planilha, sem esquecer ninguém.</p>
+  </section>
+  <section class="etapa" data-ini="0.34" data-fim="0.5">
+    <p class="sobre"><b>02</b>Conversa</p>
+    <h2>A assistente responde na hora, no WhatsApp.</h2>
+    <p>Qualifica o interesse e sugere imóveis da carteira. A equipe entra quando vale a pena.</p>
+  </section>
+  <section class="etapa" data-ini="0.63" data-fim="0.79">
+    <p class="sobre"><b>03</b>Visita</p>
+    <h2>Marcada, anotada, lembrada.</h2>
+    <p>A agenda mostra quem visita, quando, e o que ficou pendente.</p>
+  </section>
+  <section class="etapa" data-ini="0.9" data-fim="1.01">
+    <p class="sobre"><b>04</b>Chave na mão</p>
+    <h2>Atendimento à altura dos imóveis que você vende.</h2>
+    <div class="acoes">
+      <a class="btn ouro" href="https://royal-hub.royalhubcrm.workers.dev/entrar">Entrar no painel</a>
+      <a class="btn claro" href="#">Falar com a gente</a>
+    </div>
+  </section>
+</div>
+<div class="rolagem"></div>
+
+<script type="module">
+import * as THREE from 'three';
+
+const reduz = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const canvas = document.getElementById('cena');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setClearColor(0x0F1B2D, 1);
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x0F1B2D, 3, 15);
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 60);
+
+// ---- o caminho: uma curva suave em S que atravessa quatro estações
+const curva = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(-5.5, .3, -16), new THREE.Vector3(-1.5, 0, -11.5), new THREE.Vector3(2.6, .35, -7.5),
+  new THREE.Vector3(-1.2, .1, -3.6), new THREE.Vector3(1.4, 0, .2), new THREE.Vector3(.2, .25, 3.4),
+], false, 'catmullrom', .5);
+
+// o fio: uma linha fina e discreta, para o olho ter por onde seguir
+const fio = new THREE.Line(new THREE.BufferGeometry().setFromPoints(curva.getPoints(600)),
+  new THREE.LineBasicMaterial({ color: 0xE0BE6B, transparent: true, opacity: .22 }));
+scene.add(fio);
+
+// as estações: anéis dourados finos, perpendiculares ao caminho
+const estacoes = [.1, .38, .64, .86];
+const anelGeo = new THREE.TorusGeometry(.62, .011, 10, 120);
+const anelMat = new THREE.MeshBasicMaterial({ color: 0xE0BE6B });
+const anelMatSuave = new THREE.MeshBasicMaterial({ color: 0xE0BE6B, transparent: true, opacity: .25 });
+for (const t of estacoes) {
+  const pos = curva.getPointAt(t), tan = curva.getTangentAt(t);
+  for (const [k, m] of [[1, anelMat], [1.14, anelMatSuave]]) {
+    const anel = new THREE.Mesh(anelGeo, m); anel.position.copy(pos); anel.scale.setScalar(k);
+    anel.lookAt(pos.clone().add(tan)); scene.add(anel);
+  }
+}
+
+// as partículas: um fluxo de pontos dourados correndo pelo caminho
+const N = 900;
+const t0 = new Float32Array(N), raio = new Float32Array(N), ang = new Float32Array(N);
+for (let i = 0; i < N; i++) { t0[i] = Math.random(); raio[i] = Math.pow(Math.random(), .6) * .42; ang[i] = Math.random() * Math.PI * 2; }
+const pos = new Float32Array(N * 3);
+const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+const tela = document.createElement('canvas'); tela.width = tela.height = 64;
+const g2 = tela.getContext('2d'); const grad = g2.createRadialGradient(32, 32, 0, 32, 32, 32);
+grad.addColorStop(0, 'rgba(255,245,215,1)'); grad.addColorStop(.35, 'rgba(255,235,180,.7)'); grad.addColorStop(1, 'rgba(255,220,140,0)');
+g2.fillStyle = grad; g2.fillRect(0, 0, 64, 64);
+const mat = new THREE.PointsMaterial({ size: .06, map: new THREE.CanvasTexture(tela), color: 0xE0BE6B, transparent: true, opacity: .9,
+  blending: THREE.AdditiveBlending, depthWrite: false });
+scene.add(new THREE.Points(geo, mat));
+
+// ---- rolagem → progresso; a câmera anda pelo caminho junto
+let alvoP = 0, p = 0;
+const lerProgresso = () => { const max = document.documentElement.scrollHeight - innerHeight; alvoP = max > 0 ? Math.min(1, Math.max(0, scrollY / max)) : 0; };
+addEventListener('scroll', lerProgresso, { passive: true }); lerProgresso();
+
+const etapas = [...document.querySelectorAll('.etapa')].map((el) => ({ el, ini: +el.dataset.ini, fim: +el.dataset.fim }));
+const trilha = [...document.querySelectorAll('.trilha li')];
+function mostrar(p) {
+  for (const e of etapas) { const d = p >= e.ini && p < e.fim; e.el.style.opacity = d ? 1 : 0; e.el.style.visibility = d ? 'visible' : 'hidden'; }
+  for (const li of trilha) li.classList.toggle('ativa', p >= +li.dataset.p - .09);
+}
+
+let mx = 0, my = 0, rx = 0, ry = 0;
+addEventListener('pointermove', (ev) => { mx = (ev.clientX / innerWidth - .5) * 2; my = (ev.clientY / innerHeight - .5) * 2; }, { passive: true });
+function ajustar() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+addEventListener('resize', ajustar); ajustar();
+
+const P = new THREE.Vector3(), T = new THREE.Vector3(), Nn = new THREE.Vector3(), B = new THREE.Vector3(), cima = new THREE.Vector3(0, 1, 0);
+const olhar = new THREE.Vector3(), atras = new THREE.Vector3();
+const relogio = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const tempo = relogio.getElapsedTime();
+  p += (alvoP - p) * .06;
+  // partículas correndo pelo fio (paradas se a pessoa pediu menos movimento)
+  const avanco = reduz ? 0 : tempo * .022;
+  for (let i = 0; i < N; i++) {
+    const t = (t0[i] + avanco) % 1;
+    curva.getPointAt(t, P); curva.getTangentAt(t, T);
+    Nn.crossVectors(T, cima).normalize(); B.crossVectors(T, Nn).normalize();
+    // perto de cada estação o fluxo se aperta: passa pelo anel
+    let aperto = 1; for (const e of estacoes) aperto = Math.min(aperto, .25 + Math.min(1, Math.abs(t - e) / .05));
+    const r = raio[i] * aperto, a = ang[i] + tempo * .3;
+    pos[i*3]   = P.x + Nn.x * Math.cos(a) * r + B.x * Math.sin(a) * r;
+    pos[i*3+1] = P.y + Nn.y * Math.cos(a) * r + B.y * Math.sin(a) * r;
+    pos[i*3+2] = P.z + Nn.z * Math.cos(a) * r + B.z * Math.sin(a) * r;
+  }
+  geo.attributes.position.needsUpdate = true;
+  // câmera: um pouco atrás e acima do ponto do caminho correspondente à rolagem, olhando para a frente
+  const tc = p * .9;
+  curva.getPointAt(tc, P); curva.getTangentAt(tc, T);
+  rx += (mx - rx) * .04; ry += (my - ry) * .04;
+  atras.copy(P).addScaledVector(T, -2.9); atras.y += 1.7 + ry * .15; atras.x += rx * .3;
+  camera.position.copy(atras);
+  curva.getPointAt(Math.min(1, tc + .1), olhar); olhar.y += .1;
+  camera.lookAt(olhar);
+  mostrar(p);
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>
