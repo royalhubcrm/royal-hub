@@ -72,6 +72,23 @@
     </div>
 
     <fieldset>
+      <legend>Proprietário <span class="mudo pequeno">(só a equipe vê; não vai para o site nem para os portais)</span></legend>
+      <div class="grade-campos">
+        <div class="campo"><label for="m-dono">Nome</label><input id="m-dono" name="proprietario" [(ngModel)]="f.proprietario" /></div>
+        <div class="campo">
+          <label for="m-dono-fone">Telefone</label>
+          <input id="m-dono-fone" name="proprietario_fone" inputmode="tel" [(ngModel)]="f.proprietario_fone" placeholder="34 99999-0000" />
+        </div>
+      </div>
+      <div class="campo">
+        <label for="m-dono-obs">Observações</label>
+        <textarea id="m-dono-obs" name="proprietario_obs" rows="3" [(ngModel)]="f.proprietario_obs"
+                  aria-describedby="m-dono-obs-ajuda" placeholder="Melhor horário, quem tem a chave, se aceita proposta…"></textarea>
+        <span class="ajuda" id="m-dono-obs-ajuda">O que ajuda a negociar. A assistente nunca lê nem repassa isso.</span>
+      </div>
+    </fieldset>
+
+    <fieldset>
       <legend>Fotos <span class="mudo pequeno">(a primeira é a capa)</span></legend>
       @if (fotos().length) {
         <ul class="fotos">
