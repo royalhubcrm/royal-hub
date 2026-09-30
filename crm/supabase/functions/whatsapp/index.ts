@@ -9,6 +9,7 @@
 //   As ações da ponte exigem o header x-ponte-token = token do webhook da empresa (Ajustes → Captação).
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { ErroTela, admin, agoraSP, comoUsuario, configDa, empresaPorSlug, json, quemChamou, responder, telefoneChave, telefoneNormal } from '../_shared/comum.ts';
+import { blocoLancamentos, empreendimentos } from '../_shared/livros.ts';
 import { Msg, aplicarMarcadores, carteira, iaConfigurada, imoveisQueServem, instrucoes, leadDoTelefone, lerMarcadores, pedirIA, preferenciaIA } from '../_shared/ia.ts';
 
 type DB = SupabaseClient<any, 'crm'>;
@@ -173,8 +174,9 @@ async function responderComIA(db: DB, empresa: Empresa, cfg: Record<string, any>
   const msgs: Msg[] = (hist ?? []).reverse().map((m: any) => ({ role: m.de === 'cliente' ? 'user' : 'assistant', content: m.texto }));
   const procura = (hist ?? []).filter((m: any) => m.de === 'cliente').map((m: any) => m.texto).join(' ').slice(-1200);
   const todos = await carteira(db, empresa.id);
+  const fichas = await empreendimentos(db, empresa.id); // os books dos lançamentos
 
-  const m = lerMarcadores(await pedirIA(instrucoes(cfg, empresa.nome, imoveisQueServem(todos, procura)), msgs, 600, preferenciaIA(cfg)));
+  const m = lerMarcadores(await pedirIA(instrucoes(cfg, empresa.nome, imoveisQueServem(todos, procura)) + blocoLancamentos(fichas, empresa.nome, procura), msgs, 600, preferenciaIA(cfg)));
   const tel = conversa.telefone;
 
   if (m.texto) {
@@ -222,7 +224,7 @@ async function retomadasDa(db: DB, emp: Empresa, cfg: Record<string, any>, canal
     const conversa = (hist ?? []).reverse().map((m: any) => (m.de === 'cliente' ? 'CLIENTE: ' : 'VOCÊ: ') + m.texto).join('\n');
     let texto = `Oi ${String(c.nome || '').split(' ')[0]}, tudo bem? Separei umas opções novas que podem te interessar. Quer dar uma olhada?`;
     try {
-      texto = lerMarcadores(await pedirIA(instrucoes(cfg, emp.nome, []), [{ role: 'user', content:
+      texto = lerMarcadores(await pedirIA(instrucoes(cfg, emp.nome, []) + blocoLancamentos(await empreendimentos(db, emp.id), emp.nome), [{ role: 'user', content:
         'Esta conversa parou e o cliente ficou sem responder. Escreva APENAS a mensagem curta de retomada, retomando de onde parou ' +
         'e propondo um horário concreto. Uma ou duas linhas, sem cobrar o cliente, sem código interno.\n\n' + conversa }], 200, preferenciaIA(cfg))).texto || texto;
     } catch { /* usa o texto padrão */ }
