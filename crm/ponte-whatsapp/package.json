@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Ponte do WhatsApp por QR code para o Royal CRM",
   "scripts": {
-    "start": "node ponte.js"
+    "start": "node ponte.js",
+    "whatsapp": "node ponte.js"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "7.0.0-rc14",

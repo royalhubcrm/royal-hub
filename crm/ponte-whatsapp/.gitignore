@@ -1,3 +1,5 @@
 node_modules/
 sessao/
 .env
+ponte.log
+parar.flag
