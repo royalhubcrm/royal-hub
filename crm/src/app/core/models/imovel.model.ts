@@ -32,6 +32,10 @@ export interface Imovel {
   vagas: number;
   area: number;
   descricao: string;
+  // contato do dono — só a equipe vê; não vai para o site nem para os portais
+  proprietario: string;
+  proprietario_fone: string;
+  proprietario_obs: string;
   fotos: string[];
   link: string;
   criado_em: string;
@@ -44,7 +48,7 @@ export function imovelVazio(cidade = 'Uberlândia'): ImovelEditavel {
   return {
     codigo: '', tipo: 'Casa', finalidade: 'venda', status: 'disponivel', cep: '', rua: '', numero: '',
     bairro: '', cidade, preco: 0, condominio: 0, iptu: 0, quartos: 0, suites: 0, banheiros: 0,
-    vagas: 0, area: 0, descricao: '', fotos: [], link: '',
+    vagas: 0, area: 0, descricao: '', proprietario: '', proprietario_fone: '', proprietario_obs: '', fotos: [], link: '',
   };
 }
 
