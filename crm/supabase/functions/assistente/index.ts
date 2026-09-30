@@ -1,6 +1,7 @@
 // IA para o painel: simulador da assistente, sugestão de primeira mensagem,
 // mensagem de retomada e rascunho de site.
 import { ErroTela, admin, comoUsuario, configDa, json, quemChamou, responder } from '../_shared/comum.ts';
+import { blocoLancamentos, empreendimentos } from '../_shared/livros.ts';
 import { Msg, PROMPT_PADRAO, PROVEDORES, Provedor, VARIAVEIS_PROMPT, carteira, descreverMarcadores, iaConfigurada, imoveisQueServem, instrucoes, lerMarcadores, limparPerfil, listarModelos, modeloDe, pedirIA, pedirIADetalhado, preferenciaIA, provedoresDisponiveis } from '../_shared/ia.ts';
 
 Deno.serve(responder(async (req) => {
@@ -13,6 +14,7 @@ Deno.serve(responder(async (req) => {
   const cfg = await configDa(db, eu.empresa_id);
   const empresa = emp?.nome ?? 'Imobiliária';
   const pref = preferenciaIA(cfg);
+  const fichas = await empreendimentos(db, eu.empresa_id); // os books dos lançamentos
 
   switch (b.acao) {
     // ------------------------------------------------ quais IAs estão ligadas (para a tela de teste)
@@ -31,7 +33,7 @@ Deno.serve(responder(async (req) => {
       const rascunho = typeof b.texto === 'string' ? b.texto : undefined;
       return json({
         padrao: PROMPT_PADRAO, atual: cfg.prompt_base || '', variaveis: VARIAVEIS_PROMPT,
-        previa: instrucoes({ ...cfg, prompt_base: rascunho ?? cfg.prompt_base }, empresa, exemplo),
+        previa: instrucoes({ ...cfg, prompt_base: rascunho ?? cfg.prompt_base }, empresa, exemplo) + blocoLancamentos(fichas, empresa),
         provedores: provedoresDisponiveis(),
         modelos: { groq: modeloDe('groq'), gemini: modeloDe('gemini'), anthropic: modeloDe('anthropic') },
         listas: await listarModelos(),
@@ -49,7 +51,7 @@ Deno.serve(responder(async (req) => {
       const todos = await carteira(db, eu.empresa_id);
       const lista = imoveisQueServem(todos, procura);
       const inicio = Date.now();
-      const r = await pedirIADetalhado(instrucoes(cfg, empresa, lista), msgs, 600, provedor ? { provedor, modelo, estrito: true } : pref);
+      const r = await pedirIADetalhado(instrucoes(cfg, empresa, lista) + blocoLancamentos(fichas, empresa, procura), msgs, 600, provedor ? { provedor, modelo, estrito: true } : pref);
       const m = lerMarcadores(r.texto);
       const acoes = descreverMarcadores(m);
       const opcoes = m.opcoes ? imoveisQueServem(todos, procura, 3) : [];
@@ -90,7 +92,7 @@ Deno.serve(responder(async (req) => {
       const conversa = (msgs ?? []).reverse().map((m: any) => (m.de === 'cliente' ? 'CLIENTE: ' : 'CORRETOR: ') + m.texto).join('\n');
       const dias = Math.max(1, Math.round((Date.now() - new Date(c.atualizado_em).getTime()) / 864e5));
       try {
-        const texto = await pedirIA(instrucoes(cfg, empresa, []), [{
+        const texto = await pedirIA(instrucoes(cfg, empresa, []) + blocoLancamentos(fichas, empresa), [{
           role: 'user',
           content: `Esta conversa parou há ${dias} dia(s). Escreva APENAS a mensagem curta de retomada, continuando de onde parou ` +
             `e propondo um horário concreto de atendimento. Uma ou duas linhas, sem cobrar o cliente e sem código interno.\n\n${conversa}`,
@@ -100,6 +102,27 @@ Deno.serve(responder(async (req) => {
         const nome = String(c.nome || '').split(' ')[0];
         return json({ dias, texto: `Oi ${nome}, tudo bem? Separei umas opções novas que podem te interessar. Quer dar uma olhada?` });
       }
+    }
+
+    // ------------------------------------------------ aprender o jeito de falar com conversas reais exportadas
+    case 'aprender': {
+      if (eu.papel !== 'admin') throw new ErroTela('Só o administrador treina a assistente.', 403);
+      const trechos = String(b.trechos ?? '').slice(0, 24000).trim();
+      if (trechos.length < 200) throw new ErroTela('Mande pelo menos algumas conversas: veio texto de menos para aprender.');
+      const pedido =
+        `Abaixo estão trechos REAIS de conversas de WhatsApp entre o corretor ${cfg.corretor || ''} da ${empresa} e clientes ` +
+        `(os nomes e telefones já foram trocados por CORRETOR e CLIENTE).\n\n` +
+        `Escreva o GUIA DE ESTILO do corretor, em português, para uma assistente de IA imitar o jeito dele de escrever. ` +
+        `De 8 a 14 linhas, cada uma começando com "- ". Fale de: tamanho das mensagens, saudação, tratamento, gírias e contrações que ele usa de verdade, ` +
+        `uso de emoji, uso de negrito, como ele mostra imóvel, como ele pede o que falta, como ele convida para o atendimento e como ele encerra. ` +
+        `Use as palavras dele (copie 2 ou 3 expressões típicas entre aspas). Não invente o que não aparece nos trechos. ` +
+        `Não escreva título, introdução nem conclusão: só as linhas do guia.\n\n` +
+        `=== TRECHOS ===\n${trechos}`;
+      const estilo = await pedirIA(
+        'Você observa como um corretor de imóveis escreve no WhatsApp e descreve o estilo dele em tópicos curtos e objetivos.',
+        [{ role: 'user', content: pedido }], 900, pref);
+      // não grava nada: o administrador lê, ajusta e só então salva em Ajustes → Assistente
+      return json({ estilo: lerMarcadores(estilo).texto.trim() });
     }
 
     // ------------------------------------------------ rascunho de site
