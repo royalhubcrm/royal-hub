@@ -3,7 +3,7 @@
 Liga o WhatsApp do seu celular ao Royal CRM sem a API oficial da Meta. Roda num computador
 que fique ligado — o CRM em si já vive na nuvem; **só esta ponte precisa de máquina ligada**.
 
-## Instalar num computador Windows (o jeito fácil)
+## Instalar num computador Windows
 
 1. Copie **esta pasta inteira** para o computador que vai ficar ligado, por exemplo em
    `C:\Royal\ponte-whatsapp`. Evite Área de Trabalho, Documentos sincronizados com OneDrive
@@ -18,6 +18,25 @@ que fique ligado — o CRM em si já vive na nuvem; **só esta ponte precisa de 
 
 Pronto. As mensagens caem em Conversas, viram lead e a assistente responde conforme as
 regras da tela Assistente.
+
+## Instalar num Mac (iMac, MacBook)
+
+1. Copie **esta pasta inteira** para o Mac, por exemplo em `~/Royal/ponte-whatsapp`.
+   Evite a Área de Trabalho sincronizada com o iCloud: a sessão do WhatsApp fica gravada aqui dentro.
+2. No painel do CRM, abra **Ajustes → WhatsApp**, canal **QR code**, e clique em **Mostrar o token**.
+3. Dois cliques em **`INSTALAR.command`**. Na primeira vez o macOS pode barrar ("não foi possível
+   verificar o desenvolvedor"): clique com o botão direito no arquivo → **Abrir** → **Abrir**.
+   Ele instala o Node se faltar, abre o arquivo de configuração para você colar o endereço da
+   empresa e o token, baixa o resto e deixa a ponte subindo sozinha sempre que você entrar no Mac.
+4. Volte ao painel: o QR aparece em Ajustes → WhatsApp. No celular:
+   **WhatsApp → Aparelhos conectados → Conectar aparelho**.
+
+Os atalhos são os mesmos, com outro nome: `LIGAR.command`, `PARAR.command`,
+`VER-REGISTRO.command` e `DESINSTALAR.command`.
+
+**Para o Mac se comportar como servidor:** em Ajustes do Sistema → Bateria/Economia de energia,
+marque **"Impedir que o Mac entre em repouso automaticamente quando a tela estiver desligada"**.
+A tela pode apagar; o Mac não pode dormir. E não faça logout do usuário — a ponte sobe no login.
 
 ### Rodando pela mão, no terminal
 
