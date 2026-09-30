@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Config, ProvedorIA } from '../../core/models/config.model';
 import { ConfigService } from '../../core/services/config.service';
 import { AvisosService } from '../../core/ui/avisos.service';
+import { AprenderConversas } from './aprender-conversas';
 
 interface Variavel { nome: string; descricao: string }
 interface RespostaPrompt {
@@ -19,7 +20,7 @@ const NOMES: Record<ProvedorIA, string> = { groq: 'Groq', gemini: 'Gemini', anth
  */
 @Component({
   selector: 'app-assistente-config',
-  imports: [FormsModule],
+  imports: [FormsModule, AprenderConversas],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (!carregado()) { <p class="mudo" role="status">Carregando…</p> } @else {
@@ -71,6 +72,7 @@ const NOMES: Record<ProvedorIA, string> = { groq: 'Groq', gemini: 'Gemini', anth
                           placeholder="Ex.: chama pelo nome, fala curto, usa 'a gente'."></textarea>
                 <span class="ajuda" id="a-estilo-ajuda">Cole mensagens suas: ela imita o jeito.</span>
               </div>
+              <app-aprender-conversas (aprendido)="f.estilo = $event" />
               <div><button class="btn primario" type="submit" [disabled]="salvando()">Salvar</button></div>
             </form>
           </section>
